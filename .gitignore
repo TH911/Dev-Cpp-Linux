@@ -1,0 +1,14 @@
+# Lazarus / Free Pascal build outputs
+linux-noi-lazarus/*.o
+linux-noi-lazarus/*.or
+linux-noi-lazarus/*.ppu
+linux-noi-lazarus/*.compiled
+linux-noi-lazarus/link*.res
+linux-noi-lazarus/ppas.sh
+linux-noi-lazarus/lib/
+linux-noi-lazarus/backup/
+linux-noi-lazarus/*.lps
+linux-noi-lazarus/.build.lock
+linux-noi-lazarus/devcpp-noi
+linux-noi-lazarus/devcpp-noi.build
+linux-noi-lazarus/devcpp-noi.instance-api

@@ -2,8 +2,7 @@
 
 This is the **Lazarus/LCL native port in progress**. It uses only software
 listed in the official NOI Linux 2.0 environment: Lazarus 2.0.6, FPC 3.0.4,
-and GCC/G++ 9.3. The original Orwell Dev-C++ source is in `../upstream`
-at commit `0e4d598` (version 5.11). This program follows its main window
+and GCC/G++ 9.3. This program follows Orwell Dev-C++ 5.11's main window
 structure, menu names, F9/F10/F11 actions, and `.dev` project format.
 
 On a stock NOI Linux 2.0 desktop, open a terminal in this directory and run:
@@ -12,27 +11,13 @@ On a stock NOI Linux 2.0 desktop, open a terminal in this directory and run:
 bash run.sh [source.cpp | project.dev]
 ```
 
-To apply `linux-noi-lazarus-instance-compile-fix-2026-10-14.zip` copied to the Desktop, extract it on
-the Desktop so its `linux-noi-lazarus/` directory replaces the files in the
-existing directory:
-
-```sh
-cd ~/Desktop
-python3 -m zipfile -e linux-noi-lazarus-instance-compile-fix-2026-10-14.zip .
-cd linux-noi-lazarus
-bash run.sh
-```
-
-The launcher prints revision `instance-field-order-fix-2026-10-14` before building.
-If that line is absent, the old `run.sh` is still being used.
-No manual source-editing commands are needed.
-
 The terminal launcher builds with the preinstalled `lazbuild`; desktop icons
 and file association use `launch.sh` to start an up-to-date binary immediately.
 If no binary exists or sources are newer, the desktop launcher builds once and saves any build error
 to `~/.cache/devcpp-noi/launch-build.log`. No network access or additional
 packages are needed.
-The build links to `devcpp-noi.build`, then atomically moves the successful
+The build explicitly selects the GTK2 widget set used by NOI Linux 2.0.
+It links to `devcpp-noi.build`, then atomically moves the successful
 output to `devcpp-noi`. A build lock serializes builders. This avoids Linux's
 `Text file busy` error when an earlier IDE executable is still running.
 Normal launches forward file paths to an existing window using FPC SimpleIPC,
@@ -152,16 +137,21 @@ Debugging, translations, project
 resource builds, printing, full C++ signature resolution, and pixel-identical VCL
 controls are also pending. F9 currently recompiles all project sources, so
 F12 has the same compilation scope until an incremental project builder exists.
-The original shortcut map is in `../upstream/Source/README.txt`. Shortcuts for
-the unavailable debugger, printing, a second editor view, full-file formatting,
+Shortcuts for the unavailable debugger, printing, a second editor view, full-file formatting,
 and incremental project builds remain unavailable. Ctrl+Shift+S is Save As in
 this port as requested; original Orwell Dev-C++ used it for Save All, which is
 Ctrl+Shift+A here. Find All currently searches open documents, and Replace All
 currently acts on the active document.
 
-The first native version was compiled successfully on NOI Linux 2.0 by the
-user. These SynEdit and interface changes still need a fresh build and visual
-test there because the current Windows workspace has no Lazarus or Linux guest.
+The application has been built and smoke-tested in an Ubuntu 20.04 amd64
+container with Lazarus 2.0.6, FPC 3.0.4, and GCC/G++ 9.3.0. The automated test
+opens a C++ file in a path containing Chinese characters and spaces, compiles
+with F9, runs with F10 and F11, and forwards a second file to the existing window.
+See `../tests/noi-linux-smoke.sh` and `../.github/workflows/noi-linux.yml`.
+The test uses Xvfb and the XTerm fallback. It does not reproduce the official
+NOI Linux ISO's GNOME desktop or kernel; visual behavior and GNOME Terminal
+still need acceptance testing on that desktop.
+
 The launcher now initializes Xlib thread support before GTK and uses CreateNew
 for the resource-free main form. Runtime stderr is saved in
 `~/.cache/devcpp-noi/runtime.log` (or `$XDG_CACHE_HOME/devcpp-noi/runtime.log`).
