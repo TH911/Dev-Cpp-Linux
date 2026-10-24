@@ -1,0 +1,44 @@
+name: NOI Linux 2.0 compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+    timeout-minutes: 20
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      LANG: C.UTF-8
+    steps:
+      - name: Install the NOI Linux 2.0 toolchain
+        run: |
+          apt-get -o Acquire::Retries=3 update
+          # Pin GCC/G++ to the original focal version; updates otherwise install 9.4.
+          apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
+            git ca-certificates make binutils \
+            lcl-utils-2.0 lcl-gtk2-2.0 lcl-units-2.0 lazarus-src-2.0 \
+            fp-compiler fp-utils fp-units-fcl fp-units-gfx fp-units-misc \
+            libgtk2.0-dev libx11-dev gcc g++ \
+            gcc-9-base=9.3.0-10ubuntu2 cpp-9=9.3.0-10ubuntu2 \
+            gcc-9=9.3.0-10ubuntu2 g++-9=9.3.0-10ubuntu2 \
+            libgcc-9-dev=9.3.0-10ubuntu2 libstdc++-9-dev=9.3.0-10ubuntu2 \
+            libasan5=9.3.0-10ubuntu2 \
+            xvfb xauth xdotool xterm fonts-dejavu-core fonts-wqy-zenhei
+      - uses: actions/checkout@v4
+      - name: Verify compiler versions
+        run: |
+          test "$(fpc -iV)" = 3.0.4
+          test "$(gcc -dumpfullversion)" = 9.3.0
+          test "$(g++ -dumpfullversion)" = 9.3.0
+          lazbuild --version | grep '^2\.0\.6'
+      - name: Build the GTK2 application
+        run: bash linux-noi-lazarus/build.sh
+      - name: Test compile, run, and file forwarding in the GUI
+        run: timeout 90s xvfb-run -a bash tests/noi-linux-smoke.sh
