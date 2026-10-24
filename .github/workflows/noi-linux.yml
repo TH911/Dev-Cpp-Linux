@@ -45,7 +45,9 @@ jobs:
       - name: Package the tested binary with its source and runtime files
         run: |
           mkdir -p /tmp/noi-package/Dev-Cpp-Linux
-          git -c safe.directory="$GITHUB_WORKSPACE" archive HEAD | tar -x -C /tmp/noi-package/Dev-Cpp-Linux
+          # Focal's Git backport reads safe.directory from global configuration.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git archive HEAD | tar -x -C /tmp/noi-package/Dev-Cpp-Linux
           cp linux-noi-lazarus/devcpp-noi linux-noi-lazarus/devcpp-noi.instance-api \
             /tmp/noi-package/Dev-Cpp-Linux/linux-noi-lazarus/
           tar -czf devcpp-noi-linux-2.0-x86_64.tar.gz -C /tmp/noi-package Dev-Cpp-Linux
