@@ -1,4 +1,4 @@
-# Dev-Cpp-Linux
+# Dev-Cpp-Linux v1.0.0
 
 基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。
 
