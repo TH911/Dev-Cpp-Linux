@@ -35,3 +35,7 @@ bash run.sh /path/to/project.dev
 并通过虚拟显示验证 F9/F10/F11、中文与空格路径、单实例文件转发。
 配置见 [GitHub Actions](.github/workflows/noi-linux.yml)。
 容器测试使用 XTerm，NOI Linux 2.0 原版 GNOME 桌面的显示和终端行为仍需实机验收。
+
+也可以从 [Actions 构建记录](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml)
+中选择成功的检查，下载 `devcpp-noi-linux-2.0-x86_64` 构建包。
+包内包含已测试的二进制、对应源码和运行脚本；解压后在 `linux-noi-lazarus` 目录运行 `bash launch.sh`。

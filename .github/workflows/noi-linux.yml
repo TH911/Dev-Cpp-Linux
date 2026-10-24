@@ -42,3 +42,16 @@ jobs:
         run: bash linux-noi-lazarus/build.sh
       - name: Test compile, run, and file forwarding in the GUI
         run: timeout 90s xvfb-run -a bash tests/noi-linux-smoke.sh
+      - name: Package the tested binary with its source and runtime files
+        run: |
+          mkdir -p /tmp/noi-package/Dev-Cpp-Linux
+          git archive HEAD | tar -x -C /tmp/noi-package/Dev-Cpp-Linux
+          cp linux-noi-lazarus/devcpp-noi linux-noi-lazarus/devcpp-noi.instance-api \
+            /tmp/noi-package/Dev-Cpp-Linux/linux-noi-lazarus/
+          tar -czf devcpp-noi-linux-2.0-x86_64.tar.gz -C /tmp/noi-package Dev-Cpp-Linux
+      - name: Upload the tested build
+        uses: actions/upload-artifact@v4
+        with:
+          name: devcpp-noi-linux-2.0-x86_64
+          path: devcpp-noi-linux-2.0-x86_64.tar.gz
+          if-no-files-found: error
