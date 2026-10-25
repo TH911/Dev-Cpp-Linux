@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+test_dir=$(mktemp -d)
+trap 'rm -rf -- "$test_dir"' EXIT
+export LANG=C.UTF-8
+[[ $(fpc -iV) == 3.0.4 ]]
+[[ $(gcc -dumpfullversion) == 9.3.0 ]]
+[[ $(g++ -dumpfullversion) == 9.3.0 ]]
+lazbuild --version | grep '^2\.0\.6'
+gdb --version | sed -n '1p' | grep '9\.1'
+bash linux-noi-lazarus/build.sh
+
+mkdir -p "$test_dir/documents" "$test_dir/profiles"
+fpc -Fulinux-noi-lazarus -FU"$test_dir/documents" -FE"$test_dir/documents" \
+  tests/document-files-test.pas > "$test_dir/documents-build.log" 2>&1 || {
+  cat "$test_dir/documents-build.log" >&2; exit 1;
+}
+"$test_dir/documents/document-files-test" "$test_dir/files"
+fpc -Fulinux-noi-lazarus -FU"$test_dir/profiles" -FE"$test_dir/profiles" \
+  tests/compiler-profiles-test.pas > "$test_dir/profiles-build.log" 2>&1 || {
+  cat "$test_dir/profiles-build.log" >&2; exit 1;
+}
+"$test_dir/profiles/compiler-profiles-test"
+bash tests/runtime-support-smoke.sh
+timeout 60s bash tests/gdb-session-smoke.sh
+for name in editor-actions editor-themes; do
+  lazbuild --widgetset=gtk2 "tests/$name-test.lpi" > "$test_dir/$name-build.log" 2>&1 || {
+    cat "$test_dir/$name-build.log" >&2; exit 1;
+  }
+  timeout 60s xvfb-run -a "linux-noi-lazarus/lib/$name-test"
+done
+for name in noi-linux ui-interaction runtime-ui gdb-ui preferences-ui; do
+  timeout 180s xvfb-run -a bash "tests/$name-smoke.sh"
+done

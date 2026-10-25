@@ -12,48 +12,28 @@ jobs:
   build-and-run:
     runs-on: ubuntu-latest
     container: ubuntu:20.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DEBIAN_FRONTEND: noninteractive
       LANG: C.UTF-8
     steps:
-      - name: Install the NOI Linux 2.0 toolchain
+      - name: Prepare checkout
         run: |
           apt-get -o Acquire::Retries=3 update
-          # Pin GCC/G++ to the original focal version; updates otherwise install 9.4.
-          apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-            git ca-certificates make binutils \
-            lcl-utils-2.0 lcl-gtk2-2.0 lcl-units-2.0 lazarus-src-2.0 \
-            fp-compiler fp-utils fp-units-fcl fp-units-gfx fp-units-misc \
-            libgtk2.0-dev libx11-dev gcc g++ \
-            gcc-9-base=9.3.0-10ubuntu2 cpp-9=9.3.0-10ubuntu2 \
-            gcc-9=9.3.0-10ubuntu2 g++-9=9.3.0-10ubuntu2 \
-            libgcc-9-dev=9.3.0-10ubuntu2 libstdc++-9-dev=9.3.0-10ubuntu2 \
-            libasan5=9.3.0-10ubuntu2 \
-            xvfb xauth xdotool xterm fonts-dejavu-core fonts-wqy-zenhei
+          apt-get -o Acquire::Retries=3 install -y --no-install-recommends git ca-certificates
       - uses: actions/checkout@v4
-      - name: Verify compiler versions
-        run: |
-          test "$(fpc -iV)" = 3.0.4
-          test "$(gcc -dumpfullversion)" = 9.3.0
-          test "$(g++ -dumpfullversion)" = 9.3.0
-          lazbuild --version | grep '^2\.0\.6'
-      - name: Build the GTK2 application
-        run: bash linux-noi-lazarus/build.sh
-      - name: Test compile, run, and file forwarding in the GUI
-        run: timeout 90s xvfb-run -a bash tests/noi-linux-smoke.sh
-      - name: Package the tested binary with its source and runtime files
-        run: |
-          mkdir -p /tmp/noi-package/Dev-Cpp-Linux
-          # Focal's Git backport reads safe.directory from global configuration.
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git archive HEAD | tar -x -C /tmp/noi-package/Dev-Cpp-Linux
-          cp linux-noi-lazarus/devcpp-noi linux-noi-lazarus/devcpp-noi.instance-api \
-            /tmp/noi-package/Dev-Cpp-Linux/linux-noi-lazarus/
-          tar -czf devcpp-noi-linux-2.0-x86_64.tar.gz -C /tmp/noi-package Dev-Cpp-Linux
-      - name: Upload the tested build
+        with:
+          persist-credentials: false
+      - name: Install the NOI Linux 2.0 toolchain
+        run: bash ci/install-dependencies.sh
+      - name: Build, run regressions as an ordinary user, and verify installation
+        run: bash ci/build-and-package.sh
+      - name: Upload source archives and tested Debian package
         uses: actions/upload-artifact@v4
         with:
-          name: devcpp-noi-linux-2.0-x86_64
-          path: devcpp-noi-linux-2.0-x86_64.tar.gz
+          name: devcpp-noi-linux-2.0-amd64
+          path: |
+            dist/linux-noi-lazarus-*-src.zip
+            dist/linux-noi-lazarus-*-src.tar.gz
+            dist/devcpp-noi_*_amd64.deb
           if-no-files-found: error

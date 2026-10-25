@@ -12,3 +12,7 @@ linux-noi-lazarus/.build.lock
 linux-noi-lazarus/devcpp-noi
 linux-noi-lazarus/devcpp-noi.build
 linux-noi-lazarus/devcpp-noi.instance-api
+tests/*.compiled
+tests/*.lps
+/dist/
+packaging/__pycache__/

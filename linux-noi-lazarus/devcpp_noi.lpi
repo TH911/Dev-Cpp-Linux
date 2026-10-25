@@ -10,7 +10,7 @@
       </Flags>
       <MainUnit Value="0"/>
     </General>
-    <Units Count="7">
+    <Units Count="15">
       <Unit0>
         <Filename Value="devcpp_noi.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -39,6 +39,38 @@
         <Filename Value="app_instance.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit6>
+      <Unit7>
+        <Filename Value="document_files.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit7>
+      <Unit8>
+        <Filename Value="editor_actions.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit8>
+      <Unit9>
+        <Filename Value="runtime_support.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit9>
+      <Unit10>
+        <Filename Value="gdb_session.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit10>
+      <Unit11>
+        <Filename Value="debugger_panel.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit11>
+      <Unit12>
+        <Filename Value="editor_themes.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit12>
+      <Unit13>
+        <Filename Value="compiler_profiles.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit13>
+      <Unit14>
+        <Filename Value="options_dialogs.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit14>
     </Units>
     <RequiredPackages Count="2">
       <Item1>

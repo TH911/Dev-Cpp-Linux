@@ -22,11 +22,18 @@ fi
 
 # The desktop launcher starts an existing build immediately.  New or changed
 # sources are compiled once, so an unpacked update cannot launch an old binary.
-if [[ ! -x ./devcpp-noi || ! -f ./devcpp-noi.instance-api || mainform.pas -nt ./devcpp-noi ||
-      cppcompletion.pas -nt ./devcpp-noi || devcpp_noi.lpr -nt ./devcpp-noi ||
-      devcpp_noi.lpi -nt ./devcpp-noi || ui_language.pas -nt ./devcpp-noi ||
-      translation_catalog.pas -nt ./devcpp-noi || x11_init.pas -nt ./devcpp-noi ||
-      app_instance.pas -nt ./devcpp-noi ]]; then
+needs_build=false
+if [[ ! -x ./devcpp-noi || ! -f ./devcpp-noi.instance-api ]]; then
+  needs_build=true
+else
+  for launch_source in ./*.pas ./*.lpr ./*.lpi ./build.sh; do
+    if [[ -f "$launch_source" && "$launch_source" -nt ./devcpp-noi ]]; then
+      needs_build=true
+      break
+    fi
+  done
+fi
+if [[ "$needs_build" == true ]]; then
   cache_dir=${XDG_CACHE_HOME:-"$HOME/.cache"}/devcpp-noi
   mkdir -p -- "$cache_dir"
   log_file="$cache_dir/launch-build.log"

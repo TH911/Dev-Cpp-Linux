@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Installed launcher: run the packaged binary without building or changing cwd.
+set -euo pipefail
+exec /usr/lib/devcpp-noi/devcpp-noi "$@"
