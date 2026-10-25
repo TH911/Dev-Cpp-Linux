@@ -1,0 +1,84 @@
+name: Release NOI Linux packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing Release tag (must match VERSION at that tag)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-packages-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+    timeout-minutes: 30
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      LANG: C.UTF-8
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Prepare checkout
+        run: |
+          apt-get -o Acquire::Retries=3 update
+          apt-get -o Acquire::Retries=3 install -y --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
+          persist-credentials: false
+      - name: Install the NOI Linux 2.0 toolchain
+        run: bash ci/install-dependencies.sh
+      - name: Verify Release version and required packaging files
+        shell: bash
+        run: |
+          test -f ci/build-and-package.sh
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          version = Path('VERSION').read_text().strip()
+          if (tag[1:] if tag.startswith('v') else tag) != (version[1:] if version.startswith('v') else version):
+              raise SystemExit('Release tag must match VERSION in the checked-out source')
+          PY
+      - name: Build, run regressions as an ordinary user, and verify installation
+        run: bash ci/build-and-package.sh
+      - name: Attach verified packages to the existing Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const version = fs.readFileSync('VERSION', 'utf8').trim().replace(/^v/, '');
+            const names = [
+              `linux-noi-lazarus-${version}-src.tar.gz`,
+              `linux-noi-lazarus-${version}-src.zip`,
+              `devcpp-noi_${version}_amd64.deb`
+            ];
+            const { owner, repo } = context.repo;
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner, repo, tag: process.env.RELEASE_TAG
+            });
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner, repo, release_id: release.id, per_page: 100
+            });
+            for (const name of names) {
+              if (assets.some(asset => asset.name === name)) {
+                core.info(`Keeping existing asset: ${name}`);
+                continue;
+              }
+              const data = fs.readFileSync(path.join('dist', name));
+              await github.rest.repos.uploadReleaseAsset({
+                owner, repo, release_id: release.id, name, data,
+                headers: { 'content-type': 'application/octet-stream', 'content-length': data.length }
+              });
+              core.info(`Uploaded ${name}`);
+            }

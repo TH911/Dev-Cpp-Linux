@@ -2,7 +2,7 @@
 
 This is the **Lazarus/LCL native port in progress**. It uses only software
 listed in the official NOI Linux 2.0 environment: Lazarus 2.0.6, FPC 3.0.4,
-and GCC/G++ 9.3. This program follows Orwell Dev-C++ 5.11's main window
+GCC/G++ 9.3 and GDB 9.1. This program follows Orwell Dev-C++ 5.11's main window
 structure, menu names, F9/F10/F11 actions, and `.dev` project format.
 
 On a stock NOI Linux 2.0 desktop, open a terminal in this directory and run:
@@ -38,7 +38,12 @@ Ctrl+Shift+S Save As, Ctrl+Shift+A Save All, Ctrl+B Open Containing Folder,
 Ctrl+Y redo, Ctrl+R replace, Ctrl+H project options, Ctrl+/ toggle line
 comment, Ctrl+; toggle inline comment, Ctrl+Shift+F Find All,
 Ctrl+Shift+R Replace All in the active file, Ctrl+Tab/Shift+Ctrl+Tab tab
-switching, and Ctrl+Shift+W close all work while the editor has focus.
+switching, and Ctrl+Shift+W close all work while the editor has focus. Ctrl+1..9 toggles
+numbered bookmarks, Alt+1..9 jumps to them, and Ctrl+Shift+Up/Down moves the
+current line or selection as one undoable action. View includes full screen
+(Ctrl+F11), status-bar visibility, compiler log (Ctrl+Alt+L), and editor focus
+(Ctrl+Alt+E). File > Recent Files / Recent Projects retains the last ten entries;
+Close Project supports saving or cancelling before closing project documents.
 F3 searches from the caret and wraps without moving the caret if nothing is
 found. Dropping source or `.dev` files
 onto the window opens them. Ctrl+click opens local or installed headers and
@@ -57,10 +62,10 @@ Current implementation: tabbed SynEdit editing with C/C++ syntax highlighting,
 line numbers, literal Tab indentation with width 4 on Enter and Tab (including
 Enter between `{}`), caret movement across each whole Tab, preserved Tab-only
 lines, colored preprocessor directives and modern C++ keywords, hidden gutter
-change bars, original Classic Plus syntax colors (including red symbols and
-bold blue strings), fixed Windows-blue comments and light gray gutter instead
-of GTK theme colors, turquoise current-line color and red matched-bracket
-character backgrounds, vertical caret movement with a remembered visual column
+change bars, four selectable original syntax themes (Classic Plus, Twilight, Visual Studio
+and Obsidian), with independent bracket highlighting and configurable font;
+Classic Plus retains red symbols, bold blue strings, blue comments, a light
+gray gutter, turquoise current-line color and red matched-bracket backgrounds, vertical caret movement with a remembered visual column
 and 4-column Tab width (clamped only on shorter lines until a nonvertical action), Home toggling
 between first nonblank character and column one,
 and automatic `()`, `[]`, `{}`, quote pairing and pair deletion (`struct` and `class`
@@ -70,7 +75,7 @@ member completion after `.`, `->`, `::` from the current file and local quoted
 headers. `using` and `typedef` aliases and `struct Node {} a,b;` declarations
 are indexed. Common standard container members such as `vector<int> g; g.` are
 indexed when their standard header is included. The completion popup uses
-the original borderless Courier layout, handles Backspace through the dot,
+the original borderless layout, handles Backspace through the dot,
 and supports Enter, Escape, and arrow selection while the editor retains
 keyboard focus. It distinguishes member functions, types, and
 variables; function candidates show `()` and inserting one adds `()` unless an
@@ -127,30 +132,65 @@ under Tools, or Ctrl+Alt+O) edits the C and C++ compiler commands, compile flags
 such as `-std=c++14`, and Linux linker flags; these settings are saved
 in `~/.config/devcpp-noi.ini`. New C++ settings include `-O2 -std=c++14`;
 an unchanged earlier default is upgraded, while custom saved flags are kept.
+The compiler dialog supports named profiles: create, copy, delete and switch
+independent C/C++ commands and flags. The toolbar selects the active profile;
+Cancel discards dialog edits. Tools > Editor Theme changes themes immediately
+for open and new documents; editor options also select a font and size. Theme,
+font and active compiler profile persist across restarts.
 Remove Windows-only `-Wl,--stack=...` from
 Linker flags on NOI Linux; Linux `ld` rejects that option. The compile log
 shows arguments separated by spaces. F10/F11 launch GNOME Terminal and run through
 the included `console-pauser.sh`, which displays elapsed time, exit status,
 and a UTF-8 keypress prompt. The member index does not yet parse the full C++
 standard library or resolve overloads, macros, and expression chains.
-Debugging, translations, project
-resource builds, printing, full C++ signature resolution, and pixel-identical VCL
-controls are also pending. F9 currently recompiles all project sources, so
-F12 has the same compilation scope until an incremental project builder exists.
-Shortcuts for the unavailable debugger, printing, a second editor view, full-file formatting,
-and incremental project builds remain unavailable. Ctrl+Shift+S is Save As in
+Debug > Start Debugging (F5) rebuilds with debug information and stops at
+`main`. F4 toggles a breakpoint, F7 steps over, F8 steps into, and F6 stops the
+session. The Debug report tab provides input/output, expression evaluation, a
+breakpoint list and the GDB log. Editors become read-only during a session and
+are restored after Stop or normal exit. See [the debugger guide](../docs/DEBUGGING.md).
+Persistent watches, conditional breakpoints, call-stack browsing, attach and
+other advanced debugger features remain pending. Project resource builds,
+printing/export, full C++ signature resolution, a second editor view and
+full-file formatting are also pending. F9 currently recompiles all project
+sources, so F12 has the same compilation scope until an incremental builder
+exists. Ctrl+Shift+S is Save As in
 this port as requested; original Orwell Dev-C++ used it for Save All, which is
 Ctrl+Shift+A here. Find All currently searches open documents, and Replace All
 currently acts on the active document.
 
-The application has been built and smoke-tested in an Ubuntu 20.04 amd64
-container with Lazarus 2.0.6, FPC 3.0.4, and GCC/G++ 9.3.0. The automated test
-opens a C++ file in a path containing Chinese characters and spaces, compiles
-with F9, runs with F10 and F11, and forwards a second file to the existing window.
-See `../tests/noi-linux-smoke.sh` and `../.github/workflows/noi-linux.yml`.
-The test uses Xvfb and the XTerm fallback. It does not reproduce the official
-NOI Linux ISO's GNOME desktop or kernel; visual behavior and GNOME Terminal
-still need acceptance testing on that desktop.
+Execute > Parameters configures program arguments and working directory
+separately from compiler flags. Project values are stored in the `.dev` file;
+single-file settings do not leak into projects. Arguments support quoted
+spaces and empty values. FPC 3.0.x truncates a raw process argument list at an
+empty value, so the terminal runner uses a fixed Bash `exec` wrapper with every
+path and argument individually quoted as a literal. Shell metacharacters in
+arguments are not evaluated.
+
+Saving uses an atomic same-directory replacement, checks for external changes
+and preserves file permissions. Symlink aliases identify the same document;
+Save As refuses the path of another open buffer and updates project unit
+references when applicable. Cancel leaves the document identity intact.
+Modified/deleted files prompt before reload or overwrite. Compilation publishes
+a new executable only on success; failure/cancellation preserves the previous
+file but prevents F10 from silently running it as the latest result.
+
+The application has been built and tested in an Ubuntu 20.04 amd64 container
+with Lazarus 2.0.6, FPC 3.0.4, GCC/G++ 9.3.0 and GDB 9.1. Run
+`bash ci/check.sh` from the repository root with that toolchain to build and
+execute the helper and real GTK2 interaction suites. They cover file identity
+and save conflicts, Home/Shift+Home and undo, focus, quoted execution arguments,
+working directories, compilation cancellation, actual GDB sessions, themes
+and compiler profiles. See [the parity audit](../docs/DEVCPP-5.11-PARITY.md).
+Tests use Xvfb and the XTerm fallback. They do not reproduce the official NOI
+Linux ISO's GNOME desktop or kernel; visual behavior and GNOME Terminal still
+need acceptance testing on that desktop.
+
+Future Release assets include a source ZIP and tar.gz rooted at
+`linux-noi-lazarus/`, plus an amd64 `.deb` with the prebuilt binary. Install
+with `sudo apt install ./devcpp-noi_VERSION_amd64.deb`, then run `devcpp-noi`.
+APT installs runtime dependencies; Lazarus/FPC are required only for source
+builds. The installed program uses `/usr/lib/devcpp-noi` read-only and stores
+user settings separately. See [packaging and uninstall instructions](../docs/PACKAGING.md).
 
 The launcher now initializes Xlib thread support before GTK and uses CreateNew
 for the resource-free main form. Runtime stderr is saved in

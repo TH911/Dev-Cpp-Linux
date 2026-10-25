@@ -8,14 +8,20 @@ uses
   Classes, SysUtils, StrUtils, Math, Types, Forms, Controls, StdCtrls, ComCtrls, ExtCtrls,
   Menus, Dialogs, IniFiles, Process, Contnrs, LCLType, Graphics, ImgList,
   LazUTF8, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditHighlighter,
-  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges,
-  cppcompletion, ui_language, app_instance;
+  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, editor_actions,
+  cppcompletion, ui_language, app_instance, document_files, runtime_support,
+  editor_themes, compiler_profiles, options_dialogs,
+  gdb_session, debugger_panel;
 
 type
   TNoiCppSyn = class(TSynCppSyn)
   private
     FCurrentLine: string;
+    FBracketAttri, FCharacterAttri: TSynHighlighterAttributes;
   public
+    constructor Create(AOwner: TComponent); override;
+    property BracketAttri: TSynHighlighterAttributes read FBracketAttri;
+    property CharacterAttri: TSynHighlighterAttributes read FCharacterAttri;
     procedure SetLine(const NewValue: string; LineNumber: Integer); override;
     function GetTokenAttribute: TSynHighlighterAttributes; override;
   end;
@@ -29,6 +35,7 @@ type
       X, Y: Integer); override;
   public
     procedure ResetHomeCycle;
+    procedure MoveHome(SelectText: Boolean);
     function FindMatchingBracketLogical(LogicalStartBracket: TPoint;
       StartIncludeNeighborChars, MoveCaret, SelectBrackets,
       OnlyVisible: Boolean): TPoint; override;
@@ -42,7 +49,13 @@ type
     UntitledName: string;
     Dirty: Boolean;
     MissingNotified: Boolean;
+    DiskSnapshot: TFileSnapshot;
+    SeenDiskSnapshot: TFileSnapshot;
+    KeepBufferConflict: Boolean;
+    DebugReadOnlyApplied: Boolean;
+    ReadOnlyBeforeDebug: Boolean;
     ErrorLine: Integer;
+    ThemeColors: TEditorThemeColors;
     PreferredColumn: Integer;
   end;
 
@@ -56,10 +69,22 @@ type
     FLogTab: TTabSheet;
     FCompilerList: TListView;
     FStatus: TStatusBar;
+    FMainToolbar: TToolBar;
+    FRecentFiles: TStringList;
+    FRecentMenu: TMenuItem;
+    FRecentMenuDirty: Boolean;
+    FUiTimer: TTimer;
+    FFullScreen: Boolean;
+    FNormalBounds: TRect;
+    FNormalWindowState: TWindowState;
+    FNormalBorderStyle: TFormBorderStyle;
+    FStatusbarItem, FFullScreenItem: TMenuItem;
     FDocs: TObjectList;
     FProjectFiles: TStringList;
     FProjectPath: string;
     FLastExecutable: string;
+    FCompileDirectory: string;
+    FInvalidExecutables: TStringList;
     FOptionsPath: string;
     FCCompiler: string;
     FCppCompiler: string;
@@ -83,13 +108,55 @@ type
     FHomeAtIndent: Boolean;
     FNewFileNumber: Integer;
     FEditorFontSize: Integer;
+    FEditorFontName, FEditorThemeName: string;
+    FEditorThemeMenu: TMenuItem;
+    FCompilerProfiles: TCompilerProfiles;
+    FCompilerProfileCombo: TComboBox;
     FEditorTabWidth: Integer;
     FCompletionDismissed: Boolean;
     FCompileActive: Boolean;
     FCompileCancelRequested: Boolean;
     FFileWatchTimer: TTimer;
+    FDocumentDialogs: Integer;
     FInstanceTimer: TTimer;
     FChineseLanguageItem, FEnglishLanguageItem: TMenuItem;
+    FDebugger: TDebuggerPanel;
+    FDebugTab: TTabSheet;
+    FDebugTimer: TTimer;
+    FDebugFile: string;
+    FDebugLine: Integer;
+    FDebugBuild: Boolean;
+    FLastCompileSucceeded: Boolean;
+    function DebuggerActive: Boolean;
+    function DebuggerStopped: Boolean;
+    procedure InitializeDebugger;
+    procedure ShutdownDebugger;
+    procedure DebugTick(Sender: TObject);
+    procedure DebugLocation(Sender: TObject; const FileName: string; Line: Integer);
+    procedure DebugStateChange(Sender: TObject);
+    procedure DebugStartClick(Sender: TObject);
+    procedure DebugToggleBreakpointClick(Sender: TObject);
+    procedure DebugContinueClick(Sender: TObject);
+    procedure DebugStepIntoClick(Sender: TObject);
+    procedure DebugStepOverClick(Sender: TObject);
+    procedure DebugStopClick(Sender: TObject);
+    procedure DebugEvaluateClick(Sender: TObject);
+    function EditorHasFocus: Boolean;
+    function CommandAvailable(Handler: TNotifyEvent): Boolean;
+    procedure RefreshCommandStates(Sender: TObject);
+    procedure LoadRecentPaths;
+    procedure SaveRecentPaths;
+    procedure RebuildRecentMenu;
+    procedure RememberRecentPath(const FileName: string);
+    procedure RecentFileClick(Sender: TObject);
+    procedure ClearRecentClick(Sender: TObject);
+    procedure ToggleBookmarkClick(Sender: TObject);
+    procedure GotoBookmarkClick(Sender: TObject);
+    procedure StatusbarClick(Sender: TObject);
+    procedure FullScreenClick(Sender: TObject);
+    procedure FocusCompilerLogClick(Sender: TObject);
+    procedure FocusEditorClick(Sender: TObject);
+    procedure FormShown(Sender: TObject);
     procedure InstanceTick(Sender: TObject);
     procedure ChineseLanguageClick(Sender: TObject);
     procedure EnglishLanguageClick(Sender: TObject);
@@ -98,11 +165,17 @@ type
     function CurrentDoc: TDocument;
     function FindDoc(const FileName: string): TDocument;
     function SaveDoc(Doc: TDocument): Boolean;
+    function SaveDocument(Doc: TDocument; SaveAs: Boolean): Boolean;
+    procedure DisposeDocument(Doc: TDocument);
+    procedure RefreshProjectTree;
+    function TryCloseProject: Boolean;
+    procedure CloseProjectClick(Sender: TObject);
     function SaveAllDocs: Boolean;
     function MayClose(Doc: TDocument): Boolean;
     procedure UpdateTab(Doc: TDocument);
     procedure UpdateStatus;
     procedure EditorChanged(Sender: TObject);
+    procedure EditorStatusChanged(Sender: TObject; Changes: TSynStatusChanges);
     procedure EditorSpecialLineColors(Sender: TObject; Line: Integer;
       var Special: Boolean; var FG, BG: TColor);
     procedure FileWatchTick(Sender: TObject);
@@ -139,6 +212,15 @@ type
     procedure ErrorDoubleClick(Sender: TObject);
     procedure PopulateDiagnostics(const CompilerOutput: string);
     procedure LoadCompilerSettings;
+    procedure SaveCompilerProfiles;
+    procedure ActivateCompilerProfile(Index: Integer; Persist: Boolean);
+    procedure PopulateCompilerProfiles(Combo: TComboBox);
+    procedure CompilerProfileChange(Sender: TObject);
+    procedure InitializeEditorThemes(ParentMenu: TMenuItem);
+    procedure ThemeClick(Sender: TObject);
+    procedure ApplyDocumentEditorSettings(Doc: TDocument);
+    procedure ApplyAllEditorSettings;
+    procedure SaveEditorSettings;
     procedure AddCompilerFlags(Args: TStrings; const FlagText: string);
     procedure CloseQueryHandler(Sender: TObject; var CanClose: Boolean);
     procedure OpenFile(const FileName: string);
@@ -150,7 +232,10 @@ type
     procedure ProjectOptionsClick(Sender: TObject);
     procedure ProjectManagerClick(Sender: TObject);
     procedure CompileCurrent(SyntaxOnly, RunAfter: Boolean);
-    procedure RunExecutable(const FileName: string);
+    procedure RunExecutable(const FileName: string; const ProjectFile: string = '');
+    procedure ReadRunSettings(const ProjectFile: string; out Arguments, WorkDirectory: string);
+    function DocumentBelongsToProject(Doc: TDocument): Boolean;
+    procedure ExecuteParametersClick(Sender: TObject);
     procedure NewClick(Sender: TObject);
     procedure OpenClick(Sender: TObject);
     procedure SaveClick(Sender: TObject);
@@ -162,6 +247,8 @@ type
     procedure InlineCommentClick(Sender: TObject);
     procedure DeleteLineClick(Sender: TObject);
     procedure DuplicateLineClick(Sender: TObject);
+    procedure MoveSelectionUpClick(Sender: TObject);
+    procedure MoveSelectionDownClick(Sender: TObject);
     procedure SwapHeaderSourceClick(Sender: TObject);
     procedure SaveAllClick(Sender: TObject);
     procedure CloseClick(Sender: TObject);
@@ -201,6 +288,15 @@ var
 
 implementation
 
+{$IFDEF UNIX}
+function CompilerGetProcessGroup(Pid: LongInt): LongInt; cdecl;
+  external 'c' name 'getpgid';
+function CompilerGetSession(Pid: LongInt): LongInt; cdecl;
+  external 'c' name 'getsid';
+function CompilerSignal(Pid, SignalNumber: LongInt): LongInt; cdecl;
+  external 'c' name 'kill';
+{$ENDIF}
+
 procedure TNoiCppSyn.SetLine(const NewValue: string; LineNumber: Integer);
 begin
   FCurrentLine := NewValue;
@@ -235,6 +331,16 @@ begin
   Result := (Suffix = '') or (Suffix = 'u') or (Suffix = 'l') or
     (Suffix = 'll') or (Suffix = 'ul') or (Suffix = 'ull') or
     (Suffix = 'lu') or (Suffix = 'llu');
+end;
+
+constructor TNoiCppSyn.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  FBracketAttri := TSynHighlighterAttributes.Create('Bracket', 'Bracket');
+  AddAttribute(FBracketAttri);
+  FCharacterAttri := TSynHighlighterAttributes.Create('Character', 'Character');
+  AddAttribute(FCharacterAttri);
+  SetAttributesOnChange(@DefHighlightChange);
 end;
 
 function TNoiCppSyn.GetTokenAttribute: TSynHighlighterAttributes;
@@ -277,37 +383,28 @@ begin
   if Copy(TokenValue, 1, 1) = '"' then
     Result := StringAttri;
   if Copy(TokenValue, 1, 1) = '''' then
-    Result := IdentifierAttri;
+    Result := FCharacterAttri;
+  if (Length(TokenValue) = 1) and (TokenValue[1] in ['(', ')', '[', ']', '{', '}']) and
+    (GetTokenID = tkSymbol) then Result := FBracketAttri;
 end;
 
 procedure TNoiSynEdit.KeyDown(var Key: Word; Shift: TShiftState);
-var
-  HomePoint: TPoint;
-  HomeLine: string;
-  PreviousColumn: Integer;
 begin
-  if Key <> VK_HOME then FHomeRepeat := False;
-  if (Key = VK_HOME) and ((Shift * [ssCtrl, ssShift, ssAlt]) = []) then
+  if (Key = VK_HOME) and ((Shift * [ssCtrl, ssAlt]) = []) then
   begin
-    HomePoint := LogicalCaretXY;
-    if (HomePoint.Y >= 1) and (HomePoint.Y <= Lines.Count) then
-    begin
-      HomeLine := Lines[HomePoint.Y - 1];
-      PreviousColumn := HomePoint.X;
-      HomePoint.X := 1;
-      while (HomePoint.X <= Length(HomeLine)) and
-        (HomeLine[HomePoint.X] in [' ', #9]) do Inc(HomePoint.X);
-      if FHomeRepeat and not SelAvail and
-        (PreviousColumn = HomePoint.X) then HomePoint.X := 1;
-      BlockBegin := HomePoint;
-      BlockEnd := HomePoint;
-      LogicalCaretXY := HomePoint;
-      FHomeRepeat := True;
-    end;
+    MoveHome(ssShift in Shift);
     Key := 0;
     Exit;
   end;
+  { Modifier transitions alone do not move the caret. In particular, releasing
+    and pressing Shift between two Shift+Home strokes must preserve the cycle. }
+  if not (Key in [VK_SHIFT, VK_CONTROL, VK_MENU]) then FHomeRepeat := False;
   inherited KeyDown(Key, Shift);
+end;
+
+procedure TNoiSynEdit.MoveHome(SelectText: Boolean);
+begin
+  MoveEditorHome(Self, SelectText, FHomeRepeat);
 end;
 
 procedure TNoiSynEdit.ResetHomeCycle;
@@ -535,7 +632,8 @@ constructor TMainForm.Create(AOwner: TComponent);
 var
   Bar: TMainMenu;
   FileMenu, EditMenu, SearchMenu, ViewMenu, ProjectMenu,
-    ExecuteMenu, ToolsMenu, HelpMenu, LanguageMenu: TMenuItem;
+    ExecuteMenu, ToolsMenu, HelpMenu, LanguageMenu, DebugMenu, BookmarkMenu,
+    ToggleBookmarksMenu, GotoBookmarksMenu, BookmarkItem: TMenuItem;
   MainPanel, CenterPanel, BottomPanel: TPanel;
   Toolbar: TToolBar;
   ToolImages: TImageList;
@@ -545,7 +643,7 @@ var
   Button: TToolButton;
   Bitmap: TBitmap;
   Col: TListColumn;
-  ArgIndex: Integer;
+  ArgIndex, BookmarkIndex: Integer;
 
   procedure AddTool(const ACaption, IconName: string; Handler: TNotifyEvent);
   var IconPath: string;
@@ -588,12 +686,16 @@ begin
       { The editor remains usable if the window manager cannot load ICO files. }
     end;
   FDocs := TObjectList.Create(True);
+  FRecentFiles := TStringList.Create;
+  FRecentFiles.CaseSensitive := True;
   FEditorFontSize := 10;
   FEditorTabWidth := 4;
   FProjectFiles := TStringList.Create;
   FProjectFiles.CaseSensitive := True;
   LoadCompilerSettings;
+  LoadRecentPaths;
   InitUiLanguage(FOptionsPath);
+  OnShow := @FormShown;
   OnCloseQuery := @CloseQueryHandler;
   KeyPreview := True;
   OnKeyDown := @FormKeyDown;
@@ -612,6 +714,8 @@ begin
   AddMenu(FileMenu, 'Save A&ll', @SaveAllClick, ShortCut(Ord('A'), [ssCtrl, ssShift]));
   AddMenu(FileMenu, 'Open Containing &Folder', @OpenFolderClick,
     ShortCut(Ord('B'), [ssCtrl]));
+  FRecentMenu := AddMenu(FileMenu, 'Recent &Files / Projects', nil);
+  RebuildRecentMenu;
   AddMenu(FileMenu, '-', nil);
   AddMenu(FileMenu, '&Close', @CloseClick, ShortCut(Ord('W'), [ssCtrl]));
   AddMenu(FileMenu, 'Close &All', @CloseAllClick,
@@ -637,6 +741,10 @@ begin
     ShortCut(Ord('D'), [ssCtrl]));
   AddMenu(EditMenu, 'D&uplicate Line', @DuplicateLineClick,
     ShortCut(Ord('E'), [ssCtrl]));
+  AddMenu(EditMenu, 'Move Selection &Up', @MoveSelectionUpClick,
+    ShortCut(VK_UP, [ssCtrl, ssShift]));
+  AddMenu(EditMenu, 'Move Selection &Down', @MoveSelectionDownClick,
+    ShortCut(VK_DOWN, [ssCtrl, ssShift]));
   AddMenu(EditMenu, 'Code &Completion', @CompletionClick, ShortCut(VK_SPACE, [ssCtrl]));
 
   SearchMenu := TMenuItem.Create(Self); SearchMenu.Caption := Tr('&Search'); Bar.Items.Add(SearchMenu);
@@ -650,17 +758,40 @@ begin
   AddMenu(SearchMenu, 'Replace &All...', @ReplaceAllClick,
     ShortCut(Ord('R'), [ssCtrl, ssShift]));
   AddMenu(SearchMenu, '&Go to line...', @GotoClick, ShortCut(Ord('G'), [ssCtrl]));
+  BookmarkMenu := AddMenu(SearchMenu, '&Bookmarks', nil);
+  ToggleBookmarksMenu := AddMenu(BookmarkMenu, '&Toggle Bookmark', nil);
+  GotoBookmarksMenu := AddMenu(BookmarkMenu, '&Go to Bookmark', nil);
+  for BookmarkIndex := 1 to 9 do
+  begin
+    BookmarkItem := AddMenu(ToggleBookmarksMenu, Format(Tr('Bookmark &%d'),
+      [BookmarkIndex]), @ToggleBookmarkClick,
+      ShortCut(Ord('0') + BookmarkIndex, [ssCtrl]));
+    BookmarkItem.Tag := BookmarkIndex;
+    BookmarkItem := AddMenu(GotoBookmarksMenu, Format(Tr('Bookmark &%d'),
+      [BookmarkIndex]), @GotoBookmarkClick,
+      ShortCut(Ord('0') + BookmarkIndex, [ssAlt]));
+    BookmarkItem.Tag := BookmarkIndex;
+  end;
 
   ViewMenu := TMenuItem.Create(Self); ViewMenu.Caption := Tr('&View'); Bar.Items.Add(ViewMenu);
   AddMenu(ViewMenu, '&Project Manager', @ProjectManagerClick);
+  AddMenu(ViewMenu, 'Compiler &Log', @FocusCompilerLogClick,
+    ShortCut(Ord('L'), [ssCtrl, ssAlt]));
+  AddMenu(ViewMenu, 'Focus &Editor', @FocusEditorClick,
+    ShortCut(Ord('E'), [ssCtrl, ssAlt]));
   AddMenu(ViewMenu, '&Next Tab', @NextTabClick, ShortCut(VK_TAB, [ssCtrl]));
   AddMenu(ViewMenu, '&Previous Tab', @PreviousTabClick,
     ShortCut(VK_TAB, [ssCtrl, ssShift]));
   AddMenu(ViewMenu, 'Swap &Header/Source', @SwapHeaderSourceClick,
     ShortCut(Ord('Q'), [ssCtrl]));
+  FStatusbarItem := AddMenu(ViewMenu, '&Statusbar', @StatusbarClick);
+  FStatusbarItem.Checked := True;
+  FFullScreenItem := AddMenu(ViewMenu, '&Full screen mode', @FullScreenClick,
+    ShortCut(VK_F11, [ssCtrl]));
   ProjectMenu := TMenuItem.Create(Self); ProjectMenu.Caption := Tr('&Project'); Bar.Items.Add(ProjectMenu);
   AddMenu(ProjectMenu, '&New project...', @NewProjectClick);
   AddMenu(ProjectMenu, '&Open project...', @OpenClick);
+  AddMenu(ProjectMenu, '&Close Project', @CloseProjectClick);
   AddMenu(ProjectMenu, '&Add file to project...', @AddProjectFileClick);
   AddMenu(ProjectMenu, '&Remove file from project...', @RemoveProjectFileClick);
   AddMenu(ProjectMenu, 'Project &Options...', @ProjectOptionsClick,
@@ -677,10 +808,23 @@ begin
     ShortCut(VK_F9, [ssCtrl]));
   AddMenu(ExecuteMenu, 'Compiler &Parameters...', @CompilerOptionsClick,
     ShortCut(Ord('O'), [ssCtrl, ssAlt]));
+  AddMenu(ExecuteMenu, '&Parameters...', @ExecuteParametersClick);
+  DebugMenu := TMenuItem.Create(Self);
+  DebugMenu.Caption := Tr('&Debug');
+  Bar.Items.Add(DebugMenu);
+  AddMenu(DebugMenu, '&Start Debugging', @DebugStartClick, ShortCut(VK_F5, []));
+  AddMenu(DebugMenu, 'Toggle &Breakpoint', @DebugToggleBreakpointClick,
+    ShortCut(VK_F4, []));
+  AddMenu(DebugMenu, '&Continue', @DebugContinueClick);
+  AddMenu(DebugMenu, '&Next Line', @DebugStepOverClick, ShortCut(VK_F7, []));
+  AddMenu(DebugMenu, '&Step Into', @DebugStepIntoClick, ShortCut(VK_F8, []));
+  AddMenu(DebugMenu, '&Stop Debugging', @DebugStopClick, ShortCut(VK_F6, []));
+  AddMenu(DebugMenu, '&Evaluate Expression', @DebugEvaluateClick);
 
   ToolsMenu := TMenuItem.Create(Self); ToolsMenu.Caption := Tr('&Tools'); Bar.Items.Add(ToolsMenu);
   AddMenu(ToolsMenu, '&Compiler Options / Parameters...', @CompilerOptionsClick);
   AddMenu(ToolsMenu, 'E&ditor Options...', @EditorOptionsClick);
+  InitializeEditorThemes(ToolsMenu);
   LanguageMenu := AddMenu(ToolsMenu, '&Language', nil);
   FChineseLanguageItem := AddMenu(LanguageMenu, 'Chinese', @ChineseLanguageClick);
   FEnglishLanguageItem := AddMenu(LanguageMenu, 'English', @EnglishLanguageClick);
@@ -693,6 +837,7 @@ begin
   ToolImages.Width := 16;
   ToolImages.Height := 16;
   Toolbar := TToolBar.Create(Self);
+  FMainToolbar := Toolbar;
   Toolbar.Parent := Self;
   Toolbar.Align := alTop;
   Toolbar.Height := 28;
@@ -715,6 +860,16 @@ begin
   AddTool('Run', 'run', @RunClick);
   AddTool('Compile & Run', 'comprun', @CompileRunClick);
   AddTool('Rebuild All', 'rebuild', @CompileClick);
+  FCompilerProfileCombo := TComboBox.Create(Self);
+  FCompilerProfileCombo.Parent := Toolbar;
+  FCompilerProfileCombo.Left := Toolbar.ButtonCount * Toolbar.ButtonWidth + 12;
+  FCompilerProfileCombo.Top := 2;
+  FCompilerProfileCombo.Width := 230;
+  FCompilerProfileCombo.Style := csDropDownList;
+  FCompilerProfileCombo.Hint := Tr('Active compiler profile:');
+  FCompilerProfileCombo.ShowHint := True;
+  PopulateCompilerProfiles(FCompilerProfileCombo);
+  FCompilerProfileCombo.OnChange := @CompilerProfileChange;
 
   FStatus := TStatusBar.Create(Self);
   FStatus.Parent := Self;
@@ -740,6 +895,8 @@ begin
   LeftDebugTab := TTabSheet.Create(LeftTabs);
   LeftDebugTab.PageControl := LeftTabs;
   LeftDebugTab.Caption := Tr('Debug');
+  { The functional debugger occupies the wider results pane below the editor. }
+  LeftDebugTab.TabVisible := False;
   FProjectTree := TTreeView.Create(Self);
   FProjectTree.Parent := LeftProjectTab;
   FProjectTree.Align := alClient;
@@ -829,6 +986,11 @@ begin
   FInstanceTimer.Interval := 150;
   FInstanceTimer.OnTimer := @InstanceTick;
   FInstanceTimer.Enabled := True;
+  FUiTimer := TTimer.Create(Self);
+  FUiTimer.Interval := 100;
+  FUiTimer.OnTimer := @RefreshCommandStates;
+  FUiTimer.Enabled := True;
+  InitializeDebugger;
   if StartupFiles <> nil then
   for ArgIndex := 0 to StartupFiles.Count - 1 do
   begin
@@ -842,13 +1004,354 @@ begin
 end;
 
 destructor TMainForm.Destroy;
+var I: Integer; Doc: TDocument;
 begin
+  FLoading := True;
+  ShutdownDebugger;
+  if FUiTimer <> nil then FUiTimer.Enabled := False;
   if FInstanceTimer <> nil then FInstanceTimer.Enabled := False;
+  if FFileWatchTimer <> nil then FFileWatchTimer.Enabled := False;
+  if FPages <> nil then FPages.OnChange := nil;
+  if FDocs <> nil then
+    for I := 0 to FDocs.Count - 1 do
+    begin
+      Doc := TDocument(FDocs[I]);
+      Doc.Editor.OnChange := nil;
+      Doc.Editor.OnStatusChange := nil;
+      Doc.Editor.OnSpecialLineColors := nil;
+      Doc.Editor.OnKeyDown := nil;
+      Doc.Editor.OnKeyPress := nil;
+      Doc.Editor.OnKeyUp := nil;
+    end;
+  FCompilerProfiles.Free;
+  FRecentFiles.Free;
+  FInvalidExecutables.Free;
   FTipSignatures.Free;
   FCompletionKinds.Free;
   FProjectFiles.Free;
-  FDocs.Free;
+  FreeAndNil(FDocs);
   inherited Destroy;
+end;
+
+function SameHandler(const Left, Right: TNotifyEvent): Boolean;
+begin
+  Result := Assigned(Left) and Assigned(Right) and
+    (TMethod(Left).Code = TMethod(Right).Code) and
+    (TMethod(Left).Data = TMethod(Right).Data);
+end;
+
+function TMainForm.EditorHasFocus: Boolean;
+var Doc: TDocument;
+begin
+  Doc := CurrentDoc;
+  Result := (Doc <> nil) and ((ActiveControl = Doc.Editor) or Doc.Editor.Focused);
+end;
+
+function TMainForm.CommandAvailable(Handler: TNotifyEvent): Boolean;
+var
+  Doc: TDocument;
+  NativeEdit: TCustomEdit;
+  InEditor, HasSelection, CanWrite: Boolean;
+
+  function IsCommand(Command: TNotifyEvent): Boolean;
+  begin Result := SameHandler(Handler, Command); end;
+
+begin
+  Result := True;
+  if not Assigned(Handler) then Exit;
+  Doc := CurrentDoc;
+  InEditor := EditorHasFocus;
+  NativeEdit := nil;
+  if ActiveControl is TCustomEdit then NativeEdit := TCustomEdit(ActiveControl);
+  HasSelection := (InEditor and (Doc <> nil) and Doc.Editor.SelAvail) or
+    ((NativeEdit <> nil) and (NativeEdit.SelLength > 0));
+  CanWrite := not FCompileActive and ((InEditor and (Doc <> nil) and
+    not Doc.Editor.ReadOnly) or ((NativeEdit <> nil) and not NativeEdit.ReadOnly));
+  if IsCommand(@AbortCompileClick) then Exit(FCompileActive);
+  if IsCommand(@DebugStartClick) then
+    Exit(not FCompileActive and not DebuggerActive and
+      ((Doc <> nil) or (FProjectPath <> '')));
+  if IsCommand(@DebugToggleBreakpointClick) then Exit(not FCompileActive and InEditor);
+  if IsCommand(@DebugStopClick) then Exit(DebuggerActive);
+  if IsCommand(@DebugContinueClick) or IsCommand(@DebugStepIntoClick) or
+    IsCommand(@DebugStepOverClick) or IsCommand(@DebugEvaluateClick) then
+    Exit(DebuggerStopped and not FCompileActive);
+  if IsCommand(@ClearRecentClick) then Exit(FRecentFiles.Count > 0);
+  if IsCommand(@CopyClick) then Exit(HasSelection);
+  if IsCommand(@SelectAllClick) then Exit(InEditor or (NativeEdit <> nil));
+  if IsCommand(@CutClick) then Exit(CanWrite and HasSelection);
+  if IsCommand(@PasteClick) then Exit(CanWrite);
+  if IsCommand(@UndoClick) then
+    Exit(CanWrite and ((InEditor and Doc.Editor.CanUndo) or
+      ((NativeEdit <> nil) and NativeEdit.CanUndo)));
+  if IsCommand(@RedoClick) then Exit(CanWrite and InEditor and Doc.Editor.CanRedo);
+  if (FCompileActive or DebuggerActive) and (IsCommand(@NewClick) or IsCommand(@OpenClick) or
+    IsCommand(@RecentFileClick) or IsCommand(@SaveClick) or
+    IsCommand(@SaveAsClick) or IsCommand(@SaveAllClick) or
+    IsCommand(@CloseClick) or IsCommand(@CloseAllClick) or
+    IsCommand(@NewProjectClick) or IsCommand(@AddProjectFileClick) or
+    IsCommand(@RemoveProjectFileClick) or IsCommand(@ProjectOptionsClick) or
+    IsCommand(@CloseProjectClick) or IsCommand(@CompileClick) or
+    IsCommand(@SyntaxClick) or IsCommand(@CompileRunClick) or
+    IsCommand(@RunClick) or IsCommand(@ExecuteParametersClick) or
+    IsCommand(@CompilerOptionsClick) or IsCommand(@ReplaceClick) or
+    IsCommand(@ReplaceAllClick) or IsCommand(@CommentClick) or
+    IsCommand(@UncommentClick) or IsCommand(@ToggleCommentClick) or
+    IsCommand(@InlineCommentClick) or IsCommand(@DeleteLineClick) or
+    IsCommand(@DuplicateLineClick) or IsCommand(@MoveSelectionUpClick) or
+    IsCommand(@MoveSelectionDownClick)) then Exit(False);
+  if IsCommand(@SaveClick) or IsCommand(@SaveAsClick) or
+    IsCommand(@CloseClick) or IsCommand(@SwapHeaderSourceClick) or
+    IsCommand(@FocusEditorClick) then Exit(Doc <> nil);
+  if IsCommand(@SaveAllClick) or IsCommand(@CloseAllClick) then Exit(FDocs.Count > 0);
+  if IsCommand(@ProjectOptionsClick) or IsCommand(@AddProjectFileClick) or
+    IsCommand(@RemoveProjectFileClick) or IsCommand(@CloseProjectClick) then
+    Exit(FProjectPath <> '');
+  if IsCommand(@CompileClick) or IsCommand(@CompileRunClick) or
+    IsCommand(@RunClick) then Exit((Doc <> nil) or (FProjectPath <> ''));
+  if IsCommand(@SyntaxClick) then Exit(Doc <> nil);
+  if IsCommand(@CommentClick) or IsCommand(@UncommentClick) or
+    IsCommand(@ToggleCommentClick) or IsCommand(@DeleteLineClick) or
+    IsCommand(@DuplicateLineClick) or IsCommand(@MoveSelectionUpClick) or
+    IsCommand(@MoveSelectionDownClick) or IsCommand(@ReplaceClick) or
+    IsCommand(@ReplaceAllClick) then Exit(InEditor and CanWrite);
+  if IsCommand(@InlineCommentClick) then Exit(InEditor and CanWrite and HasSelection);
+  if IsCommand(@FindClick) or IsCommand(@FindNextClick) or
+    IsCommand(@FindPreviousClick) or IsCommand(@GotoClick) or
+    IsCommand(@CompletionClick) or IsCommand(@ToggleBookmarkClick) or
+    IsCommand(@GotoBookmarkClick) then Exit(InEditor);
+  if IsCommand(@FindAllClick) then Exit(FDocs.Count > 0);
+  if IsCommand(@NextTabClick) or IsCommand(@PreviousTabClick) then Exit(FDocs.Count > 1);
+end;
+
+procedure TMainForm.RefreshCommandStates(Sender: TObject);
+var
+  I, X, Y: Integer;
+  Item: TMenuItem;
+  Button: TToolButton;
+  Doc: TDocument;
+begin
+  if (Application.ModalLevel > 0) or FLoading then Exit;
+  for I := 0 to FDocs.Count - 1 do
+  begin
+    Doc := TDocument(FDocs[I]);
+    if (FCompileActive or DebuggerActive) and not Doc.DebugReadOnlyApplied then
+    begin
+      Doc.ReadOnlyBeforeDebug := Doc.Editor.ReadOnly;
+      Doc.DebugReadOnlyApplied := True;
+      Doc.Editor.ReadOnly := True;
+      if (FCompletionForm <> nil) and (FCompletionDoc = Doc) then
+        HideCompletion;
+    end
+    else if not FCompileActive and not DebuggerActive and Doc.DebugReadOnlyApplied then
+    begin
+      Doc.Editor.ReadOnly := Doc.ReadOnlyBeforeDebug;
+      Doc.DebugReadOnlyApplied := False;
+    end;
+  end;
+  if FCompilerProfileCombo <> nil then
+    FCompilerProfileCombo.Enabled := not FCompileActive and not DebuggerActive;
+  if FRecentMenuDirty then RebuildRecentMenu;
+  Doc := CurrentDoc;
+  for I := 0 to ComponentCount - 1 do
+    if Components[I] is TMenuItem then
+    begin
+      Item := TMenuItem(Components[I]);
+      if Assigned(Item.OnClick) then Item.Enabled := CommandAvailable(Item.OnClick);
+      if SameHandler(Item.OnClick, @ToggleBookmarkClick) then
+        Item.Checked := (Doc <> nil) and Doc.Editor.GetBookMark(Item.Tag, X, Y);
+      if SameHandler(Item.OnClick, @GotoBookmarkClick) then
+        Item.Enabled := Item.Enabled and (Doc <> nil) and
+          Doc.Editor.GetBookMark(Item.Tag, X, Y);
+    end;
+  if FMainToolbar <> nil then
+    for I := 0 to FMainToolbar.ButtonCount - 1 do
+    begin
+      Button := FMainToolbar.Buttons[I];
+      if Assigned(Button.OnClick) then Button.Enabled := CommandAvailable(Button.OnClick);
+    end;
+end;
+
+function EncodeHistoryPath(const FileName: string): string;
+var I: Integer;
+begin
+  { INI values cannot safely contain line breaks from valid Unix filenames. }
+  Result := 'hex:';
+  for I := 1 to Length(FileName) do
+    Result := Result + IntToHex(Ord(FileName[I]), 2);
+end;
+
+function DecodeHistoryPath(const Value: string): string;
+var I, Code: Integer;
+begin
+  if Copy(Value, 1, 4) <> 'hex:' then Exit(Value);
+  Result := '';
+  if Odd(Length(Value) - 4) then Exit;
+  I := 5;
+  while I < Length(Value) do
+  begin
+    if not TryStrToInt('$' + Copy(Value, I, 2), Code) or (Code = 0) then
+      Exit('');
+    Result := Result + Chr(Code);
+    Inc(I, 2);
+  end;
+end;
+
+procedure TMainForm.LoadRecentPaths;
+var Ini: TIniFile; I: Integer; FileName: string;
+begin
+  Ini := TIniFile.Create(FOptionsPath);
+  try
+    for I := 0 to 9 do
+    begin
+      FileName := DecodeHistoryPath(Ini.ReadString('History', 'File' + IntToStr(I), ''));
+      if (FileName <> '') and (FRecentFiles.IndexOf(FileName) < 0) then
+        FRecentFiles.Add(FileName);
+    end;
+  finally Ini.Free; end;
+end;
+
+procedure TMainForm.SaveRecentPaths;
+var Ini: TIniFile; I: Integer;
+begin
+  try
+    Ini := TIniFile.Create(FOptionsPath);
+    try
+      Ini.EraseSection('History');
+      for I := 0 to FRecentFiles.Count - 1 do
+        Ini.WriteString('History', 'File' + IntToStr(I), EncodeHistoryPath(FRecentFiles[I]));
+    finally Ini.Free; end;
+  except
+    on E: Exception do
+      if FStatus <> nil then FStatus.SimpleText :=
+        Format(Tr('Could not save recent files: %s'), [E.Message]);
+  end;
+end;
+
+procedure TMainForm.RebuildRecentMenu;
+var I: Integer; Item: TMenuItem; LabelText: string;
+begin
+  if FRecentMenu = nil then Exit;
+  FRecentMenuDirty := False;
+  FRecentMenu.Clear;
+  for I := 0 to FRecentFiles.Count - 1 do
+  begin
+    LabelText := '&' + IntToStr((I + 1) mod 10) + ' ' +
+      StringReplace(FRecentFiles[I], '&', '&&', [rfReplaceAll]);
+    Item := AddMenu(FRecentMenu, LabelText, @RecentFileClick);
+    Item.Tag := I;
+  end;
+  if FRecentFiles.Count > 0 then AddMenu(FRecentMenu, '-', nil);
+  Item := AddMenu(FRecentMenu, '&Clear History', @ClearRecentClick);
+  Item.Enabled := FRecentFiles.Count > 0;
+end;
+
+procedure TMainForm.RememberRecentPath(const FileName: string);
+var FullName: string; Index: Integer;
+begin
+  if FileName = '' then Exit;
+  FullName := ExpandFileName(FileName);
+  Index := FRecentFiles.IndexOf(FullName);
+  if Index = 0 then Exit;
+  if Index >= 0 then FRecentFiles.Delete(Index);
+  FRecentFiles.Insert(0, FullName);
+  while FRecentFiles.Count > 10 do FRecentFiles.Delete(FRecentFiles.Count - 1);
+  SaveRecentPaths;
+  FRecentMenuDirty := True;
+end;
+
+procedure TMainForm.RecentFileClick(Sender: TObject);
+var Index: Integer; FileName: string;
+begin
+  if FCompileActive or not (Sender is TMenuItem) then Exit;
+  Index := TMenuItem(Sender).Tag;
+  if (Index < 0) or (Index >= FRecentFiles.Count) then Exit;
+  FileName := FRecentFiles[Index];
+  if not FileExists(FileName) then
+  begin
+    UiMessageDlg(Format(Tr('File not found: %s'), [FileName]), mtInformation, [mbOK], 0);
+    FRecentFiles.Delete(Index);
+    SaveRecentPaths;
+    FRecentMenuDirty := True;
+    Exit;
+  end;
+  OpenDroppedFile(FileName);
+end;
+
+procedure TMainForm.ClearRecentClick(Sender: TObject);
+begin
+  FRecentFiles.Clear;
+  SaveRecentPaths;
+  FRecentMenuDirty := True;
+end;
+
+procedure TMainForm.ToggleBookmarkClick(Sender: TObject);
+var Doc: TDocument; X, Y, Number: Integer;
+begin
+  Doc := CurrentDoc;
+  if (Doc = nil) or not EditorHasFocus then Exit;
+  if Sender is TMenuItem then Number := TMenuItem(Sender).Tag
+  else Exit;
+  if Doc.Editor.GetBookMark(Number, X, Y) then Doc.Editor.ClearBookMark(Number)
+  else Doc.Editor.SetBookMark(Number, Doc.Editor.CaretX, Doc.Editor.CaretY);
+  RefreshCommandStates(Self);
+end;
+
+procedure TMainForm.GotoBookmarkClick(Sender: TObject);
+var Doc: TDocument;
+begin
+  Doc := CurrentDoc;
+  if (Doc = nil) or not EditorHasFocus or not (Sender is TMenuItem) then Exit;
+  Doc.Editor.GotoBookMark(TMenuItem(Sender).Tag);
+  Doc.Editor.SetFocus;
+  UpdateStatus;
+end;
+
+procedure TMainForm.StatusbarClick(Sender: TObject);
+begin
+  FStatus.Visible := not FStatus.Visible;
+  FStatusbarItem.Checked := FStatus.Visible;
+end;
+
+procedure TMainForm.FullScreenClick(Sender: TObject);
+begin
+  if not FFullScreen then
+  begin
+    FNormalBounds := BoundsRect;
+    FNormalWindowState := WindowState;
+    FNormalBorderStyle := BorderStyle;
+    WindowState := wsNormal;
+    BorderStyle := bsNone;
+    BoundsRect := Monitor.BoundsRect;
+  end
+  else
+  begin
+    BorderStyle := FNormalBorderStyle;
+    BoundsRect := FNormalBounds;
+    WindowState := FNormalWindowState;
+  end;
+  FFullScreen := not FFullScreen;
+  FFullScreenItem.Checked := FFullScreen;
+end;
+
+procedure TMainForm.FocusCompilerLogClick(Sender: TObject);
+begin
+  HideCompletion;
+  HideFunctionTip;
+  FReportTabs.ActivePage := FLogTab;
+  FOutput.SetFocus;
+end;
+
+procedure TMainForm.FocusEditorClick(Sender: TObject);
+begin
+  if CurrentDoc <> nil then CurrentDoc.Editor.SetFocus;
+end;
+
+procedure TMainForm.FormShown(Sender: TObject);
+begin
+  if (CurrentDoc <> nil) and CurrentDoc.Editor.CanFocus then
+    CurrentDoc.Editor.SetFocus;
+  RefreshCommandStates(Self);
 end;
 
 procedure TMainForm.InstanceTick(Sender: TObject);
@@ -857,7 +1360,8 @@ var
   RequestOrdinal: Integer;
   ActivateWindow: Boolean;
 begin
-  if FLoading or FCompileActive or not Enabled or not Visible then Exit;
+  if FLoading or FCompileActive or DebuggerActive or (FDocumentDialogs <> 0) or
+    (Application.ModalLevel <> 0) or not Enabled or not Visible then Exit;
   FInstanceTimer.Enabled := False;
   RequestedFiles := TStringList.Create;
   try
@@ -913,7 +1417,7 @@ begin
   Result := nil;
   for I := 0 to FDocs.Count - 1 do
     if (TDocument(FDocs[I]).FileName <> '') and
-       (TDocument(FDocs[I]).FileName = FileName) then
+       SameDocumentPath(TDocument(FDocs[I]).FileName, FileName) then
       Exit(TDocument(FDocs[I]));
 end;
 
@@ -935,20 +1439,37 @@ end;
 procedure TMainForm.EditorChanged(Sender: TObject);
 var I: Integer;
 begin
-  if FLoading then Exit;
+  if FLoading or (FDocs = nil) then Exit;
   FTipDoc := nil;
   FCompletionDismissed := False;
   for I := 0 to FDocs.Count - 1 do
     if TDocument(FDocs[I]).Editor = Sender then
     begin
       TDocument(FDocs[I]).PreferredColumn := 0;
-      TDocument(FDocs[I]).Dirty := True;
+      TDocument(FDocs[I]).Dirty := TDocument(FDocs[I]).Editor.Modified or
+        TDocument(FDocs[I]).KeepBufferConflict;
       TDocument(FDocs[I]).ErrorLine := -1;
       TDocument(FDocs[I]).Editor.Invalidate;
       UpdateTab(TDocument(FDocs[I]));
       Break;
     end;
   UpdateStatus;
+end;
+
+procedure TMainForm.EditorStatusChanged(Sender: TObject; Changes: TSynStatusChanges);
+var I: Integer; Doc: TDocument;
+begin
+  { Modified notifications also arrive after Undo/Redo reaches the saved point.
+    OnChange alone can run before the undo list updates this state. }
+  if FLoading or (FDocs = nil) or not (scModified in Changes) then Exit;
+  for I := 0 to FDocs.Count - 1 do
+  begin
+    Doc := TDocument(FDocs[I]);
+    if Doc.Editor <> Sender then Continue;
+    Doc.Dirty := Doc.Editor.Modified or Doc.KeepBufferConflict;
+    UpdateTab(Doc);
+    Break;
+  end;
 end;
 
 procedure TMainForm.EditorSpecialLineColors(Sender: TObject; Line: Integer;
@@ -961,11 +1482,20 @@ begin
   begin
     PaintedDoc := TDocument(FDocs[DocOrdinal]);
     if PaintedDoc.Editor <> Sender then Continue;
+    if (FDebugger <> nil) and
+      FDebugger.Session.HasBreakpoint(PaintedDoc.FileName, Line) then
+    begin
+      Special := True; FG := clWhite; BG := $004040A0;
+    end;
+    if (FDebugLine = Line) and (PaintedDoc.FileName = FDebugFile) then
+    begin
+      Special := True; FG := clBlack; BG := $0080FFFF;
+    end;
     if PaintedDoc.ErrorLine = Line then
     begin
       Special := True;
-      FG := clWhite;
-      BG := clMaroon;
+      FG := PaintedDoc.ThemeColors.ErrorForeground;
+      BG := PaintedDoc.ThemeColors.ErrorBackground;
     end;
     Exit;
   end;
@@ -975,42 +1505,95 @@ procedure TMainForm.FileWatchTick(Sender: TObject);
 var
   I, Answer: Integer;
   Doc: TDocument;
-  Tab: TTabSheet;
+  CurrentSnapshot: TFileSnapshot;
+  Caret: TPoint;
+  Lines: TStringList;
 begin
-  if FLoading or FCompileActive then Exit;
+  if FLoading or FCompileActive or DebuggerActive or (FDocumentDialogs <> 0) or
+    (Application.ModalLevel <> 0) or not Enabled then Exit;
   FFileWatchTimer.Enabled := False;
+  Inc(FDocumentDialogs);
   try
     for I := FDocs.Count - 1 downto 0 do
     begin
       Doc := TDocument(FDocs[I]);
       if Doc.FileName = '' then Continue;
-      if FileExists(Doc.FileName) then
+      if FileSnapshotIsCurrent(Doc.FileName, Doc.SeenDiskSnapshot) then Continue;
+      try
+        CurrentSnapshot := CaptureFileSnapshot(Doc.FileName);
+      except
+        { A transient read/permission error must not discard the buffer. }
+        Continue;
+      end;
+      if SameFileSnapshot(CurrentSnapshot, Doc.SeenDiskSnapshot) then
+      begin
+        Doc.SeenDiskSnapshot := CurrentSnapshot;
+        Continue;
+      end;
+      Doc.SeenDiskSnapshot := CurrentSnapshot;
+      if CurrentSnapshot.Present then
       begin
         Doc.MissingNotified := False;
+        if SameFileSnapshot(CurrentSnapshot, Doc.DiskSnapshot) then Continue;
+        FPages.ActivePage := Doc.Tab;
+        Answer := UiMessageDlg(Format(Tr('%s was modified outside Dev-C++.' + LineEnding +
+          'Reload it from disk? Unsaved changes will be lost.'),
+          [ExtractFileName(Doc.FileName)]), mtConfirmation, [mbYes, mbNo], 0);
+        if Answer = mrYes then
+        begin
+          Lines := TStringList.Create;
+          try
+            try
+              LoadDocumentLines(Lines, Doc.FileName, CurrentSnapshot);
+              Caret := Doc.Editor.LogicalCaretXY;
+              FLoading := True;
+              try
+                Doc.Editor.Lines.Assign(Lines);
+                Doc.Editor.ClearUndo;
+                Doc.DiskSnapshot := CurrentSnapshot;
+                Doc.SeenDiskSnapshot := CurrentSnapshot;
+                Doc.Dirty := False;
+                Doc.KeepBufferConflict := False;
+                Doc.Editor.Modified := False;
+                Caret.Y := Max(1, Min(Caret.Y, Doc.Editor.Lines.Count));
+                if Doc.Editor.Lines.Count > 0 then
+                  Caret.X := Max(1, Min(Caret.X,
+                    Length(Doc.Editor.Lines[Caret.Y - 1]) + 1))
+                else Caret.X := 1;
+                Doc.Editor.LogicalCaretXY := Caret;
+              finally
+                FLoading := False;
+              end;
+            except
+              on E: Exception do UiMessageDlg(E.Message, mtError, [mbOK], 0);
+            end;
+          finally
+            Lines.Free;
+          end;
+        end
+        else
+        begin
+          Doc.KeepBufferConflict := True;
+          Doc.Dirty := True;
+        end;
+        UpdateTab(Doc);
+        UpdateStatus;
         Continue;
       end;
       if Doc.MissingNotified then Continue;
       Doc.MissingNotified := True;
       Answer := UiMessageDlg(Format(Tr('%s was deleted outside Dev-C++.' + LineEnding +
         'Keep the file in the editor?'), [ExtractFileName(Doc.FileName)]), mtConfirmation, [mbYes, mbNo], 0);
-      if Answer = mrYes then
+      if Answer <> mrNo then
       begin
+        Doc.KeepBufferConflict := True;
         Doc.Dirty := True;
         UpdateTab(Doc);
       end
-      else
-      begin
-        HideCompletion;
-        HideFunctionTip;
-        if FCompletionDoc = Doc then FCompletionDoc := nil;
-        if FTipDoc = Doc then FTipDoc := nil;
-        Tab := Doc.Tab;
-        FDocs.Remove(Doc);
-        Tab.Free;
-        UpdateStatus;
-      end;
+      else if MayClose(Doc) then DisposeDocument(Doc);
     end;
   finally
+    Dec(FDocumentDialogs);
     FFileWatchTimer.Enabled := True;
   end;
 end;
@@ -1087,104 +1670,112 @@ procedure TMainForm.FormKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 var
   Modifiers: TShiftState;
+
+  procedure Dispatch(Handler: TNotifyEvent);
+  begin
+    if CommandAvailable(Handler) then Handler(Self);
+    Key := 0;
+  end;
+
+  procedure DispatchBookmark(Number: Integer; Jump: Boolean);
+  var I: Integer; Item: TMenuItem;
+  begin
+    if not EditorHasFocus then Exit;
+    for I := 0 to ComponentCount - 1 do
+      if Components[I] is TMenuItem then
+      begin
+        Item := TMenuItem(Components[I]);
+        if Item.Tag <> Number then Continue;
+        if Jump and SameHandler(Item.OnClick, @GotoBookmarkClick) then
+        begin GotoBookmarkClick(Item); Break; end;
+        if not Jump and SameHandler(Item.OnClick, @ToggleBookmarkClick) then
+        begin ToggleBookmarkClick(Item); Break; end;
+      end;
+    Key := 0;
+  end;
+
 begin
   Modifiers := Shift * [ssCtrl, ssShift, ssAlt];
+  if (Key >= Ord('1')) and (Key <= Ord('9')) then
+  begin
+    if Modifiers = [ssCtrl] then
+    begin DispatchBookmark(Key - Ord('0'), False); Exit; end;
+    if Modifiers = [ssAlt] then
+    begin DispatchBookmark(Key - Ord('0'), True); Exit; end;
+  end;
   if Modifiers = [ssCtrl] then
   begin
     case Key of
-      Ord('N'): NewClick(Self);
-      Ord('O'): OpenClick(Self);
-      Ord('S'): SaveClick(Self);
-      Ord('W'): CloseClick(Self);
-      Ord('F'): FindClick(Self);
-      Ord('G'): GotoClick(Self);
-      Ord('H'): ProjectOptionsClick(Self);
-      Ord('R'): ReplaceClick(Self);
-      Ord('Q'): SwapHeaderSourceClick(Self);
-      Ord('Y'): RedoClick(Self);
-      Ord('Z'): UndoClick(Self);
-      Ord('X'): CutClick(Self);
-      Ord('C'): CopyClick(Self);
-      Ord('V'): PasteClick(Self);
-      Ord('A'): SelectAllClick(Self);
-      Ord('B'): OpenFolderClick(Self);
-      Ord('D'): DeleteLineClick(Self);
-      Ord('E'): DuplicateLineClick(Self);
-      VK_F9: SyntaxClick(Self);
-      VK_SPACE: CompletionClick(Self);
-      47, 191: ToggleCommentClick(Self);
-      59, 186: InlineCommentClick(Self);
-      44, 188: UncommentClick(Self);
-      46, 190: CommentClick(Self);
-      VK_TAB: NextTabClick(Self);
-    else Exit;
+      Ord('N'): Dispatch(@NewClick);
+      Ord('O'): Dispatch(@OpenClick);
+      Ord('S'): Dispatch(@SaveClick);
+      Ord('W'): Dispatch(@CloseClick);
+      Ord('F'): Dispatch(@FindClick);
+      Ord('G'): Dispatch(@GotoClick);
+      Ord('H'): Dispatch(@ProjectOptionsClick);
+      Ord('R'): Dispatch(@ReplaceClick);
+      Ord('Q'): Dispatch(@SwapHeaderSourceClick);
+      Ord('Y'): Dispatch(@RedoClick);
+      Ord('Z'): Dispatch(@UndoClick);
+      Ord('X'): Dispatch(@CutClick);
+      Ord('C'): Dispatch(@CopyClick);
+      Ord('V'): Dispatch(@PasteClick);
+      Ord('A'): Dispatch(@SelectAllClick);
+      Ord('B'): Dispatch(@OpenFolderClick);
+      Ord('D'): Dispatch(@DeleteLineClick);
+      Ord('E'): Dispatch(@DuplicateLineClick);
+      VK_F9: Dispatch(@SyntaxClick);
+      VK_F11: Dispatch(@FullScreenClick);
+      VK_SPACE: Dispatch(@CompletionClick);
+      47, 191: Dispatch(@ToggleCommentClick);
+      59, 186: Dispatch(@InlineCommentClick);
+      44, 188: Dispatch(@UncommentClick);
+      46, 190: Dispatch(@CommentClick);
+      VK_TAB: Dispatch(@NextTabClick);
     end;
-    Key := 0;
   end
   else if Modifiers = [ssCtrl, ssShift] then
   begin
-    if Key = Ord('S') then
-    begin
-      SaveAsClick(Self);
-      Key := 0;
-    end;
-    if Key = Ord('W') then
-    begin
-      CloseAllClick(Self);
-      Key := 0;
-    end;
-    if Key = Ord('A') then
-    begin
-      SaveAllClick(Self);
-      Key := 0;
-    end;
-    if Key = Ord('X') then
-    begin
-      SyntaxClick(Self);
-      Key := 0;
-    end;
-    if Key = Ord('R') then
-    begin
-      ReplaceAllClick(Self);
-      Key := 0;
-    end;
-    if Key = Ord('F') then
-    begin
-      FindAllClick(Self);
-      Key := 0;
-    end;
-    if Key = VK_TAB then
-    begin
-      PreviousTabClick(Self);
-      Key := 0;
+    case Key of
+      Ord('S'): Dispatch(@SaveAsClick);
+      Ord('W'): Dispatch(@CloseAllClick);
+      Ord('A'): Dispatch(@SaveAllClick);
+      Ord('X'): Dispatch(@SyntaxClick);
+      Ord('R'): Dispatch(@ReplaceAllClick);
+      Ord('F'): Dispatch(@FindAllClick);
+      VK_TAB: Dispatch(@PreviousTabClick);
+      VK_UP: Dispatch(@MoveSelectionUpClick);
+      VK_DOWN: Dispatch(@MoveSelectionDownClick);
     end;
   end
   else if Modifiers = [] then
   begin
     case Key of
-      VK_F3: FindNextClick(Self);
-      VK_F9: CompileClick(Self);
-      VK_F10: RunClick(Self);
-      VK_F11: CompileRunClick(Self);
-      VK_F12: CompileClick(Self);
-    else Exit;
+      VK_F4: Dispatch(@DebugToggleBreakpointClick);
+      VK_F5: Dispatch(@DebugStartClick);
+      VK_F6: Dispatch(@DebugStopClick);
+      VK_F7: Dispatch(@DebugStepOverClick);
+      VK_F8: Dispatch(@DebugStepIntoClick);
+      VK_F3: Dispatch(@FindNextClick);
+      VK_F9: Dispatch(@CompileClick);
+      VK_F10: Dispatch(@RunClick);
+      VK_F11: Dispatch(@CompileRunClick);
+      VK_F12: Dispatch(@CompileClick);
     end;
-    Key := 0;
   end
   else if (Modifiers = [ssShift]) and (Key = VK_F3) then
-  begin
-    FindPreviousClick(Self);
-    Key := 0;
-  end
-  else if (Modifiers = [ssCtrl, ssAlt]) and (Key = Ord('O')) then
-  begin
-    CompilerOptionsClick(Self);
-    Key := 0;
-  end;
+    Dispatch(@FindPreviousClick)
+  else if Modifiers = [ssCtrl, ssAlt] then
+    case Key of
+      Ord('O'): Dispatch(@CompilerOptionsClick);
+      Ord('L'): Dispatch(@FocusCompilerLogClick);
+      Ord('E'): Dispatch(@FocusEditorClick);
+    end;
 end;
 
 procedure TMainForm.OpenDroppedFile(const DroppedPath: string);
 begin
+  if FCompileActive or DebuggerActive then Exit;
   if not FileExists(DroppedPath) then Exit;
   if LowerCase(ExtractFileExt(DroppedPath)) = '.dev' then
     OpenProject(DroppedPath)
@@ -1345,29 +1936,10 @@ end;
 procedure TMainForm.EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 var
   Doc: TDocument;
-  P: TPoint;
-  S: string;
-  FirstColumn: Integer;
 begin
   Doc := CurrentDoc;
   if (Doc = nil) or (Doc.Editor <> Sender) then Exit;
   if Key <> VK_HOME then FHomeAtIndent := False;
-  if (Key = VK_HOME) and
-    ((Shift * [ssCtrl, ssShift, ssAlt]) = []) then
-  begin
-    P := Doc.Editor.LogicalCaretXY;
-    S := Doc.Editor.Lines[P.Y - 1];
-    FirstColumn := 1;
-    while (FirstColumn <= Length(S)) and
-      (S[FirstColumn] in [' ', #9]) do Inc(FirstColumn);
-    Doc.Editor.LogicalCaretXY := Point(FirstColumn, P.Y);
-    Doc.Editor.BlockBegin := Doc.Editor.LogicalCaretXY;
-    Doc.Editor.BlockEnd := Doc.Editor.LogicalCaretXY;
-    Doc.PreferredColumn := 0;
-    FHomeAtIndent := True;
-    Key := 0;
-    Exit;
-  end;
   FormKeyDown(Sender, Key, Shift);
   if Key = 0 then Exit;
   if FCompletionForm.Visible and (FCompletionDoc = Doc) and
@@ -1400,14 +1972,25 @@ var
   P, SelectionAnchor, TargetPoint: TPoint;
   LineText, Prefix, Suffix, TrimmedPrefix, TrimmedSuffix: string;
   BaseIndent, NewIndent: string;
-  StartColumn, EndColumn, TargetRow, FirstTextColumn: Integer;
+  StartColumn, EndColumn, TargetRow: Integer;
 begin
   Doc := CurrentDoc;
   if (Doc = nil) or (Doc.Editor <> Sender) then Exit;
+  { SynEdit invokes this hook before its own ReadOnly check. Our custom
+    SelText edits must obey the same lock while navigation stays available. }
+  if (Doc.Editor.ReadOnly or FCompileActive or DebuggerActive) and
+    ((Command = ecTab) or (Command = ecLineBreak) or
+      (Command = ecDeleteLastWord) or (Command = ecDeleteLastChar) or
+      (Command = ecDeleteChar)) then
+  begin
+    { Also skip SynEdit's beautifier hooks, which run before ExecuteCommand. }
+    Command := ecNone;
+    Exit;
+  end;
   if not (Command in [ecUp, ecDown, ecSelUp, ecSelDown]) then
     Doc.PreferredColumn := 0;
   if Doc.Editor.SelAvail and
-    not (Command in [ecLineStart, ecUp, ecDown, ecSelUp, ecSelDown]) then Exit;
+    not (Command in [ecLineStart, ecSelLineStart, ecUp, ecDown, ecSelUp, ecSelDown]) then Exit;
   if Command = ecTab then
   begin
     Command := ecNone;
@@ -1445,15 +2028,10 @@ begin
     Command := ecNone;
     Exit;
   end;
-  if Command = ecLineStart then
+  if Command in [ecLineStart, ecSelLineStart] then
   begin
-    FirstTextColumn := 1;
-    while (FirstTextColumn <= Length(LineText)) and
-      (LineText[FirstTextColumn] in [' ', #9]) do Inc(FirstTextColumn);
+    TNoiSynEdit(Doc.Editor).MoveHome(Command = ecSelLineStart);
     Command := ecNone;
-    Doc.Editor.LogicalCaretXY := Point(FirstTextColumn, P.Y);
-    Doc.Editor.BlockBegin := Doc.Editor.LogicalCaretXY;
-    Doc.Editor.BlockEnd := Doc.Editor.LogicalCaretXY;
     Exit;
   end;
   if Command = ecLineBreak then
@@ -1532,9 +2110,16 @@ var
   Closing: Char;
   PosBefore: TPoint;
   LineText, SelectedText, ClosingText, IncludePrefix: string;
+  Context: TCppEditContext;
+  SlashColumn, SlashCount: Integer;
 begin
   Doc := CurrentDoc;
   if (Doc = nil) or (Doc.Editor <> Sender) then Exit;
+  if Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
+  begin
+    Key := #0;
+    Exit;
+  end;
   if (Key = #27) and FCompletionForm.Visible and
     (FCompletionDoc = Doc) then
   begin
@@ -1543,11 +2128,35 @@ begin
     Key := #0;
     Exit;
   end;
+  if not (Key in ['(', '[', '{', '<', '''', '"', ')', ']', '}', '>']) then Exit;
   Closing := #0;
   PosBefore := Doc.Editor.LogicalCaretXY;
   if (PosBefore.Y >= 1) and (PosBefore.Y <= Doc.Editor.Lines.Count) then
     LineText := Doc.Editor.Lines[PosBefore.Y - 1]
   else LineText := '';
+  Context := CppContextAt(Doc.Editor, PosBefore);
+  if not Doc.Editor.SelAvail then
+  begin
+    if (Key = '''') and (Context = cecCode) and
+      CppNumericSeparatorPrefix(LineText, PosBefore.X) then Exit;
+    if ((Key = '"') and (Context = cecDoubleQuote)) or
+       ((Key = '''') and (Context = cecSingleQuote)) then
+    begin
+      SlashCount := 0;
+      SlashColumn := PosBefore.X - 1;
+      while (SlashColumn > 0) and (LineText[SlashColumn] = '\') do
+      begin Inc(SlashCount); Dec(SlashColumn); end;
+      if (SlashCount mod 2 = 0) and (PosBefore.X <= Length(LineText)) and
+        (LineText[PosBefore.X] = Key) then
+      begin
+        Doc.Editor.LogicalCaretXY := Point(PosBefore.X + 1, PosBefore.Y);
+        Key := #0;
+        Exit;
+      end;
+    end;
+    { Brackets and quotes typed inside comments/literals are ordinary text. }
+    if Context <> cecCode then Exit;
+  end;
   case Key of
     '(': Closing := ')';
     '[': Closing := ']';
@@ -1616,7 +2225,11 @@ var
   StartPos, NameEnd, LogicalCol: Integer;
   P: TPoint;
 begin
-  if Doc = nil then Exit;
+  if (Doc = nil) or Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
+  begin
+    HideCompletion;
+    Exit;
+  end;
   HideFunctionTip;
   FCompletionDoc := Doc;
   Prefix := '';
@@ -1979,6 +2592,11 @@ var
 begin
   Doc := FCompletionDoc;
   if (Doc = nil) or (FCompletionList.ItemIndex < 0) then Exit;
+  if Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
+  begin
+    HideCompletion;
+    Exit;
+  end;
   Value := FCompletionList.Items[FCompletionList.ItemIndex];
   Kind := FCompletionKinds.Values[Value];
   OpenParenPos := Pos('(', Value);
@@ -2032,6 +2650,12 @@ var
 begin
   Doc := FCompletionDoc;
   if Doc = nil then Exit;
+  if Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
+  begin
+    HideCompletion;
+    Key := 0;
+    Exit;
+  end;
   if Key = VK_ESCAPE then
   begin
     Key := 0;
@@ -2087,6 +2711,12 @@ begin
   if Key in [#0, #8] then begin Key := #0; Exit; end;
   Doc := FCompletionDoc;
   if Doc = nil then Exit;
+  if Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
+  begin
+    HideCompletion;
+    Key := #0;
+    Exit;
+  end;
   Typed := Key;
   Key := #0;
   if not (Typed in ['A'..'Z', 'a'..'z', '0'..'9', '_']) then
@@ -2121,6 +2751,8 @@ begin
   FHomeAtIndent := False;
   HideCompletion;
   HideFunctionTip;
+  if Visible and (CurrentDoc <> nil) and CurrentDoc.Editor.CanFocus and
+    (Application.ModalLevel = 0) then CurrentDoc.Editor.SetFocus;
   UpdateStatus;
 end;
 
@@ -2139,7 +2771,7 @@ begin
   Doc.Editor := TNoiSynEdit.Create(Doc.Tab);
   Doc.Editor.Parent := Doc.Tab;
   Doc.Editor.Align := alClient;
-  Doc.Editor.Font.Name := 'Consolas';
+  Doc.Editor.Font.Name := FEditorFontName;
   Doc.Editor.Font.Size := FEditorFontSize;
   Doc.Editor.Options := (Doc.Editor.Options + [eoTabIndent]) -
     [eoAutoIndent, eoSmartTabs, eoTabsToSpaces, eoTrimTrailingSpaces,
@@ -2147,45 +2779,23 @@ begin
   Doc.Editor.Options2 := Doc.Editor.Options2 + [eoCaretSkipTab];
   Doc.Editor.TabWidth := FEditorTabWidth;
   Doc.Editor.WantTabs := True;
+  if FCompileActive or DebuggerActive then
+  begin
+    Doc.ReadOnlyBeforeDebug := Doc.Editor.ReadOnly;
+    Doc.DebugReadOnlyApplied := True;
+    Doc.Editor.ReadOnly := True;
+  end;
+  { Dev-C++ uses Ctrl+1..9 to toggle and Alt+1..9 to jump. }
+  Doc.Editor.BookMarkOptions.EnableKeys := False;
   Doc.Editor.BlockIndent := 0;
   Doc.Editor.BlockTabIndent := 1;
   Doc.Editor.RightEdge := 0;
-  Doc.Editor.Color := clWhite;
-  Doc.Editor.Font.Color := clBlack;
-  Doc.Editor.LineHighlightColor.Background := $FFFFCC;
-  Doc.Editor.BracketMatchColor.Background := clRed;
-  Doc.Editor.BracketMatchColor.Foreground := clWhite;
-  Doc.Editor.SelectedColor.Background := clNavy;
-  Doc.Editor.SelectedColor.Foreground := clWhite;
   Doc.Editor.Gutter.Visible := True;
-  { Win32 clBtnFace, independent of the GTK theme on NOI Linux. }
-  Doc.Editor.Gutter.Color := $00F0F0F0;
-  if Doc.Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0] = nil then
-    TSynGutterLineNumber.Create(Doc.Editor.Gutter.Parts);
-  if Doc.Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0] <> nil then
-    Doc.Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0].MarkupInfo.Foreground := clBlack;
-  if Doc.Editor.Gutter.Parts.ByClass[TSynGutterChanges, 0] <> nil then
-    Doc.Editor.Gutter.Parts.ByClass[TSynGutterChanges, 0].Visible := False;
   Doc.Syntax := TNoiCppSyn.Create(Doc.Tab);
-  Doc.Syntax.AsmAttri.Foreground := clBlue;
-  { Classic Plus uses Win32 clHighlight for comments.  GTK's clHighlight
-    follows the orange Ubuntu theme, so use the Windows blue explicitly. }
-  Doc.Syntax.CommentAttri.Foreground := $00D77800;
-  Doc.Syntax.CommentAttri.Style := [fsItalic];
-  Doc.Syntax.DirecAttri.Foreground := clGreen;
-  Doc.Syntax.IdentifierAttri.Foreground := clBlack;
-  Doc.Syntax.InvalidAttri.Foreground := clBlack;
-  Doc.Syntax.KeyAttri.Foreground := clBlack;
-  Doc.Syntax.KeyAttri.Style := [fsBold];
-  Doc.Syntax.NumberAttri.Foreground := clPurple;
-  Doc.Syntax.SpaceAttri.Foreground := clBlack;
-  Doc.Syntax.SpaceAttri.Background := clWhite;
-  Doc.Syntax.StringAttri.Foreground := clBlue;
-  Doc.Syntax.StringAttri.Style := [fsBold];
-  Doc.Syntax.SymbolAttri.Foreground := clRed;
-  Doc.Syntax.SymbolAttri.Style := [fsBold];
+  ApplyDocumentEditorSettings(Doc);
   Doc.Editor.Highlighter := Doc.Syntax;
   Doc.Editor.OnChange := @EditorChanged;
+  Doc.Editor.OnStatusChange := @EditorStatusChanged;
   Doc.Editor.OnClick := @EditorClicked;
   Doc.Editor.OnKeyDown := @EditorKeyDown;
   Doc.Editor.OnKeyPress := @EditorKeyPress;
@@ -2203,6 +2813,7 @@ end;
 
 procedure TMainForm.NewClick(Sender: TObject);
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   CreateDocument(True);
 end;
 
@@ -2218,6 +2829,7 @@ begin
   if Doc <> nil then
   begin
     FPages.ActivePage := Doc.Tab;
+    RememberRecentPath(Doc.FileName);
     Exit;
   end;
   CreateDocument(False);
@@ -2225,11 +2837,13 @@ begin
   FLoading := True;
   try
     try
-      Doc.Editor.Lines.LoadFromFile(FileName);
+      LoadDocumentLines(Doc.Editor.Lines, FileName, Doc.DiskSnapshot);
+      Doc.SeenDiskSnapshot := Doc.DiskSnapshot;
       Doc.FileName := ExpandFileName(FileName);
       Doc.Dirty := False;
       Doc.Editor.Modified := False;
       UpdateTab(Doc);
+      RememberRecentPath(Doc.FileName);
     except
       on E: Exception do
       begin
@@ -2246,43 +2860,135 @@ begin
 end;
 
 procedure TMainForm.OpenProject(const FileName: string);
-var Ini: TIniFile; Count, I: Integer; ProjectUnitPath, FullName: string; Root: TTreeNode;
+var
+  Ini: TIniFile;
+  Count, I: Integer;
+  StoredPath, FullName, SelectedPath: string;
+  Units: TStringList;
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   if not FileExists(FileName) then
   begin
     UiMessageDlg(Format(Tr('Project not found: %s'), [FileName]), mtError, [mbOK], 0);
     Exit;
   end;
-  FProjectPath := ExpandFileName(FileName);
-  FProjectFiles.Clear;
-  FProjectTree.Items.Clear;
-  Ini := TIniFile.Create(FProjectPath);
+  SelectedPath := ExpandFileName(FileName);
+  Units := TStringList.Create;
   try
-    Count := Ini.ReadInteger('Project', 'UnitCount', 0);
-    Root := FProjectTree.Items.Add(nil, ExtractFileName(FProjectPath));
-    for I := 1 to Count do
-    begin
-      ProjectUnitPath := Ini.ReadString('Unit' + IntToStr(I), 'FileName', '');
-      if ProjectUnitPath = '' then Continue;
-      ProjectUnitPath := StringReplace(ProjectUnitPath, '\', DirectorySeparator, [rfReplaceAll]);
-      FullName := ExpandFileName(ExtractFilePath(FProjectPath) + ProjectUnitPath);
-      FProjectFiles.Add(FullName);
-      FProjectTree.Items.AddChild(Root, ExtractFileName(FullName));
+    try
+      ValidateProjectPath(SelectedPath);
+      Ini := TIniFile.Create(SelectedPath);
+      try
+        if not Ini.SectionExists('Project') then
+          raise EInOutError.Create(Tr('The selected file is not a Dev-C++ project.'));
+        Count := Ini.ReadInteger('Project', 'UnitCount', 0);
+        if (Count < 0) or (Count > 100000) then
+          raise EInOutError.Create(Tr('Invalid project unit count.'));
+        for I := 1 to Count do
+        begin
+          StoredPath := Ini.ReadString('Unit' + IntToStr(I), 'FileName', '');
+          if StoredPath = '' then Continue;
+          FullName := document_files.ProjectUnitPath(SelectedPath, StoredPath);
+          Units.Add(FullName);
+        end;
+      finally
+        Ini.Free;
+      end;
+    except
+      on E: Exception do
+      begin
+        UiMessageDlg(E.Message, mtError, [mbOK], 0);
+        Exit;
+      end;
     end;
-    Root.Expand(False);
+    { Load and validate the new project before asking to close the old one. }
+    if (FProjectPath <> '') and not SameDocumentPath(FProjectPath, SelectedPath) then
+      if not TryCloseProject then Exit;
+    FProjectPath := SelectedPath;
+    FProjectFiles.Assign(Units);
+    RefreshProjectTree;
+    RememberRecentPath(FProjectPath);
+    if FProjectFiles.Count > 0 then OpenFile(FProjectFiles[0]);
   finally
-    Ini.Free;
+    Units.Free;
   end;
-  Caption := ExtractFileName(FProjectPath) + ' - Dev-C++';
-  if FProjectFiles.Count > 0 then OpenFile(FProjectFiles[0]);
+end;
+
+procedure TMainForm.RefreshProjectTree;
+var Root: TTreeNode; I: Integer;
+begin
+  FProjectTree.Items.BeginUpdate;
+  try
+    FProjectTree.Items.Clear;
+    if FProjectPath <> '' then
+    begin
+      Root := FProjectTree.Items.Add(nil, ExtractFileName(FProjectPath));
+      for I := 0 to FProjectFiles.Count - 1 do
+        FProjectTree.Items.AddChild(Root, ExtractFileName(FProjectFiles[I]));
+      Root.Expand(False);
+    end;
+  finally
+    FProjectTree.Items.EndUpdate;
+  end;
+  if FProjectPath = '' then Caption := Tr('Dev-C++')
+  else Caption := ExtractFileName(FProjectPath) + ' - Dev-C++';
+end;
+
+function TMainForm.TryCloseProject: Boolean;
+var
+  ClosingDocs: TFPList;
+  I, J: Integer;
+  Doc: TDocument;
+  OldExecutable: string;
+begin
+  Result := False;
+  if FCompileActive then Exit;
+  if FProjectPath = '' then Exit(True);
+  ClosingDocs := TFPList.Create;
+  Inc(FDocumentDialogs);
+  try
+    for I := 0 to FDocs.Count - 1 do
+    begin
+      Doc := TDocument(FDocs[I]);
+      for J := 0 to FProjectFiles.Count - 1 do
+        if SameDocumentPath(Doc.FileName, FProjectFiles[J]) then
+        begin
+          ClosingDocs.Add(Doc);
+          Break;
+        end;
+    end;
+    { A cancelled prompt leaves the project and every tab open. }
+    for I := 0 to ClosingDocs.Count - 1 do
+      if not MayClose(TDocument(ClosingDocs[I])) then Exit;
+    OldExecutable := ChangeFileExt(FProjectPath, '');
+    for I := ClosingDocs.Count - 1 downto 0 do
+      DisposeDocument(TDocument(ClosingDocs[I]));
+    FProjectPath := '';
+    FProjectFiles.Clear;
+    if FLastExecutable = OldExecutable then FLastExecutable := '';
+    RefreshProjectTree;
+    UpdateStatus;
+    Result := True;
+  finally
+    Dec(FDocumentDialogs);
+    ClosingDocs.Free;
+  end;
+end;
+
+procedure TMainForm.CloseProjectClick(Sender: TObject);
+begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
+  TryCloseProject;
 end;
 
 procedure TMainForm.NewProjectClick(Sender: TObject);
 var
   Dialog: TSaveDialog;
-  Ini: TIniFile;
+  Ini: TMemIniFile;
   ProjectFilePath: string;
+  Snapshot: TFileSnapshot;
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Dialog := TSaveDialog.Create(Self);
   try
     Dialog.Title := Tr('Save');
@@ -2299,19 +3005,32 @@ begin
     UiMessageDlg(Tr('Choose a new project file name.'), mtInformation, [mbOK], 0);
     Exit;
   end;
-  Ini := TIniFile.Create(ProjectFilePath);
   try
-    Ini.WriteString('Project', 'FileName', ExtractFileName(ProjectFilePath));
-    Ini.WriteString('Project', 'Name', ChangeFileExt(ExtractFileName(ProjectFilePath), ''));
-    Ini.WriteInteger('Project', 'Type', 1);
-    Ini.WriteInteger('Project', 'Ver', 2);
-    Ini.WriteBool('Project', 'IsCpp', True);
-    Ini.WriteInteger('Project', 'UnitCount', 0);
-    Ini.WriteString('Project', 'Compiler', '');
-    Ini.WriteString('Project', 'CppCompiler', '');
-    Ini.WriteString('Project', 'Linker', '');
-  finally
-    Ini.Free;
+    ValidateProjectPath(ProjectFilePath);
+    Snapshot := CaptureFileSnapshot(ProjectFilePath);
+    if Snapshot.Present then
+      raise EInOutError.Create(Tr('Choose a new project file name.'));
+    Ini := TMemIniFile.Create(ProjectFilePath);
+    try
+      Ini.WriteString('Project', 'FileName', ExtractFileName(ProjectFilePath));
+      Ini.WriteString('Project', 'Name', ChangeFileExt(ExtractFileName(ProjectFilePath), ''));
+      Ini.WriteInteger('Project', 'Type', 1);
+      Ini.WriteInteger('Project', 'Ver', 2);
+      Ini.WriteBool('Project', 'IsCpp', True);
+      Ini.WriteInteger('Project', 'UnitCount', 0);
+      Ini.WriteString('Project', 'Compiler', '');
+      Ini.WriteString('Project', 'CppCompiler', '');
+      Ini.WriteString('Project', 'Linker', '');
+      WriteProjectIni(Ini, ProjectFilePath, Snapshot);
+    finally
+      Ini.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      UiMessageDlg(E.Message, mtError, [mbOK], 0);
+      Exit;
+    end;
   end;
   OpenProject(ProjectFilePath);
 end;
@@ -2319,30 +3038,45 @@ end;
 procedure TMainForm.AddProjectFileClick(Sender: TObject);
 var
   Dialog: TOpenDialog;
-  Ini: TIniFile;
-  I, UnitCount: Integer;
+  Ini: TMemIniFile;
+  I, J, UnitCount: Integer;
   SourcePath, UnitSection: string;
-  Added: Boolean;
+  Added, AlreadyPresent: Boolean;
+  Snapshot: TFileSnapshot;
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   if FProjectPath = '' then
   begin
     UiMessageDlg(Tr('Open or create a project first.'), mtInformation, [mbOK], 0);
     Exit;
   end;
   Dialog := TOpenDialog.Create(Self);
+  Added := False;
   try
+    try
     Dialog.Title := Tr('Open');
     Dialog.Filter := Tr('C/C++ files|*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*');
-    Dialog.Options := Dialog.Options + [ofAllowMultiSelect];
+    Dialog.Options := Dialog.Options + [ofAllowMultiSelect, ofFileMustExist];
     if not Dialog.Execute then Exit;
-    Ini := TIniFile.Create(FProjectPath);
+    Snapshot := CaptureFileSnapshot(FProjectPath);
+    Ini := TMemIniFile.Create(FProjectPath);
     try
       UnitCount := Ini.ReadInteger('Project', 'UnitCount', 0);
+      if (UnitCount < 0) or (UnitCount > 100000) then
+        raise EInOutError.Create(Tr('Invalid project unit count.'));
       Added := False;
       for I := 0 to Dialog.Files.Count - 1 do
       begin
         SourcePath := ExpandFileName(Dialog.Files[I]);
-        if FProjectFiles.IndexOf(SourcePath) >= 0 then Continue;
+        ValidateProjectPath(SourcePath);
+        AlreadyPresent := False;
+        for J := 0 to FProjectFiles.Count - 1 do
+          if SameDocumentPath(FProjectFiles[J], SourcePath) then
+          begin
+            AlreadyPresent := True;
+            Break;
+          end;
+        if AlreadyPresent then Continue;
         Inc(UnitCount);
         UnitSection := 'Unit' + IntToStr(UnitCount);
         Ini.WriteString(UnitSection, 'FileName',
@@ -2353,9 +3087,20 @@ begin
         Ini.WriteBool(UnitSection, 'Link', True);
         Added := True;
       end;
-      if Added then Ini.WriteInteger('Project', 'UnitCount', UnitCount);
+      if Added then
+      begin
+        Ini.WriteInteger('Project', 'UnitCount', UnitCount);
+        WriteProjectIni(Ini, FProjectPath, Snapshot);
+      end;
     finally
       Ini.Free;
+    end;
+    except
+      on E: Exception do
+      begin
+        Added := False;
+        UiMessageDlg(E.Message, mtError, [mbOK], 0);
+      end;
     end;
   finally
     Dialog.Free;
@@ -2365,12 +3110,14 @@ end;
 
 procedure TMainForm.RemoveProjectFileClick(Sender: TObject);
 var
-  Ini: TIniFile;
+  Ini: TMemIniFile;
   UnitValues: TStringList;
   Node: TTreeNode;
   UnitCount, UnitIndex, I, J, K: Integer;
   SourcePath, UnitSection: string;
+  Snapshot: TFileSnapshot;
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   if FProjectPath = '' then Exit;
   Node := FProjectTree.Selected;
   if (Node = nil) or (Node.Parent = nil) or
@@ -2378,38 +3125,49 @@ begin
   SourcePath := FProjectFiles[Node.Index];
   if UiMessageDlg(Format(Tr('Remove %s from project?'), [ExtractFileName(SourcePath)]),
     mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
-  Ini := TIniFile.Create(FProjectPath);
-  UnitValues := TStringList.Create;
   try
-    UnitCount := Ini.ReadInteger('Project', 'UnitCount', 0);
-    UnitIndex := 0;
-    for I := 1 to UnitCount do
-    begin
-      UnitSection := 'Unit' + IntToStr(I);
-      if ExpandFileName(ExtractFilePath(FProjectPath) +
-        StringReplace(Ini.ReadString(UnitSection, 'FileName', ''), '\',
-          DirectorySeparator, [rfReplaceAll])) = SourcePath then
+    Snapshot := CaptureFileSnapshot(FProjectPath);
+    Ini := TMemIniFile.Create(FProjectPath);
+    UnitValues := TStringList.Create;
+    try
+      UnitCount := Ini.ReadInteger('Project', 'UnitCount', 0);
+      if (UnitCount < 0) or (UnitCount > 100000) then
+        raise EInOutError.Create(Tr('Invalid project unit count.'));
+      UnitIndex := 0;
+      for I := 1 to UnitCount do
       begin
-        UnitIndex := I;
-        Break;
+        UnitSection := 'Unit' + IntToStr(I);
+        if SameDocumentPath(document_files.ProjectUnitPath(FProjectPath,
+          Ini.ReadString(UnitSection, 'FileName', '')), SourcePath) then
+        begin
+          UnitIndex := I;
+          Break;
+        end;
       end;
+      if UnitIndex = 0 then Exit;
+      for J := UnitIndex to UnitCount - 1 do
+      begin
+        UnitValues.Clear;
+        Ini.ReadSectionValues('Unit' + IntToStr(J + 1), UnitValues);
+        UnitSection := 'Unit' + IntToStr(J);
+        Ini.EraseSection(UnitSection);
+        for K := 0 to UnitValues.Count - 1 do
+          Ini.WriteString(UnitSection, UnitValues.Names[K],
+            UnitValues.ValueFromIndex[K]);
+      end;
+      Ini.EraseSection('Unit' + IntToStr(UnitCount));
+      Ini.WriteInteger('Project', 'UnitCount', UnitCount - 1);
+      WriteProjectIni(Ini, FProjectPath, Snapshot);
+    finally
+      UnitValues.Free;
+      Ini.Free;
     end;
-    if UnitIndex = 0 then Exit;
-    for J := UnitIndex to UnitCount - 1 do
+  except
+    on E: Exception do
     begin
-      UnitValues.Clear;
-      Ini.ReadSectionValues('Unit' + IntToStr(J + 1), UnitValues);
-      UnitSection := 'Unit' + IntToStr(J);
-      Ini.EraseSection(UnitSection);
-      for K := 0 to UnitValues.Count - 1 do
-        Ini.WriteString(UnitSection, UnitValues.Names[K],
-          UnitValues.ValueFromIndex[K]);
+      UiMessageDlg(E.Message, mtError, [mbOK], 0);
+      Exit;
     end;
-    Ini.EraseSection('Unit' + IntToStr(UnitCount));
-    Ini.WriteInteger('Project', 'UnitCount', UnitCount - 1);
-  finally
-    UnitValues.Free;
-    Ini.Free;
   end;
   OpenProject(FProjectPath);
 end;
@@ -2424,33 +3182,42 @@ end;
 
 procedure TMainForm.ProjectOptionsClick(Sender: TObject);
 var
-  Ini: TIniFile;
+  Ini: TMemIniFile;
   CFlags, CppFlags, LinkFlags: string;
+  Snapshot: TFileSnapshot;
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   if FProjectPath = '' then
   begin
     UiMessageDlg(Tr('Open or create a project first.'), mtInformation, [mbOK], 0);
     Exit;
   end;
-  Ini := TIniFile.Create(FProjectPath);
   try
-    CFlags := Ini.ReadString('Project', 'Compiler', '');
-    CppFlags := Ini.ReadString('Project', 'CppCompiler', '');
-    LinkFlags := Ini.ReadString('Project', 'Linker', '');
-    if not UiInputQuery(Tr('Project Options'), Tr('Additional C flags:'), CFlags) then Exit;
-    if not UiInputQuery(Tr('Project Options'), Tr('Additional C++ flags:'), CppFlags) then Exit;
-    if not UiInputQuery(Tr('Project Options'), Tr('Additional linker flags:'), LinkFlags) then Exit;
-    Ini.WriteString('Project', 'Compiler', CFlags);
-    Ini.WriteString('Project', 'CppCompiler', CppFlags);
-    Ini.WriteString('Project', 'Linker', LinkFlags);
-  finally
-    Ini.Free;
+    Snapshot := CaptureFileSnapshot(FProjectPath);
+    Ini := TMemIniFile.Create(FProjectPath);
+    try
+      CFlags := Ini.ReadString('Project', 'Compiler', '');
+      CppFlags := Ini.ReadString('Project', 'CppCompiler', '');
+      LinkFlags := Ini.ReadString('Project', 'Linker', '');
+      if not UiInputQuery(Tr('Project Options'), Tr('Additional C flags:'), CFlags) then Exit;
+      if not UiInputQuery(Tr('Project Options'), Tr('Additional C++ flags:'), CppFlags) then Exit;
+      if not UiInputQuery(Tr('Project Options'), Tr('Additional linker flags:'), LinkFlags) then Exit;
+      Ini.WriteString('Project', 'Compiler', CFlags);
+      Ini.WriteString('Project', 'CppCompiler', CppFlags);
+      Ini.WriteString('Project', 'Linker', LinkFlags);
+      WriteProjectIni(Ini, FProjectPath, Snapshot);
+    finally
+      Ini.Free;
+    end;
+  except
+    on E: Exception do UiMessageDlg(E.Message, mtError, [mbOK], 0);
   end;
 end;
 
 procedure TMainForm.ProjectDoubleClick(Sender: TObject);
 var Node: TTreeNode; I: Integer;
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Node := FProjectTree.Selected;
   if (Node = nil) or (Node.Parent = nil) then Exit;
   I := Node.Index;
@@ -2464,176 +3231,170 @@ begin
   if FOptionsPath = '' then FOptionsPath := ExtractFilePath(ParamStr(0))
   else FOptionsPath := IncludeTrailingPathDelimiter(FOptionsPath) + '.config';
   FOptionsPath := IncludeTrailingPathDelimiter(FOptionsPath) + 'devcpp-noi.ini';
-  FCCompiler := 'gcc';
-  FCppCompiler := 'g++';
-  FCFlags := '-g -O2 -Wall -Wextra';
-  FCppFlags := '-g -O2 -std=c++14 -Wall -Wextra';
-  FLinkerFlags := '';
+  FCompilerProfiles := TCompilerProfiles.Create;
+  FEditorFontName := DefaultEditorFontName;
+  FEditorThemeName := EditorThemeName(0);
   ForceDirectories(ExtractFileDir(FOptionsPath));
   Ini := TIniFile.Create(FOptionsPath);
   try
-    FCCompiler := Ini.ReadString('Compiler', 'C', FCCompiler);
-    FCppCompiler := Ini.ReadString('Compiler', 'Cpp', FCppCompiler);
-    FCFlags := Ini.ReadString('Compiler', 'CFlags', FCFlags);
-    FCppFlags := Ini.ReadString('Compiler', 'CppFlags', FCppFlags);
-    if FCppFlags = '-g -Wall -Wextra' then
-      FCppFlags := '-g -O2 -std=c++14 -Wall -Wextra';
-    if FCFlags = '-g -Wall -Wextra' then
-      FCFlags := '-g -O2 -Wall -Wextra';
-    FLinkerFlags := Ini.ReadString('Compiler', 'LinkerFlags', FLinkerFlags);
+    FCompilerProfiles.Load(Ini);
+    { Persist migration before editing, leaving the legacy [Compiler] intact. }
+    FCompilerProfiles.Save(Ini);
+    FEditorFontName := Ini.ReadString('Editor', 'FontName', FEditorFontName);
+    if Trim(FEditorFontName) = '' then FEditorFontName := DefaultEditorFontName;
+    FEditorThemeName := EditorThemeName(EditorThemeIndex(
+      Ini.ReadString('Editor', 'Theme', FEditorThemeName)));
     FEditorFontSize := Max(1, Min(72,
       Ini.ReadInteger('Editor', 'FontSize', FEditorFontSize)));
     FEditorTabWidth := Max(1, Min(16,
       Ini.ReadInteger('Editor', 'TabWidth', FEditorTabWidth)));
   finally Ini.Free; end;
+  ActivateCompilerProfile(FCompilerProfiles.ActiveIndex, False);
+end;
+
+procedure TMainForm.SaveCompilerProfiles;
+var Ini: TIniFile;
+begin
+  Ini := TIniFile.Create(FOptionsPath);
+  try FCompilerProfiles.Save(Ini); finally Ini.Free; end;
+end;
+
+procedure TMainForm.ActivateCompilerProfile(Index: Integer; Persist: Boolean);
+var Profile: TCompilerProfile;
+begin
+  if (FCompilerProfiles = nil) or (Index < 0) or (Index >= FCompilerProfiles.Count) then Exit;
+  FCompilerProfiles.ActiveIndex := Index;
+  Profile := FCompilerProfiles[Index];
+  FCCompiler := Profile.CCompiler;
+  FCppCompiler := Profile.CppCompiler;
+  FCFlags := Profile.CFlags;
+  FCppFlags := Profile.CppFlags;
+  FLinkerFlags := Profile.LinkerFlags;
+  if FCompilerProfileCombo <> nil then FCompilerProfileCombo.ItemIndex := Index;
+  if Persist then SaveCompilerProfiles;
+end;
+
+procedure TMainForm.PopulateCompilerProfiles(Combo: TComboBox);
+var I: Integer;
+begin
+  FCompilerProfileCombo := Combo;
+  if (Combo = nil) or (FCompilerProfiles = nil) then Exit;
+  Combo.Items.BeginUpdate;
+  try
+    Combo.Items.Clear;
+    for I := 0 to FCompilerProfiles.Count - 1 do Combo.Items.Add(FCompilerProfiles[I].Name);
+    Combo.ItemIndex := FCompilerProfiles.ActiveIndex;
+  finally Combo.Items.EndUpdate; end;
+end;
+
+procedure TMainForm.CompilerProfileChange(Sender: TObject);
+begin
+  if not (Sender is TComboBox) then Exit;
+  if FCompileActive then
+  begin
+    TComboBox(Sender).ItemIndex := FCompilerProfiles.ActiveIndex;
+    Exit;
+  end;
+  ActivateCompilerProfile(TComboBox(Sender).ItemIndex, True);
+end;
+
+procedure TMainForm.InitializeEditorThemes(ParentMenu: TMenuItem);
+var I: Integer; Item: TMenuItem;
+begin
+  if ParentMenu = nil then Exit;
+  FEditorThemeMenu := TMenuItem.Create(Self);
+  FEditorThemeMenu.Caption := Tr('Editor &Theme');
+  ParentMenu.Add(FEditorThemeMenu);
+  for I := 0 to EditorThemeCount - 1 do
+  begin
+    Item := TMenuItem.Create(Self);
+    Item.Caption := EditorThemeName(I);
+    Item.Tag := I;
+    Item.RadioItem := True;
+    Item.GroupIndex := 42;
+    Item.Checked := I = EditorThemeIndex(FEditorThemeName);
+    Item.OnClick := @ThemeClick;
+    FEditorThemeMenu.Add(Item);
+  end;
+end;
+
+procedure TMainForm.ThemeClick(Sender: TObject);
+begin
+  if not (Sender is TMenuItem) then Exit;
+  FEditorThemeName := EditorThemeName(TMenuItem(Sender).Tag);
+  ApplyAllEditorSettings;
+  SaveEditorSettings;
+end;
+
+procedure TMainForm.ApplyDocumentEditorSettings(Doc: TDocument);
+begin
+  Doc.Editor.Font.Name := FEditorFontName;
+  Doc.Editor.Font.Size := FEditorFontSize;
+  Doc.Editor.Font.Style := [];
+  Doc.Editor.TabWidth := FEditorTabWidth;
+  Doc.PreferredColumn := 0;
+  ApplyEditorTheme(Doc.Editor, Doc.Syntax, Doc.Syntax.BracketAttri,
+    Doc.Syntax.CharacterAttri,
+    FEditorThemeName, Doc.ThemeColors);
+end;
+
+procedure TMainForm.ApplyAllEditorSettings;
+var I: Integer;
+begin
+  for I := 0 to FDocs.Count - 1 do ApplyDocumentEditorSettings(TDocument(FDocs[I]));
+  if FEditorThemeMenu <> nil then
+    for I := 0 to FEditorThemeMenu.Count - 1 do
+      FEditorThemeMenu.Items[I].Checked := FEditorThemeMenu.Items[I].Tag =
+        EditorThemeIndex(FEditorThemeName);
+end;
+
+procedure TMainForm.SaveEditorSettings;
+var Ini: TIniFile;
+begin
+  Ini := TIniFile.Create(FOptionsPath);
+  try
+    Ini.WriteString('Editor', 'Theme', FEditorThemeName);
+    Ini.WriteString('Editor', 'FontName', FEditorFontName);
+    Ini.WriteInteger('Editor', 'FontSize', FEditorFontSize);
+    Ini.WriteInteger('Editor', 'TabWidth', FEditorTabWidth);
+  finally Ini.Free; end;
 end;
 
 procedure TMainForm.AddCompilerFlags(Args: TStrings; const FlagText: string);
-var Parts: TStringList; I: Integer;
+var Parts: TStringList; I: Integer; ErrorText: string;
 begin
   Parts := TStringList.Create;
   try
-    Parts.Delimiter := ' ';
-    Parts.QuoteChar := '"';
-    Parts.StrictDelimiter := False;
-    Parts.DelimitedText := Trim(FlagText);
+    if not ParseRunArguments(FlagText, Parts, ErrorText) then
+      raise Exception.Create(Tr(ErrorText));
     for I := 0 to Parts.Count - 1 do
-      if Parts[I] <> '' then Args.Add(Parts[I]);
+      Args.Add(Parts[I]);
   finally Parts.Free; end;
 end;
 
 procedure TMainForm.CompilerOptionsClick(Sender: TObject);
-var
-  Dialog: TForm;
-  CEdit, CppEdit, CFlagsEdit, CppFlagsEdit, LinkEdit: TEdit;
-  OkButton, CancelButton: TButton;
-  Ini: TIniFile;
-  NextFieldTop, PreferredWidth, PreferredHeight, ButtonTop, ButtonHeight: Integer;
-
-  function AddField(const LabelText, FieldValue: string; Y: Integer): TEdit;
-  var LabelControl: TLabel; FieldWidth, FieldHeight: Integer;
-  begin
-    LabelControl := TLabel.Create(Dialog);
-    LabelControl.Parent := Dialog;
-    LabelControl.AutoSize := False;
-    LabelControl.WordWrap := True;
-    LabelControl.Caption := Tr(LabelText);
-    LabelControl.SetBounds(12, NextFieldTop, Dialog.ClientWidth - 24, 28);
-    FieldWidth := 0;
-    FieldHeight := 0;
-    LabelControl.GetPreferredSize(FieldWidth, FieldHeight);
-    LabelControl.Height := Max(28, FieldHeight) + 8;
-    Result := TEdit.Create(Dialog);
-    Result.Parent := Dialog;
-    Result.Text := FieldValue;
-    FieldWidth := 0;
-    FieldHeight := 0;
-    Result.GetPreferredSize(FieldWidth, FieldHeight);
-    Result.SetBounds(12, NextFieldTop + LabelControl.Height + 4,
-      Dialog.ClientWidth - 24, Max(32, FieldHeight + 8));
-    NextFieldTop := Result.Top + Result.Height + 12;
-  end;
-
 begin
-  Dialog := TForm.CreateNew(Self, 0);
-  try
-    Dialog.Caption := Tr('Compiler Options');
-    Dialog.BorderStyle := bsDialog;
-    Dialog.Position := poMainFormCenter;
-    Dialog.ClientWidth := 712;
-    Dialog.ClientHeight := 266;
-    NextFieldTop := 14;
-    CEdit := AddField('C compiler:', FCCompiler, 14);
-    CppEdit := AddField('C++ compiler:', FCppCompiler, 54);
-    CFlagsEdit := AddField('C compile flags:', FCFlags, 94);
-    CppFlagsEdit := AddField('C++ flags (e.g. -std=c++14):', FCppFlags, 134);
-    LinkEdit := AddField('Linux linker flags:', FLinkerFlags, 174);
-    ButtonTop := NextFieldTop + 8;
-    OkButton := TButton.Create(Dialog);
-    OkButton.Parent := Dialog;
-    OkButton.Caption := Tr('OK');
-    OkButton.ModalResult := mrOK;
-    OkButton.Default := True;
-    PreferredWidth := 0;
-    PreferredHeight := 0;
-    OkButton.GetPreferredSize(PreferredWidth, PreferredHeight);
-    ButtonHeight := Max(36, PreferredHeight + 12);
-    OkButton.SetBounds(528, ButtonTop, Max(90, PreferredWidth + 24), ButtonHeight);
-    CancelButton := TButton.Create(Dialog);
-    CancelButton.Parent := Dialog;
-    CancelButton.Caption := Tr('Cancel');
-    CancelButton.ModalResult := mrCancel;
-    CancelButton.Cancel := True;
-    PreferredWidth := 0;
-    PreferredHeight := 0;
-    CancelButton.GetPreferredSize(PreferredWidth, PreferredHeight);
-    ButtonHeight := Max(ButtonHeight, PreferredHeight + 12);
-    OkButton.Height := ButtonHeight;
-    CancelButton.SetBounds(618, ButtonTop, Max(90, PreferredWidth + 24), ButtonHeight);
-    CancelButton.Left := Dialog.ClientWidth - CancelButton.Width - 12;
-    OkButton.Left := CancelButton.Left - OkButton.Width - 10;
-    Dialog.ClientHeight := ButtonTop + ButtonHeight + 12;
-    if Dialog.ShowModal <> mrOK then Exit;
-    if (Trim(CEdit.Text) = '') or (Trim(CppEdit.Text) = '') then
-    begin UiMessageDlg(Tr('Compiler command cannot be empty.'), mtError, [mbOK], 0); Exit; end;
-    FCCompiler := Trim(CEdit.Text);
-    FCppCompiler := Trim(CppEdit.Text);
-    FCFlags := Trim(CFlagsEdit.Text);
-    FCppFlags := Trim(CppFlagsEdit.Text);
-    FLinkerFlags := Trim(LinkEdit.Text);
-    ForceDirectories(ExtractFileDir(FOptionsPath));
-    Ini := TIniFile.Create(FOptionsPath);
-    try
-      Ini.WriteString('Compiler', 'C', FCCompiler);
-      Ini.WriteString('Compiler', 'Cpp', FCppCompiler);
-      Ini.WriteString('Compiler', 'CFlags', FCFlags);
-      Ini.WriteString('Compiler', 'CppFlags', FCppFlags);
-      Ini.WriteString('Compiler', 'LinkerFlags', FLinkerFlags);
-    finally Ini.Free; end;
-  finally Dialog.Free; end;
+  if FCompileActive then Exit;
+  if not EditCompilerProfiles(Self, FCompilerProfiles) then Exit;
+  ActivateCompilerProfile(FCompilerProfiles.ActiveIndex, False);
+  SaveCompilerProfiles;
+  PopulateCompilerProfiles(FCompilerProfileCombo);
 end;
 
 procedure TMainForm.EditorOptionsClick(Sender: TObject);
-var
-  SizeInput, WidthInput: string;
-  NewFontSize, NewTabWidth, I: Integer;
-  Ini: TIniFile;
 begin
-  SizeInput := IntToStr(FEditorFontSize);
-  WidthInput := IntToStr(FEditorTabWidth);
-  if not UiInputQuery(Tr('Editor Options'), Tr('Font size (1-72):'), SizeInput) then Exit;
-  if not UiInputQuery(Tr('Editor Options'), Tr('Tab width (1-16):'), WidthInput) then Exit;
-  if not TryStrToInt(SizeInput, NewFontSize) or
-    not TryStrToInt(WidthInput, NewTabWidth) or
-    (NewFontSize < 1) or (NewFontSize > 72) or
-    (NewTabWidth < 1) or (NewTabWidth > 16) then
-  begin
-    UiMessageDlg(Tr('Enter a valid font size and tab width.'), mtError, [mbOK], 0);
-    Exit;
-  end;
-  FEditorFontSize := NewFontSize;
-  FEditorTabWidth := NewTabWidth;
-  for I := 0 to FDocs.Count - 1 do
-  begin
-    TDocument(FDocs[I]).Editor.Font.Size := FEditorFontSize;
-    TDocument(FDocs[I]).Editor.TabWidth := FEditorTabWidth;
-    TDocument(FDocs[I]).PreferredColumn := 0;
-  end;
-  Ini := TIniFile.Create(FOptionsPath);
-  try
-    Ini.WriteInteger('Editor', 'FontSize', FEditorFontSize);
-    Ini.WriteInteger('Editor', 'TabWidth', FEditorTabWidth);
-  finally
-    Ini.Free;
-  end;
+  if not EditEditorSettings(Self, FEditorThemeName, FEditorFontName,
+    FEditorFontSize, FEditorTabWidth) then Exit;
+  ApplyAllEditorSettings;
+  SaveEditorSettings;
 end;
 
 procedure TMainForm.PopulateDiagnostics(const CompilerOutput: string);
 var
   Rows: TStringList;
   Entry: TListItem;
-  I, P1, P2, P3, SourceRow, SourceCol: Integer;
-  SourceLine, SourcePath, Detail: string;
+  I, SourceRow, SourceCol: Integer;
+  SourcePath, Detail: string;
 begin
   Rows := TStringList.Create;
   try
@@ -2642,25 +3403,15 @@ begin
     try
       FCompilerList.Items.Clear;
       for I := 0 to Rows.Count - 1 do
-      begin
-        SourceLine := Rows[I];
-        P1 := Pos(':', SourceLine);
-        if P1 = 0 then Continue;
-        P2 := PosEx(':', SourceLine, P1 + 1);
-        if (P2 = 0) or not TryStrToInt(Copy(SourceLine, P1 + 1, P2 - P1 - 1), SourceRow) then Continue;
-        P3 := PosEx(':', SourceLine, P2 + 1);
-        SourceCol := 1;
-        if (P3 > 0) and TryStrToInt(Copy(SourceLine, P2 + 1, P3 - P2 - 1), SourceCol) then
-          Detail := Trim(Copy(SourceLine, P3 + 1, MaxInt))
-        else
-          Detail := Trim(Copy(SourceLine, P2 + 1, MaxInt));
-        SourcePath := Copy(SourceLine, 1, P1 - 1);
-        Entry := FCompilerList.Items.Add;
-        Entry.Caption := IntToStr(SourceRow);
-        Entry.SubItems.Add(IntToStr(SourceCol));
-        Entry.SubItems.Add(SourcePath);
-        Entry.SubItems.Add(Detail);
-      end;
+        if ParseCompilerDiagnostic(Rows[I], FCompileDirectory,
+          SourcePath, SourceRow, SourceCol, Detail) then
+        begin
+          Entry := FCompilerList.Items.Add;
+          Entry.Caption := IntToStr(SourceRow);
+          Entry.SubItems.Add(IntToStr(SourceCol));
+          Entry.SubItems.Add(SourcePath);
+          Entry.SubItems.Add(Detail);
+        end;
     finally
       FCompilerList.Items.EndUpdate;
     end;
@@ -2672,8 +3423,11 @@ begin
 end;
 
 procedure TMainForm.ErrorDoubleClick(Sender: TObject);
-var Entry: TListItem; SourceRow, SourceCol: Integer; Doc: TDocument;
-    SourceText: string;
+var
+  Entry: TListItem;
+  SourceRow, SourceCol, MatchLength, EndColumn: Integer;
+  Doc: TDocument;
+  SourceText: string;
 begin
   Entry := FCompilerList.Selected;
   if (Entry = nil) or (Entry.SubItems.Count < 2) then Exit;
@@ -2683,24 +3437,35 @@ begin
   begin
     Doc := TDocument(Entry.Data);
     if FDocs.IndexOf(Doc) < 0 then Exit;
+    if ((Doc.FileName <> '') and (Entry.SubItems[1] <> Doc.FileName)) or
+      ((Doc.FileName = '') and (Entry.SubItems[1] <> Doc.UntitledName)) then Exit;
+    if Doc.Editor.Lines.Count = 0 then Exit;
+    SourceRow := Max(1, Min(SourceRow, Doc.Editor.Lines.Count));
+    SourceText := Doc.Editor.Lines[SourceRow - 1];
+    SourceCol := ClampUtf8ByteColumn(SourceText, SourceCol);
+    MatchLength := Length(FFindText);
+    if Entry.SubItems.Count >= 4 then
+      MatchLength := Max(0, StrToIntDef(Entry.SubItems[3], MatchLength));
+    EndColumn := ClampUtf8ByteColumn(SourceText,
+      Min(Length(SourceText) + 1, SourceCol + MatchLength));
     FPages.ActivePage := Doc.Tab;
-    Doc.Editor.LogicalCaretXY := Point(SourceCol, SourceRow);
+    Doc.Editor.LogicalCaretXY := Point(EndColumn, SourceRow);
     Doc.Editor.BlockBegin := Point(SourceCol, SourceRow);
-    Doc.Editor.BlockEnd := Point(SourceCol + Length(FFindText), SourceRow);
+    Doc.Editor.BlockEnd := Point(EndColumn, SourceRow);
     Doc.Editor.SetFocus;
     Exit;
   end;
   if not FileExists(Entry.SubItems[1]) then Exit;
   OpenFile(Entry.SubItems[1]);
-  Doc := CurrentDoc;
-  if Doc <> nil then
+  Doc := FindDoc(Entry.SubItems[1]);
+  if (Doc <> nil) and (Doc.Editor.Lines.Count > 0) then
   begin
-    if SourceRow < 1 then SourceRow := 1;
-    if SourceRow > Doc.Editor.Lines.Count then SourceRow := Doc.Editor.Lines.Count;
-    if SourceRow < 1 then Exit;
+    SourceRow := Max(1, Min(SourceRow, Doc.Editor.Lines.Count));
     SourceText := Doc.Editor.Lines[SourceRow - 1];
-    if SourceCol < 1 then SourceCol := 1;
-    if SourceCol > Length(SourceText) + 1 then SourceCol := Length(SourceText) + 1;
+    { The target GCC 9.3 reports byte columns, as used by LogicalCaretXY.
+      Do not turn a Chinese character's byte offset into a second offset. }
+    SourceCol := ClampUtf8ByteColumn(SourceText, SourceCol);
+    FPages.ActivePage := Doc.Tab;
     Doc.Editor.LogicalCaretXY := Point(SourceCol, SourceRow);
     Doc.Editor.BlockBegin := Point(SourceCol, SourceRow);
     Doc.Editor.BlockEnd := Point(SourceCol, SourceRow);
@@ -2714,6 +3479,7 @@ end;
 procedure TMainForm.OpenClick(Sender: TObject);
 var Dialog: TOpenDialog;
 begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Dialog := TOpenDialog.Create(Self);
   try
     Dialog.Title := Tr('Open');
@@ -2727,40 +3493,123 @@ begin
 end;
 
 function TMainForm.SaveDoc(Doc: TDocument): Boolean;
-var Dialog: TSaveDialog; SelectedPath: string;
+begin
+  Result := SaveDocument(Doc, False);
+end;
+
+function TMainForm.SaveDocument(Doc: TDocument; SaveAs: Boolean): Boolean;
+var
+  Dialog: TSaveDialog;
+  SelectedPath, OldName: string;
+  ExistingDoc: TDocument;
+  CurrentSnapshot, SavedSnapshot: TFileSnapshot;
+  I: Integer;
+  ExistingIdentity, ProjectMember, ProjectChanged: Boolean;
 begin
   Result := False;
-  if Doc = nil then Exit;
-  if Doc.FileName = '' then
-  begin
-    Dialog := TSaveDialog.Create(Self);
+  if (Doc = nil) or (FDocs.IndexOf(Doc) < 0) then Exit;
+  Inc(FDocumentDialogs);
+  try
     try
-      Dialog.Title := Tr('Save');
-      Dialog.Options := Dialog.Options - [ofOverwritePrompt];
-      Dialog.DefaultExt := 'cpp';
-      Dialog.Filter := Tr('C/C++ source|*.cpp;*.c;*.h;*.hpp|All files|*');
-      Dialog.FileName := Doc.UntitledName;
-      if ExtractFileExt(Dialog.FileName) = '' then
-        Dialog.FileName := Dialog.FileName + '.cpp';
-      if not Dialog.Execute then Exit;
-      SelectedPath := ExpandFileName(Dialog.FileName);
-      if FileExists(SelectedPath) then
+      OldName := Doc.FileName;
+      SelectedPath := OldName;
+      if SaveAs or (SelectedPath = '') then
+      begin
+        Dialog := TSaveDialog.Create(Self);
+        try
+          Dialog.Title := Tr('Save');
+          Dialog.Options := Dialog.Options - [ofOverwritePrompt];
+          Dialog.DefaultExt := 'cpp';
+          Dialog.Filter := Tr('C/C++ source|*.cpp;*.c;*.h;*.hpp|All files|*');
+          if OldName <> '' then Dialog.FileName := OldName
+          else Dialog.FileName := Doc.UntitledName;
+          if ExtractFileExt(Dialog.FileName) = '' then
+            Dialog.FileName := Dialog.FileName + '.cpp';
+          if not Dialog.Execute then Exit;
+          SelectedPath := ExpandFileName(Dialog.FileName);
+        finally
+          Dialog.Free;
+        end;
+      end;
+      ExistingDoc := FindDoc(SelectedPath);
+      if (ExistingDoc <> nil) and (ExistingDoc <> Doc) then
+      begin
+        UiMessageDlg(Format(Tr('The file %s is already open in another tab. Close that tab before saving here.'),
+          [SelectedPath]), mtError, [mbOK], 0);
+        Exit;
+      end;
+      if (FProjectPath <> '') and SameDocumentPath(SelectedPath, FProjectPath) then
+      begin
+        UiMessageDlg(Tr('A source file cannot overwrite the active project file.'), mtError, [mbOK], 0);
+        Exit;
+      end;
+      CurrentSnapshot := CaptureFileSnapshot(SelectedPath);
+      ExistingIdentity := (OldName <> '') and SameDocumentPath(OldName, SelectedPath);
+      if ExistingIdentity and not SameFileSnapshot(CurrentSnapshot, Doc.DiskSnapshot) then
+      begin
+        if UiMessageDlg(Format(Tr('File %s was changed or removed outside Dev-C++.' + LineEnding +
+          'Overwrite the disk version with the editor contents?'), [SelectedPath]),
+          mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+      end
+      else if CurrentSnapshot.Present and not ExistingIdentity then
         if UiMessageDlg(Format(Tr('File %s already exists. Overwrite?'),
           [SelectedPath]), mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+
+      ProjectMember := False;
+      if (FProjectPath <> '') and (OldName <> '') and (OldName <> SelectedPath) then
+        for I := 0 to FProjectFiles.Count - 1 do
+          if SameDocumentPath(FProjectFiles[I], OldName) then
+          begin
+            ProjectMember := True;
+            Break;
+          end;
+      if ProjectMember then ValidateProjectPath(SelectedPath);
+      AtomicSaveDocumentChecked(Doc.Editor.Lines, SelectedPath,
+        CurrentSnapshot, SavedSnapshot);
+      ProjectChanged := False;
+      if ProjectMember then
+      begin
+        try
+          if not UpdateProjectFileReference(FProjectPath, OldName, SelectedPath) then
+            raise EInOutError.Create(Tr('The project entry changed. Reload the project before renaming this file.'));
+        except
+          on E: Exception do
+          begin
+            UiMessageDlg(Format(Tr('The source was saved to %s, but the project could not be updated: %s' + LineEnding +
+              'The editor still refers to %s.'), [SelectedPath, E.Message, OldName]),
+              mtError, [mbOK], 0);
+            Exit;
+          end;
+        end;
+        for I := 0 to FProjectFiles.Count - 1 do
+          if SameDocumentPath(FProjectFiles[I], OldName) then
+            FProjectFiles[I] := SelectedPath;
+        ProjectChanged := True;
+      end;
+      { Commit the editor identity only after the file and project write succeed. }
       Doc.FileName := SelectedPath;
-    finally Dialog.Free; end;
+      if FDebugger <> nil then
+      begin
+        FDebugger.Session.RenameBreakpoints(OldName, SelectedPath);
+        FDebugger.RefreshBreakpoints;
+      end;
+      Doc.DiskSnapshot := SavedSnapshot;
+      Doc.SeenDiskSnapshot := SavedSnapshot;
+      Doc.Dirty := False;
+      Doc.MissingNotified := False;
+      Doc.KeepBufferConflict := False;
+      Doc.Editor.Modified := False;
+      UpdateTab(Doc);
+      if ProjectChanged then RefreshProjectTree;
+      RememberRecentPath(Doc.FileName);
+      Result := True;
+    except
+      on E: Exception do UiMessageDlg(E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    Dec(FDocumentDialogs);
+    UpdateStatus;
   end;
-  try
-    Doc.Editor.Lines.SaveToFile(Doc.FileName);
-    Doc.Dirty := False;
-    Doc.MissingNotified := False;
-    Doc.Editor.Modified := False;
-    UpdateTab(Doc);
-    Result := True;
-  except
-    on E: Exception do UiMessageDlg(E.Message, mtError, [mbOK], 0);
-  end;
-  UpdateStatus;
 end;
 
 function TMainForm.SaveAllDocs: Boolean;
@@ -2768,7 +3617,7 @@ var I: Integer;
 begin
   Result := False;
   for I := 0 to FDocs.Count - 1 do
-    if TDocument(FDocs[I]).Dirty then
+    if TDocument(FDocs[I]).Dirty or TDocument(FDocs[I]).Editor.Modified then
     begin
       FPages.ActivePage := TDocument(FDocs[I]).Tab;
       if not SaveDoc(TDocument(FDocs[I])) then Exit;
@@ -2777,19 +3626,15 @@ begin
 end;
 
 procedure TMainForm.SaveClick(Sender: TObject);
-begin SaveDoc(CurrentDoc); end;
+begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
+  SaveDoc(CurrentDoc);
+end;
 
 procedure TMainForm.SaveAsClick(Sender: TObject);
-var Doc: TDocument; OldName, OldUntitled: string;
 begin
-  Doc := CurrentDoc;
-  if Doc = nil then Exit;
-  OldName := Doc.FileName;
-  OldUntitled := Doc.UntitledName;
-  if OldName <> '' then Doc.UntitledName := ExtractFileName(OldName);
-  Doc.FileName := '';
-  if not SaveDoc(Doc) then Doc.FileName := OldName;
-  Doc.UntitledName := OldUntitled;
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
+  SaveDocument(CurrentDoc, True);
 end;
 
 procedure TMainForm.OpenFolderClick(Sender: TObject);
@@ -2844,48 +3689,19 @@ begin
 end;
 
 procedure TMainForm.CommentClick(Sender: TObject);
-var
-  Doc: TDocument;
-  FirstRow, LastRow, I: Integer;
+var Doc: TDocument;
 begin
   Doc := CurrentDoc;
-  if Doc = nil then Exit;
-  FirstRow := Doc.Editor.CaretY;
-  LastRow := FirstRow;
-  if Doc.Editor.SelAvail then
-  begin
-    FirstRow := Doc.Editor.BlockBegin.Y;
-    LastRow := Doc.Editor.BlockEnd.Y;
-  end;
-  if (LastRow > FirstRow) and (Doc.Editor.BlockEnd.X = 1) then Dec(LastRow);
-  for I := FirstRow - 1 to LastRow - 1 do
-    Doc.Editor.Lines[I] := '//' + Doc.Editor.Lines[I];
+  if (Doc = nil) or FCompileActive then Exit;
+  CommentEditorLines(Doc.Editor, False);
 end;
 
 procedure TMainForm.UncommentClick(Sender: TObject);
-var
-  Doc: TDocument;
-  FirstRow, LastRow, I, P: Integer;
-  S: string;
+var Doc: TDocument;
 begin
   Doc := CurrentDoc;
-  if Doc = nil then Exit;
-  FirstRow := Doc.Editor.CaretY;
-  LastRow := FirstRow;
-  if Doc.Editor.SelAvail then
-  begin
-    FirstRow := Doc.Editor.BlockBegin.Y;
-    LastRow := Doc.Editor.BlockEnd.Y;
-  end;
-  if (LastRow > FirstRow) and (Doc.Editor.BlockEnd.X = 1) then Dec(LastRow);
-  for I := FirstRow - 1 to LastRow - 1 do
-  begin
-    S := Doc.Editor.Lines[I];
-    P := 1;
-    while (P <= Length(S)) and (S[P] in [' ', #9]) do Inc(P);
-    if Copy(S, P, 2) = '//' then
-      Doc.Editor.Lines[I] := Copy(S, 1, P - 1) + Copy(S, P + 2, MaxInt);
-  end;
+  if (Doc = nil) or FCompileActive then Exit;
+  CommentEditorLines(Doc.Editor, True);
 end;
 
 procedure TMainForm.ToggleCommentClick(Sender: TObject);
@@ -2896,7 +3712,7 @@ var
   AllCommented: Boolean;
 begin
   Doc := CurrentDoc;
-  if Doc = nil then Exit;
+  if (Doc = nil) or FCompileActive then Exit;
   FirstRow := Doc.Editor.CaretY;
   LastRow := FirstRow;
   if Doc.Editor.SelAvail then
@@ -2926,7 +3742,7 @@ var
   Wrapped: Boolean;
 begin
   Doc := CurrentDoc;
-  if (Doc = nil) or not Doc.Editor.SelAvail then Exit;
+  if (Doc = nil) or FCompileActive or not Doc.Editor.SelAvail then Exit;
   StartPoint := Doc.Editor.BlockBegin;
   EndPoint := Doc.Editor.BlockEnd;
   S := Doc.Editor.SelText;
@@ -2951,81 +3767,115 @@ begin
     Replacement := '/*' + S + '*/';
     Wrapped := True;
   end;
-  Doc.Editor.SelText := Replacement;
-  EndPoint := Doc.Editor.LogicalCaretXY;
-  if Wrapped then
-  begin
-    Inc(StartPoint.X, 2);
-    Dec(EndPoint.X, 2);
+  Doc.Editor.BeginUndoBlock;
+  try
+    Doc.Editor.SelText := Replacement;
+    EndPoint := Doc.Editor.LogicalCaretXY;
+    if Wrapped then
+    begin
+      Inc(StartPoint.X, 2);
+      Dec(EndPoint.X, 2);
+    end;
+    Doc.Editor.BlockBegin := StartPoint;
+    Doc.Editor.BlockEnd := EndPoint;
+  finally
+    Doc.Editor.EndUndoBlock;
   end;
-  Doc.Editor.BlockBegin := StartPoint;
-  Doc.Editor.BlockEnd := EndPoint;
 end;
 
 procedure TMainForm.DeleteLineClick(Sender: TObject);
-var
-  Doc: TDocument;
-  Row: Integer;
+var Doc: TDocument;
 begin
   Doc := CurrentDoc;
-  if Doc = nil then Exit;
-  Row := Doc.Editor.CaretY - 1;
-  if (Row < 0) or (Row >= Doc.Editor.Lines.Count) then Exit;
-  if Doc.Editor.Lines.Count = 1 then
-    Doc.Editor.Lines[0] := ''
-  else
-    Doc.Editor.Lines.Delete(Row);
+  if (Doc = nil) or FCompileActive then Exit;
+  Doc.Editor.CommandProcessor(ecDeleteLine, #0, nil);
 end;
 
 procedure TMainForm.DuplicateLineClick(Sender: TObject);
-var
-  Doc: TDocument;
-  Row: Integer;
+var Doc: TDocument;
 begin
   Doc := CurrentDoc;
-  if Doc = nil then Exit;
-  Row := Doc.Editor.CaretY - 1;
-  if (Row < 0) or (Row >= Doc.Editor.Lines.Count) then Exit;
-  Doc.Editor.Lines.Insert(Row + 1, Doc.Editor.Lines[Row]);
-  Doc.Editor.CaretY := Row + 2;
+  if (Doc = nil) or FCompileActive then Exit;
+  DuplicateEditorLine(Doc.Editor);
+end;
+
+procedure TMainForm.MoveSelectionUpClick(Sender: TObject);
+var Doc: TDocument;
+begin
+  Doc := CurrentDoc;
+  if (Doc = nil) or FCompileActive then Exit;
+  MoveEditorLines(Doc.Editor, -1);
+end;
+
+procedure TMainForm.MoveSelectionDownClick(Sender: TObject);
+var Doc: TDocument;
+begin
+  Doc := CurrentDoc;
+  if (Doc = nil) or FCompileActive then Exit;
+  MoveEditorLines(Doc.Editor, 1);
 end;
 
 procedure TMainForm.SaveAllClick(Sender: TObject);
-begin SaveAllDocs; end;
+begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
+  SaveAllDocs;
+end;
 
 function TMainForm.MayClose(Doc: TDocument): Boolean;
 var Answer: Integer;
 begin
   Result := True;
+  if Doc = nil then Exit;
   if not Doc.Dirty and not Doc.Editor.Modified then Exit;
-  Answer := UiMessageDlg(Format(Tr('Save changes to %s?'), [Doc.Tab.Caption]),
-    mtConfirmation, [mbYes, mbNo, mbCancel], 0);
-  if Answer = mrCancel then Exit(False);
-  if Answer = mrYes then
-  begin
-    FPages.ActivePage := Doc.Tab;
-    Exit(SaveDoc(Doc));
+  Inc(FDocumentDialogs);
+  try
+    Answer := UiMessageDlg(Format(Tr('Save changes to %s?'), [Doc.Tab.Caption]),
+      mtConfirmation, [mbYes, mbNo, mbCancel], 0);
+    if (Answer <> mrYes) and (Answer <> mrNo) then Exit(False);
+    if Answer = mrYes then
+    begin
+      FPages.ActivePage := Doc.Tab;
+      Exit(SaveDoc(Doc));
+    end;
+  finally
+    Dec(FDocumentDialogs);
   end;
 end;
 
-procedure TMainForm.CloseClick(Sender: TObject);
-var Doc: TDocument; Tab: TTabSheet;
+procedure TMainForm.DisposeDocument(Doc: TDocument);
+var Tab: TTabSheet; I: Integer;
 begin
-  Doc := CurrentDoc;
-  if (Doc = nil) or not MayClose(Doc) then Exit;
+  if (Doc = nil) or (FDocs.IndexOf(Doc) < 0) then Exit;
   HideCompletion;
   HideFunctionTip;
   if FCompletionDoc = Doc then FCompletionDoc := nil;
   if FTipDoc = Doc then FTipDoc := nil;
+  for I := FCompilerList.Items.Count - 1 downto 0 do
+    if FCompilerList.Items[I].Data = Pointer(Doc) then
+      FCompilerList.Items[I].Delete;
   Tab := Doc.Tab;
   FDocs.Remove(Doc);
   Tab.Free;
   UpdateStatus;
 end;
 
+procedure TMainForm.CloseClick(Sender: TObject);
+var Doc: TDocument;
+begin
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
+  Doc := CurrentDoc;
+  if (Doc = nil) or not MayClose(Doc) then Exit;
+  DisposeDocument(Doc);
+end;
+
 procedure TMainForm.CloseQueryHandler(Sender: TObject; var CanClose: Boolean);
 var I: Integer;
 begin
+  if FDocumentDialogs <> 0 then
+  begin
+    CanClose := False;
+    Exit;
+  end;
   if FCompileActive then
   begin
     FCompileCancelRequested := True;
@@ -3042,25 +3892,50 @@ procedure TMainForm.ExitClick(Sender: TObject);
 begin Close; end;
 
 procedure TMainForm.UndoClick(Sender: TObject);
-begin if CurrentDoc <> nil then CurrentDoc.Editor.Undo; end;
+begin
+  if not CommandAvailable(@UndoClick) then Exit;
+  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).Undo
+  else if EditorHasFocus then CurrentDoc.Editor.Undo;
+end;
 procedure TMainForm.RedoClick(Sender: TObject);
-begin if CurrentDoc <> nil then CurrentDoc.Editor.Redo; end;
+begin
+  if CommandAvailable(@RedoClick) and EditorHasFocus then CurrentDoc.Editor.Redo;
+end;
 procedure TMainForm.CutClick(Sender: TObject);
-begin if CurrentDoc <> nil then CurrentDoc.Editor.CutToClipboard; end;
+begin
+  if not CommandAvailable(@CutClick) then Exit;
+  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).CutToClipboard
+  else if EditorHasFocus then CurrentDoc.Editor.CutToClipboard;
+end;
 procedure TMainForm.CopyClick(Sender: TObject);
-begin if CurrentDoc <> nil then CurrentDoc.Editor.CopyToClipboard; end;
+begin
+  if not CommandAvailable(@CopyClick) then Exit;
+  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).CopyToClipboard
+  else if EditorHasFocus then CurrentDoc.Editor.CopyToClipboard;
+end;
 procedure TMainForm.PasteClick(Sender: TObject);
-begin if CurrentDoc <> nil then CurrentDoc.Editor.PasteFromClipboard; end;
+begin
+  if not CommandAvailable(@PasteClick) then Exit;
+  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).PasteFromClipboard
+  else if EditorHasFocus then CurrentDoc.Editor.PasteFromClipboard;
+end;
 procedure TMainForm.SelectAllClick(Sender: TObject);
-begin if CurrentDoc <> nil then CurrentDoc.Editor.SelectAll; end;
+begin
+  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).SelectAll
+  else if EditorHasFocus then CurrentDoc.Editor.SelectAll;
+end;
 
 procedure TMainForm.CompletionClick(Sender: TObject);
 begin ShowCompletion(CurrentDoc, False); end;
 
 procedure TMainForm.FindClick(Sender: TObject);
-var Query: string;
+var Query: string; Doc: TDocument;
 begin
   Query := FFindText;
+  Doc := CurrentDoc;
+  if Doc = nil then Exit;
+  if Doc.Editor.SelAvail and (Pos(#10, Doc.Editor.SelText) = 0) and
+    (Pos(#13, Doc.Editor.SelText) = 0) then Query := Doc.Editor.SelText;
   if UiInputQuery(Tr('Find'), Tr('Find:'), Query) and (Query <> '') then
   begin FFindText := Query; FindNextClick(Self); end;
 end;
@@ -3068,14 +3943,14 @@ end;
 procedure TMainForm.FindNextClick(Sender: TObject);
 var
   Doc: TDocument;
-  SourceLine, SearchText: string;
-  Pass, Row, Column, StartRow, StartCol, FoundAt, LastRow: Integer;
+  SourceLine: string;
+  Pass, Row, Column, StartRow, StartCol, LastRow, FirstByte, LastByte,
+    MatchBytes: Integer;
 begin
   Doc := CurrentDoc;
-  if (Doc = nil) or (FFindText = '') then Exit;
-  StartRow := Doc.Editor.CaretY;
+  if (Doc = nil) or (FFindText = '') or (Doc.Editor.Lines.Count = 0) then Exit;
+  StartRow := Max(1, Min(Doc.Editor.CaretY, Doc.Editor.Lines.Count));
   StartCol := Doc.Editor.LogicalCaretXY.X;
-  SearchText := LowerCase(FFindText);
   for Pass := 0 to 1 do
   begin
     if Pass = 0 then LastRow := Doc.Editor.Lines.Count
@@ -3083,22 +3958,17 @@ begin
     if Pass = 0 then Row := StartRow else Row := 1;
     while Row <= LastRow do
     begin
-      SourceLine := LowerCase(Doc.Editor.Lines[Row - 1]);
-      if (Pass = 0) and (Row = StartRow) then
-      begin
-        FoundAt := Pos(SearchText, Copy(SourceLine, StartCol, MaxInt));
-        if FoundAt > 0 then Column := FoundAt + StartCol - 1
-        else Column := 0;
-      end
-      else if (Pass = 1) and (Row = StartRow) then
-        Column := Pos(SearchText, Copy(SourceLine, 1, StartCol - 1))
-      else
-        Column := Pos(SearchText, SourceLine);
+      SourceLine := Doc.Editor.Lines[Row - 1];
+      FirstByte := 1;
+      LastByte := Length(SourceLine);
+      if (Pass = 0) and (Row = StartRow) then FirstByte := StartCol;
+      if (Pass = 1) and (Row = StartRow) then LastByte := StartCol - 1;
+      Column := FindTextForward(SourceLine, FFindText, FirstByte, LastByte, MatchBytes);
       if Column > 0 then
       begin
-        Doc.Editor.LogicalCaretXY := Point(Column + Length(FFindText), Row);
+        Doc.Editor.LogicalCaretXY := Point(Column + MatchBytes, Row);
         Doc.Editor.BlockBegin := Point(Column, Row);
-        Doc.Editor.BlockEnd := Point(Column + Length(FFindText), Row);
+        Doc.Editor.BlockEnd := Point(Column + MatchBytes, Row);
         Doc.Editor.SetFocus;
         Exit;
       end;
@@ -3110,12 +3980,17 @@ end;
 
 procedure TMainForm.FindAllClick(Sender: TObject);
 var
-  Query, SourceLine, SearchLine: string;
+  Query, SourceLine: string;
   Doc: TDocument;
   Entry: TListItem;
-  DocIndex, Row, FoundAt, Offset: Integer;
+  DocIndex, Row, FoundAt, Offset, MatchBytes: Integer;
 begin
+  if FCompileActive then Exit;
   Query := FFindText;
+  Doc := CurrentDoc;
+  if (Doc <> nil) and Doc.Editor.SelAvail and
+    (Pos(#10, Doc.Editor.SelText) = 0) and
+    (Pos(#13, Doc.Editor.SelText) = 0) then Query := Doc.Editor.SelText;
   if not UiInputQuery(Tr('Find All'), Tr('Find:'), Query) or (Query = '') then Exit;
   FFindText := Query;
   FCompilerList.Items.BeginUpdate;
@@ -3127,21 +4002,20 @@ begin
       for Row := 0 to Doc.Editor.Lines.Count - 1 do
       begin
         SourceLine := Doc.Editor.Lines[Row];
-        SearchLine := LowerCase(SourceLine);
         Offset := 1;
-        while Offset <= Length(SearchLine) do
+        while Offset <= Length(SourceLine) do
         begin
-          FoundAt := Pos(LowerCase(Query), Copy(SearchLine, Offset, MaxInt));
+          FoundAt := FindTextForward(SourceLine, Query, Offset, Length(SourceLine), MatchBytes);
           if FoundAt = 0 then Break;
-          Inc(FoundAt, Offset - 1);
           Entry := FCompilerList.Items.Add;
           Entry.Caption := IntToStr(Row + 1);
           Entry.SubItems.Add(IntToStr(FoundAt));
           if Doc.FileName <> '' then Entry.SubItems.Add(Doc.FileName)
           else Entry.SubItems.Add(Doc.UntitledName);
           Entry.SubItems.Add(Trim(SourceLine));
+          Entry.SubItems.Add(IntToStr(MatchBytes));
           Entry.Data := Pointer(Doc);
-          Offset := FoundAt + Length(Query);
+          Offset := FoundAt + MatchBytes;
         end;
       end;
     end;
@@ -3156,36 +4030,38 @@ end;
 procedure TMainForm.FindPreviousClick(Sender: TObject);
 var
   Doc: TDocument;
-  SourceLine, SearchText: string;
-  Pass, Row, Column, StartRow, StartCol, MaxColumn: Integer;
+  SourceLine: string;
+  Pass, Row, Column, StartRow, StartCol, FirstByte, LastByte, MatchBytes: Integer;
 begin
   Doc := CurrentDoc;
-  if (Doc = nil) or (FFindText = '') then Exit;
-  StartRow := Doc.Editor.CaretY;
+  if (Doc = nil) or (FFindText = '') or (Doc.Editor.Lines.Count = 0) then Exit;
+  StartRow := Max(1, Min(Doc.Editor.CaretY, Doc.Editor.Lines.Count));
   StartCol := Doc.Editor.LogicalCaretXY.X;
-  if Doc.Editor.SelAvail and (Doc.Editor.BlockBegin.Y = StartRow) then
+  if Doc.Editor.SelAvail then
+  begin
+    StartRow := Doc.Editor.BlockBegin.Y;
     StartCol := Doc.Editor.BlockBegin.X;
-  SearchText := LowerCase(FFindText);
+  end;
   for Pass := 0 to 1 do
   begin
     if Pass = 0 then Row := StartRow else Row := Doc.Editor.Lines.Count;
-    while (Row >= 1) and ((Pass = 1) or (Row <= StartRow)) do
+    while (Row >= 1) and ((Pass = 0) or (Row >= StartRow)) do
     begin
-      SourceLine := LowerCase(Doc.Editor.Lines[Row - 1]);
-      MaxColumn := Length(SourceLine) - Length(SearchText) + 1;
-      if (Pass = 0) and (Row = StartRow) then
-        MaxColumn := Min(MaxColumn, StartCol - 1);
-      for Column := MaxColumn downto 1 do
-        if Copy(SourceLine, Column, Length(SearchText)) = SearchText then
-        begin
-          Doc.Editor.LogicalCaretXY := Point(Column + Length(FFindText), Row);
-          Doc.Editor.BlockBegin := Point(Column, Row);
-          Doc.Editor.BlockEnd := Point(Column + Length(FFindText), Row);
-          Doc.Editor.SetFocus;
-          Exit;
-        end;
+      SourceLine := Doc.Editor.Lines[Row - 1];
+      FirstByte := 1;
+      LastByte := Length(SourceLine);
+      if (Pass = 0) and (Row = StartRow) then LastByte := StartCol - 1;
+      if (Pass = 1) and (Row = StartRow) then FirstByte := StartCol;
+      Column := FindTextBackward(SourceLine, FFindText, FirstByte, LastByte, MatchBytes);
+      if Column > 0 then
+      begin
+        Doc.Editor.LogicalCaretXY := Point(Column + MatchBytes, Row);
+        Doc.Editor.BlockBegin := Point(Column, Row);
+        Doc.Editor.BlockEnd := Point(Column + MatchBytes, Row);
+        Doc.Editor.SetFocus;
+        Exit;
+      end;
       Dec(Row);
-      if (Pass = 1) and (Row < StartRow) then Break;
     end;
   end;
   FStatus.SimpleText := Format(Tr('Text not found: %s'), [FFindText]);
@@ -3194,12 +4070,33 @@ end;
 procedure TMainForm.ReplaceClick(Sender: TObject);
 var
   Doc: TDocument;
-  Query, Replacement, LineValue: string;
-  Answer, Row: Integer;
+  Query, Replacement, OriginalText, NewText: string;
+  Answer, MatchCount, SelectedBytes: Integer;
+  OriginalCaret, OriginalStart, OriginalEnd: TPoint;
+
+  function ClampPoint(P: TPoint): TPoint;
+  begin
+    if Doc.Editor.Lines.Count = 0 then Exit(Point(1, 1));
+    P.Y := Max(1, Min(P.Y, Doc.Editor.Lines.Count));
+    P.X := Max(1, Min(P.X, Length(Doc.Editor.Lines[P.Y - 1]) + 1));
+    { Do not restore a caret into the middle of a multi-byte character. }
+    while (P.X > 1) and (P.X <= Length(Doc.Editor.Lines[P.Y - 1])) and
+      ((Ord(Doc.Editor.Lines[P.Y - 1][P.X]) and $C0) = $80) do Dec(P.X);
+    Result := P;
+  end;
+
+  function SelectionMatches: Boolean;
+  begin
+    SelectedBytes := Length(Doc.Editor.SelText);
+    Result := (SelectedBytes > 0) and
+      (FindTextMatchLengthAt(Doc.Editor.SelText, Query, 1) = SelectedBytes);
+  end;
 begin
   Doc := CurrentDoc;
-  if Doc = nil then Exit;
+  if (Doc = nil) or FCompileActive or Doc.Editor.ReadOnly then Exit;
   Query := FFindText;
+  if Doc.Editor.SelAvail and (Pos(#10, Doc.Editor.SelText) = 0) and
+    (Pos(#13, Doc.Editor.SelText) = 0) then Query := Doc.Editor.SelText;
   if not UiInputQuery(Tr('Replace'), Tr('Find:'), Query) or (Query = '') then Exit;
   Replacement := '';
   if not UiInputQuery(Tr('Replace'), Tr('Replace with:'), Replacement) then Exit;
@@ -3209,24 +4106,45 @@ begin
     'Yes: replace all    No: replace next'), mtConfirmation,
     [mbYes, mbNo, mbCancel], 0);
   if Answer = mrCancel then Exit;
+  if (FDocs.IndexOf(Doc) < 0) or FCompileActive then Exit;
   if Answer = mrYes then
   begin
-    for Row := 0 to Doc.Editor.Lines.Count - 1 do
-    begin
-      LineValue := Doc.Editor.Lines[Row];
-      if Pos(LowerCase(Query), LowerCase(LineValue)) > 0 then
-        Doc.Editor.Lines[Row] := StringReplace(LineValue, Query, Replacement,
-          [rfReplaceAll, rfIgnoreCase]);
+    OriginalCaret := Doc.Editor.LogicalCaretXY;
+    OriginalStart := Doc.Editor.BlockBegin;
+    OriginalEnd := Doc.Editor.BlockEnd;
+    Doc.Editor.BeginUndoBlock;
+    try
+      Doc.Editor.SelectAll;
+      OriginalText := Doc.Editor.SelText;
+      NewText := ReplaceTextMatches(OriginalText, Query, Replacement, MatchCount);
+      if MatchCount > 0 then Doc.Editor.SelText := NewText;
+      Doc.Editor.LogicalCaretXY := ClampPoint(OriginalCaret);
+      if (OriginalCaret.Y = OriginalStart.Y) and (OriginalCaret.X = OriginalStart.X) then
+      begin
+        Doc.Editor.BlockBegin := ClampPoint(OriginalEnd);
+        Doc.Editor.BlockEnd := ClampPoint(OriginalStart);
+      end
+      else
+      begin
+        Doc.Editor.BlockBegin := ClampPoint(OriginalStart);
+        Doc.Editor.BlockEnd := ClampPoint(OriginalEnd);
+      end;
+    finally
+      Doc.Editor.EndUndoBlock;
     end;
     Doc.Editor.SetFocus;
   end
   else
   begin
-    if LowerCase(Doc.Editor.SelText) <> LowerCase(Query) then
-      FindNextClick(Self);
-    if LowerCase(Doc.Editor.SelText) = LowerCase(Query) then
+    if not SelectionMatches then FindNextClick(Self);
+    if SelectionMatches then
     begin
-      Doc.Editor.SelText := Replacement;
+      Doc.Editor.BeginUndoBlock;
+      try
+        Doc.Editor.SelText := Replacement;
+      finally
+        Doc.Editor.EndUndoBlock;
+      end;
       FindNextClick(Self);
     end;
   end;
@@ -3266,155 +4184,278 @@ begin
 end;
 
 procedure TMainForm.CloseAllClick(Sender: TObject);
-var OldCount: Integer;
+var I: Integer;
 begin
-  while FDocs.Count > 0 do
-  begin
-    FPages.ActivePage := TDocument(FDocs[FDocs.Count - 1]).Tab;
-    OldCount := FDocs.Count;
-    CloseClick(Self);
-    if FDocs.Count = OldCount then Exit;
+  if FCompileActive or (FDocumentDialogs <> 0) then Exit;
+  Inc(FDocumentDialogs);
+  try
+    for I := 0 to FDocs.Count - 1 do
+      if not MayClose(TDocument(FDocs[I])) then Exit;
+    while FDocs.Count > 0 do
+      DisposeDocument(TDocument(FDocs[FDocs.Count - 1]));
+  finally
+    Dec(FDocumentDialogs);
   end;
 end;
 
 procedure TMainForm.CompileCurrent(SyntaxOnly, RunAfter: Boolean);
+const
+  MaxCompileLogBytes = 4 * 1024 * 1024;
 var
   Doc: TDocument;
-  UseProject, IsCpp: Boolean;
+  UseProject, IsCpp, UseSession, LogTruncated, CancelEscalated: Boolean;
   Ini: TIniFile;
   Proc: TProcess;
-  Source, CompilerName, OutputFile, Flags, LinkerFlags, ProjectUnitPath: string;
-  I, N, Available: Integer;
+  Source, CompilerName, OutputFile, BuildOutput, Flags, LinkerFlags,
+    ProjectUnitName, ProjectSnapshot, RunTarget, CompileError: string;
+  I, N, Available, TargetIndex, SignalNumber, UnitCount: Integer;
+  CancelStarted: QWord;
   ErrorItem: TListItem;
   Buffer: array[0..4095] of Byte;
   Chunk, LogText: RawByteString;
+  ExecutableStream: TFileStream;
+
+  procedure InvalidateTarget;
+  begin
+    if OutputFile = '' then Exit;
+    if FInvalidExecutables = nil then
+    begin
+      FInvalidExecutables := TStringList.Create;
+      FInvalidExecutables.CaseSensitive := True;
+    end;
+    if FInvalidExecutables.IndexOf(OutputFile) < 0 then
+      FInvalidExecutables.Add(OutputFile);
+    if FLastExecutable = OutputFile then FLastExecutable := '';
+  end;
+
+  procedure CancelCompiler;
+  begin
+    if CancelStarted = 0 then
+    begin
+      CancelStarted := GetTickCount64;
+      SignalNumber := 15;
+    end
+    else if not CancelEscalated and (GetTickCount64 - CancelStarted >= 1000) then
+    begin
+      CancelEscalated := True;
+      SignalNumber := 9;
+    end
+    else Exit;
+    {$IFDEF UNIX}
+    { setsid normally execs the compiler. Verify both IDs at the time of the
+      signal; never send a group signal to the IDE's inherited process group. }
+    if UseSession and
+      (CompilerGetProcessGroup(Proc.ProcessID) = LongInt(Proc.ProcessID)) and
+      (CompilerGetSession(Proc.ProcessID) = LongInt(Proc.ProcessID)) then
+      CompilerSignal(-LongInt(Proc.ProcessID), SignalNumber)
+    else
+      CompilerSignal(LongInt(Proc.ProcessID), SignalNumber);
+    {$ELSE}
+    Proc.Terminate(1);
+    {$ENDIF}
+  end;
+
+  procedure WaitForCompiler(Timeout: QWord);
+  var StartedAt: QWord;
+  begin
+    StartedAt := GetTickCount64;
+    while Proc.Running and (GetTickCount64 - StartedAt < Timeout) do Sleep(10);
+  end;
+
 begin
-  if FCompileActive then Exit;
+  FLastCompileSucceeded := False;
+  if FCompileActive or DebuggerActive or (Application.ModalLevel > 0) then Exit;
   Doc := CurrentDoc;
   if (Doc = nil) and (FProjectPath = '') then Exit;
-  if (Doc <> nil) and ((Doc.FileName = '') or Doc.Dirty) then
+  if (Doc <> nil) and ((Doc.FileName = '') or Doc.Dirty or Doc.Editor.Modified) then
     if not SaveDoc(Doc) then Exit;
-  UseProject := (FProjectPath <> '') and not SyntaxOnly and
-    ((Doc = nil) or (FProjectFiles.IndexOf(Doc.FileName) >= 0));
+  UseProject := DocumentBelongsToProject(Doc);
+  if UseProject and not SaveAllDocs then Exit;
+  { All modal save operations finish before establishing this compile snapshot. }
+  ProjectSnapshot := '';
+  if UseProject then ProjectSnapshot := FProjectPath;
+  OutputFile := '';
+  BuildOutput := '';
+  RunTarget := '';
+  CompileError := '';
   Proc := TProcess.Create(nil);
-  FCompileActive := True;
-  FCompileCancelRequested := False;
   try
-    Proc.Options := [poUsePipes, poStderrToOutPut];
-    LinkerFlags := '';
-    if UseProject then
-    begin
-      if not SaveAllDocs then Exit;
-      Ini := TIniFile.Create(FProjectPath);
-      try
-        if Ini.ReadInteger('Project', 'Type', 1) <> 1 then
-        begin
-          UiMessageDlg(Tr('Only console projects are currently supported.'), mtError, [mbOK], 0);
-          Exit;
-        end;
-        IsCpp := Ini.ReadBool('Project', 'IsCpp', False);
-        for I := 0 to FProjectFiles.Count - 1 do
-          if (LowerCase(ExtractFileExt(FProjectFiles[I])) = '.cpp') or
-             (LowerCase(ExtractFileExt(FProjectFiles[I])) = '.cc') or
-             (LowerCase(ExtractFileExt(FProjectFiles[I])) = '.cxx') then
-            IsCpp := True;
-        if IsCpp then CompilerName := FCppCompiler else CompilerName := FCCompiler;
-        Proc.CurrentDirectory := ExtractFilePath(FProjectPath);
-        for I := 1 to Ini.ReadInteger('Project', 'UnitCount', 0) do
-        begin
-          if not Ini.ReadBool('Unit' + IntToStr(I), 'Compile', True) then Continue;
-          ProjectUnitPath := Ini.ReadString('Unit' + IntToStr(I), 'FileName', '');
-          if ProjectUnitPath = '' then Continue;
-          Source := ExpandFileName(ExtractFilePath(FProjectPath) +
-            StringReplace(ProjectUnitPath, '\', DirectorySeparator, [rfReplaceAll]));
-          if (LowerCase(ExtractFileExt(Source)) <> '.c') and
-             (LowerCase(ExtractFileExt(Source)) <> '.cc') and
-             (LowerCase(ExtractFileExt(Source)) <> '.cpp') and
-             (LowerCase(ExtractFileExt(Source)) <> '.cxx') then Continue;
-          Proc.Parameters.Add(Source);
-        end;
-        if Proc.Parameters.Count = 0 then
-        begin UiMessageDlg(Tr('Project has no C/C++ sources.'), mtError, [mbOK], 0); Exit; end;
-        OutputFile := ChangeFileExt(FProjectPath, '');
-        Flags := Ini.ReadString('Project', 'CppCompiler', '');
-        if not IsCpp then Flags := Ini.ReadString('Project', 'Compiler', '');
-        LinkerFlags := Ini.ReadString('Project', 'Linker', '');
-        AddCompilerFlags(Proc.Parameters, Flags);
-      finally Ini.Free; end;
-    end
-    else
-    begin
-      Source := Doc.FileName;
-      if LowerCase(ExtractFileExt(Source)) = '.c' then IsCpp := False
-      else if LowerCase(ExtractFileExt(Source)) = '.cpp' then IsCpp := True
-      else if LowerCase(ExtractFileExt(Source)) = '.cc' then IsCpp := True
-      else if LowerCase(ExtractFileExt(Source)) = '.cxx' then IsCpp := True
-      else
-      begin UiMessageDlg(Tr('Open a C/C++ source file to compile.'), mtError, [mbOK], 0); Exit; end;
-      if IsCpp then CompilerName := FCppCompiler else CompilerName := FCCompiler;
-      Proc.CurrentDirectory := ExtractFilePath(Source);
-      Proc.Parameters.Add(Source);
-      OutputFile := ChangeFileExt(Source, '');
-    end;
-    if Pos('/', CompilerName) > 0 then
-      Proc.Executable := CompilerName
-    else
-      Proc.Executable := '/usr/bin/' + CompilerName;
-    if IsCpp then AddCompilerFlags(Proc.Parameters, FCppFlags)
-    else AddCompilerFlags(Proc.Parameters, FCFlags);
-    if SyntaxOnly then Proc.Parameters.Add('-fsyntax-only')
-    else
-    begin Proc.Parameters.Add('-o'); Proc.Parameters.Add(OutputFile); end;
-    if not SyntaxOnly then
-      AddCompilerFlags(Proc.Parameters, Trim(LinkerFlags + ' ' + FLinkerFlags));
-    FOutput.Clear;
-    for I := 0 to FDocs.Count - 1 do
-    begin
-      TDocument(FDocs[I]).ErrorLine := -1;
-      TDocument(FDocs[I]).Editor.Invalidate;
-    end;
-    FCompilerList.Items.Clear;
-    FCompilerTab.Caption := Tr('Compiler');
-    FReportTabs.ActivePage := FLogTab;
-    FOutput.Lines.Add(DisplayCommandLine(CompilerName, Proc.Parameters));
-    FStatus.SimpleText := Tr('Compiling...');
-    Application.ProcessMessages;
     try
-      Proc.Execute;
+      Proc.Options := [poUsePipes, poStderrToOutPut];
+      LinkerFlags := '';
+      if UseProject then
+      begin
+        Ini := TIniFile.Create(ProjectSnapshot);
+        try
+          if Ini.ReadInteger('Project', 'Type', 1) <> 1 then
+            raise Exception.Create(Tr('Only console projects are currently supported.'));
+          IsCpp := Ini.ReadBool('Project', 'IsCpp', False);
+          for I := 0 to FProjectFiles.Count - 1 do
+            if (LowerCase(ExtractFileExt(FProjectFiles[I])) = '.cpp') or
+               (LowerCase(ExtractFileExt(FProjectFiles[I])) = '.cc') or
+               (LowerCase(ExtractFileExt(FProjectFiles[I])) = '.cxx') then
+              IsCpp := True;
+          if IsCpp then CompilerName := FCppCompiler else CompilerName := FCCompiler;
+          Proc.CurrentDirectory := ExtractFilePath(ProjectSnapshot);
+          UnitCount := Ini.ReadInteger('Project', 'UnitCount', 0);
+          if (UnitCount < 0) or (UnitCount > 100000) then
+            raise Exception.Create(Tr('Invalid project unit count.'));
+          for I := 1 to UnitCount do
+          begin
+            if not Ini.ReadBool('Unit' + IntToStr(I), 'Compile', True) then Continue;
+            ProjectUnitName := Ini.ReadString('Unit' + IntToStr(I), 'FileName', '');
+            if ProjectUnitName = '' then Continue;
+            Source := ProjectUnitPath(ProjectSnapshot, ProjectUnitName);
+            if (LowerCase(ExtractFileExt(Source)) <> '.c') and
+               (LowerCase(ExtractFileExt(Source)) <> '.cc') and
+               (LowerCase(ExtractFileExt(Source)) <> '.cpp') and
+               (LowerCase(ExtractFileExt(Source)) <> '.cxx') then Continue;
+            Proc.Parameters.Add(Source);
+          end;
+          if Proc.Parameters.Count = 0 then
+            raise Exception.Create(Tr('Project has no C/C++ sources.'));
+          OutputFile := ChangeFileExt(ProjectSnapshot, '');
+          Flags := Ini.ReadString('Project', 'CppCompiler', '');
+          if not IsCpp then Flags := Ini.ReadString('Project', 'Compiler', '');
+          LinkerFlags := Ini.ReadString('Project', 'Linker', '');
+          AddCompilerFlags(Proc.Parameters, Flags);
+        finally Ini.Free; end;
+      end
+      else
+      begin
+        Source := Doc.FileName;
+        if LowerCase(ExtractFileExt(Source)) = '.c' then IsCpp := False
+        else if (LowerCase(ExtractFileExt(Source)) = '.cpp') or
+                (LowerCase(ExtractFileExt(Source)) = '.cc') or
+                (LowerCase(ExtractFileExt(Source)) = '.cxx') then IsCpp := True
+        else
+          raise Exception.Create(Tr('Open a C/C++ source file to compile.'));
+        if IsCpp then CompilerName := FCppCompiler else CompilerName := FCCompiler;
+        Proc.CurrentDirectory := ExtractFilePath(Source);
+        Proc.Parameters.Add(Source);
+        OutputFile := ChangeFileExt(Source, '');
+      end;
+      if Pos('/', CompilerName) > 0 then Proc.Executable := CompilerName
+      else Proc.Executable := '/usr/bin/' + CompilerName;
+      if IsCpp then AddCompilerFlags(Proc.Parameters, FCppFlags)
+      else AddCompilerFlags(Proc.Parameters, FCFlags);
+      if SyntaxOnly then Proc.Parameters.Add('-fsyntax-only')
+      else
+      begin
+        { Linking over a running executable produces ETXTBSY on Linux. Keeping
+          the previous target intact also prevents publishing a partial link. }
+        BuildOutput := GetTempFileName(ExtractFilePath(OutputFile), '.devcpp-build-');
+        Proc.Parameters.Add('-o');
+        Proc.Parameters.Add(BuildOutput);
+        AddCompilerFlags(Proc.Parameters, Trim(LinkerFlags + ' ' + FLinkerFlags));
+      end;
+      if FDebugBuild and not SyntaxOnly then
+      begin
+        { A final -g/-O setting overrides release profile flags. Strip must be
+          removed because it otherwise discards the source/variable symbols. }
+        for I := Proc.Parameters.Count - 1 downto 0 do
+          if (Proc.Parameters[I] = '-s') or
+            (Proc.Parameters[I] = '-Wl,-s') or
+            (Proc.Parameters[I] = '-Wl,--strip-all') then Proc.Parameters.Delete(I);
+        Proc.Parameters.Add('-g3');
+        Proc.Parameters.Add('-O0');
+        Proc.Parameters.Add('-fno-omit-frame-pointer');
+      end;
+      FCompileDirectory := ExpandFileName(Proc.CurrentDirectory);
+      FOutput.Clear;
+      for I := 0 to FDocs.Count - 1 do
+      begin
+        TDocument(FDocs[I]).ErrorLine := -1;
+        TDocument(FDocs[I]).Editor.Invalidate;
+      end;
+      FCompilerList.Items.Clear;
+      FCompilerTab.Caption := Tr('Compiler');
+      FReportTabs.ActivePage := FLogTab;
+      FOutput.Lines.Add(DisplayCommandLine(CompilerName, Proc.Parameters));
+      UseSession := False;
+      {$IFDEF UNIX}
+      UseSession := FileExists('/usr/bin/setsid');
+      if UseSession then
+      begin
+        Proc.Parameters.Insert(0, Proc.Executable);
+        Proc.Executable := '/usr/bin/setsid';
+      end;
+      {$ENDIF}
+      CancelStarted := 0;
+      CancelEscalated := False;
+      LogTruncated := False;
       LogText := '';
+      FCompileCancelRequested := False;
+      FCompileActive := True;
+      if not SyntaxOnly then InvalidateTarget;
+      FStatus.SimpleText := Tr('Compiling...');
+      RefreshCommandStates(Self);
+      Application.ProcessMessages;
+      Proc.Execute;
       repeat
-        if FCompileCancelRequested and Proc.Running then Proc.Terminate(1);
+        if FCompileCancelRequested and Proc.Running then CancelCompiler;
         Available := Proc.Output.NumBytesAvailable;
         if Available > SizeOf(Buffer) then Available := SizeOf(Buffer);
         if Available > 0 then
         begin
           N := Proc.Output.Read(Buffer, Available);
-          SetLength(Chunk, N);
-          if N > 0 then Move(Buffer[0], Chunk[1], N);
-          LogText := LogText + Chunk;
+          if N > 0 then
+          begin
+            if Length(LogText) + N > MaxCompileLogBytes then
+            begin
+              N := Max(0, MaxCompileLogBytes - Length(LogText));
+              LogTruncated := True;
+            end;
+            SetLength(Chunk, N);
+            if N > 0 then
+            begin
+              Move(Buffer[0], Chunk[1], N);
+              LogText := LogText + Chunk;
+            end;
+          end;
         end
         else if Proc.Running then Sleep(10);
         Application.ProcessMessages;
       until (not Proc.Running) and (Proc.Output.NumBytesAvailable = 0);
       FOutput.Text := FOutput.Text + string(LogText);
+      if LogTruncated then
+        FOutput.Lines.Add(Tr('Compiler output exceeded 4 MiB and was truncated.'));
       PopulateDiagnostics(string(LogText));
       if FCompileCancelRequested then
       begin
+        InvalidateTarget;
         FStatus.SimpleText := Tr('Compilation aborted');
         FOutput.Lines.Add(Tr('Compilation aborted.'));
       end
       else if Proc.ExitStatus = 0 then
       begin
-        FStatus.SimpleText := Tr('Compilation successful');
-        FOutput.Lines.Add(Tr('Compilation successful.'));
         if not SyntaxOnly then
         begin
+          if not FileExists(BuildOutput) then
+            raise Exception.Create(Tr('The compiler did not produce an executable.'));
+          ExecutableStream := TFileStream.Create(BuildOutput, fmOpenRead or fmShareDenyNone);
+          try
+            if ExecutableStream.Size = 0 then
+              raise Exception.Create(Tr('The compiler did not produce an executable.'));
+          finally ExecutableStream.Free; end;
+          if not RenameFile(BuildOutput, OutputFile) then
+            raise Exception.Create(Tr('Could not replace the compiled executable.'));
+          BuildOutput := '';
           FLastExecutable := OutputFile;
-          if RunAfter then RunExecutable(OutputFile);
+          FLastCompileSucceeded := True;
+          if FInvalidExecutables <> nil then
+          begin
+            TargetIndex := FInvalidExecutables.IndexOf(OutputFile);
+            if TargetIndex >= 0 then FInvalidExecutables.Delete(TargetIndex);
+          end;
+          if RunAfter then RunTarget := OutputFile;
         end;
+        FStatus.SimpleText := Tr('Compilation successful');
+        FOutput.Lines.Add(Tr('Compilation successful.'));
       end
       else
       begin
+        InvalidateTarget;
         FStatus.SimpleText := Tr('Compilation failed');
         if Pos('unrecognized option ''--stack=', string(LogText)) > 0 then
           FOutput.Lines.Add(Tr('The --stack linker option is for Windows. Remove it in Execute > Compiler Parameters.'));
@@ -3433,49 +4474,207 @@ begin
         end;
       end;
     except
-      on E: Exception do UiMessageDlg(Format(Tr('Compile failed: %s'), [E.Message]), mtError, [mbOK], 0);
+      on E: Exception do
+      begin
+        InvalidateTarget;
+        CompileError := Format(Tr('Compile failed: %s'), [E.Message]);
+        FStatus.SimpleText := Tr('Compilation failed');
+        FOutput.Lines.Add(CompileError);
+      end;
     end;
   finally
+    if Proc.Running then
+    begin
+      CancelStarted := 0;
+      CancelCompiler;
+      WaitForCompiler(1000);
+      if Proc.Running then
+      begin
+        CancelStarted := GetTickCount64 - 1000;
+        CancelCompiler;
+        WaitForCompiler(1000);
+      end;
+    end;
     Proc.Free;
+    if BuildOutput <> '' then DeleteFile(BuildOutput);
     FCompileActive := False;
     FCompileCancelRequested := False;
+    RefreshCommandStates(Self);
+  end;
+  if CompileError <> '' then
+    UiMessageDlg(CompileError, mtError, [mbOK], 0)
+  else if RunTarget <> '' then
+    RunExecutable(RunTarget, ProjectSnapshot);
+end;
+
+function TMainForm.DocumentBelongsToProject(Doc: TDocument): Boolean;
+var I: Integer;
+begin
+  Result := False;
+  if FProjectPath = '' then Exit;
+  if Doc = nil then Exit(True);
+  for I := 0 to FProjectFiles.Count - 1 do
+    if SameDocumentPath(Doc.FileName, FProjectFiles[I]) then Exit(True);
+end;
+
+procedure TMainForm.ReadRunSettings(const ProjectFile: string;
+  out Arguments, WorkDirectory: string);
+var Ini: TIniFile;
+begin
+  if ProjectFile <> '' then
+  begin
+    Ini := TIniFile.Create(ProjectFile);
+    try
+      Arguments := Ini.ReadString('Project', 'CommandLine', '');
+      WorkDirectory := Ini.ReadString('Project', 'RunWorkingDirectory', '');
+    finally Ini.Free; end;
+  end
+  else
+  begin
+    Ini := TIniFile.Create(FOptionsPath);
+    try
+      Arguments := Ini.ReadString('Run', 'Parameters', '');
+      WorkDirectory := Ini.ReadString('Run', 'WorkingDirectory', '');
+    finally Ini.Free; end;
   end;
 end;
 
-procedure TMainForm.RunExecutable(const FileName: string);
-var Proc: TProcess; PauserPath: string;
+procedure TMainForm.ExecuteParametersClick(Sender: TObject);
+var
+  Doc: TDocument;
+  ProjectFile, Arguments, WorkDirectory, ErrorText, ExecutableName: string;
+  Args: TStringList;
+  Ini: TIniFile;
+  ProjectIni: TMemIniFile;
+  ProjectSnapshot: TFileSnapshot;
 begin
-  if not FileExists(FileName) then
-  begin UiMessageDlg(Tr('Compile the program first.'), mtInformation, [mbOK], 0); Exit; end;
-  Proc := TProcess.Create(nil);
+  if FCompileActive or (Application.ModalLevel > 0) then Exit;
+  Doc := CurrentDoc;
+  ProjectFile := '';
+  ExecutableName := '';
+  if DocumentBelongsToProject(Doc) then
+  begin
+    ProjectFile := FProjectPath;
+    ExecutableName := ChangeFileExt(ProjectFile, '');
+  end
+  else if (Doc <> nil) and (Doc.FileName <> '') then
+    ExecutableName := ChangeFileExt(Doc.FileName, '');
+  Args := TStringList.Create;
   try
-    PauserPath := ExtractFilePath(ParamStr(0)) + 'console-pauser.sh';
-    if not FileExists(PauserPath) then
-      raise Exception.Create(Tr('Missing console-pauser.sh beside the application.'));
-    if FileExists('/usr/bin/gnome-terminal') then
-      Proc.Executable := '/usr/bin/gnome-terminal'
-    else
-      Proc.Executable := '/usr/bin/xterm';
-    Proc.CurrentDirectory := ExtractFilePath(FileName);
-    if Proc.Executable = '/usr/bin/gnome-terminal' then
-    begin
-      Proc.Parameters.Add('--title=' + ExtractFileName(FileName));
-      Proc.Parameters.Add('--');
-    end
-    else
-    begin
-      Proc.Parameters.Add('-T');
-      Proc.Parameters.Add(ExtractFileName(FileName));
-      Proc.Parameters.Add('-e');
+    try
+      if ProjectFile <> '' then
+      begin
+        ProjectSnapshot := CaptureFileSnapshot(ProjectFile);
+        if not ProjectSnapshot.Present then
+          raise Exception.Create(Format(Tr('Project not found: %s'), [ProjectFile]));
+      end;
+      ReadRunSettings(ProjectFile, Arguments, WorkDirectory);
+      if not UiInputQuery(Tr('Execute Parameters'), Tr('Program arguments:'), Arguments) then Exit;
+      if not ParseRunArguments(Arguments, Args, ErrorText) then
+      begin
+        UiMessageDlg(Tr(ErrorText), mtError, [mbOK], 0);
+        Exit;
+      end;
+      if not UiInputQuery(Tr('Execute Parameters'),
+        Tr('Working directory (empty = program folder):'), WorkDirectory) then Exit;
+      WorkDirectory := Trim(WorkDirectory);
+      if (WorkDirectory <> '') and (ExecutableName <> '') and
+        not DirectoryExists(ResolveRunDirectory(WorkDirectory, ExecutableName)) then
+      begin
+        UiMessageDlg(Tr('The working directory does not exist.'), mtError, [mbOK], 0);
+        Exit;
+      end;
+      { Reopen after the modal dialogs so other settings written meanwhile
+        cannot be replaced by an older TIniFile snapshot. }
+      if ProjectFile <> '' then
+      begin
+        ProjectIni := TMemIniFile.Create(ProjectFile);
+        try
+          ProjectIni.WriteString('Project', 'CommandLine', Arguments);
+          ProjectIni.WriteString('Project', 'RunWorkingDirectory', WorkDirectory);
+          WriteProjectIni(ProjectIni, ProjectFile, ProjectSnapshot);
+        finally ProjectIni.Free; end;
+      end
+      else
+      begin
+        Ini := TIniFile.Create(FOptionsPath);
+        try
+          Ini.WriteString('Run', 'Parameters', Arguments);
+          Ini.WriteString('Run', 'WorkingDirectory', WorkDirectory);
+        finally Ini.Free; end;
+      end;
+    except
+      on E: Exception do
+        UiMessageDlg(Format(Tr('Could not save execution parameters: %s'), [E.Message]),
+          mtError, [mbOK], 0);
     end;
-    Proc.Parameters.Add('/bin/bash');
-    Proc.Parameters.Add(PauserPath);
-    Proc.Parameters.Add(FileName);
-    Proc.Execute;
-  except
-    on E: Exception do UiMessageDlg(Format(Tr('Run failed: %s'), [E.Message]), mtError, [mbOK], 0);
+  finally
+    Args.Free;
   end;
-  Proc.Free;
+end;
+
+procedure TMainForm.RunExecutable(const FileName: string; const ProjectFile: string);
+var
+  Proc: TProcess;
+  Args: TStringList;
+  PauserPath, Arguments, WorkDirectory, ErrorText, RunCommand: string;
+  I: Integer;
+begin
+  if FCompileActive then Exit;
+  if (FileName = '') or not FileExists(FileName) or
+    ((FInvalidExecutables <> nil) and (FInvalidExecutables.IndexOf(FileName) >= 0)) then
+  begin
+    UiMessageDlg(Tr('Compile the program first.'), mtInformation, [mbOK], 0);
+    Exit;
+  end;
+  Proc := TProcess.Create(nil);
+  Args := TStringList.Create;
+  try
+    try
+      ReadRunSettings(ProjectFile, Arguments, WorkDirectory);
+      if not ParseRunArguments(Arguments, Args, ErrorText) then
+        raise Exception.Create(Tr(ErrorText));
+      PauserPath := ExtractFilePath(ParamStr(0)) + 'console-pauser.sh';
+      if not FileExists(PauserPath) then
+        raise Exception.Create(Tr('Missing console-pauser.sh beside the application.'));
+      if FileExists('/usr/bin/gnome-terminal') then
+        Proc.Executable := '/usr/bin/gnome-terminal'
+      else
+        Proc.Executable := '/usr/bin/xterm';
+      Proc.CurrentDirectory := ResolveRunDirectory(WorkDirectory, FileName);
+      if not DirectoryExists(Proc.CurrentDirectory) then
+        raise Exception.Create(Tr('The working directory does not exist.'));
+      if Proc.Executable = '/usr/bin/gnome-terminal' then
+      begin
+        Proc.Parameters.Add('--title=' + ExtractFileName(FileName));
+        Proc.Parameters.Add('--working-directory=' + Proc.CurrentDirectory);
+        Proc.Parameters.Add('--');
+      end
+      else
+      begin
+        Proc.Parameters.Add('-T');
+        Proc.Parameters.Add(ExtractFileName(FileName));
+        Proc.Parameters.Add('-e');
+      end;
+      { FPC 3.0.x TProcess turns an empty parameter into nil, truncating argv.
+        Pass one nonempty command with every argument quoted as a shell literal. }
+      RunCommand := 'exec ' + QuoteShellArgument('/bin/bash') + ' ' +
+        QuoteShellArgument(PauserPath) + ' ' +
+        QuoteShellArgument(ExpandFileName(FileName));
+      for I := 0 to Args.Count - 1 do
+        RunCommand := RunCommand + ' ' + QuoteShellArgument(Args[I]);
+      Proc.Parameters.Add('/bin/bash');
+      Proc.Parameters.Add('-c');
+      Proc.Parameters.Add(RunCommand);
+      Proc.Execute;
+    except
+      on E: Exception do
+        UiMessageDlg(Format(Tr('Run failed: %s'), [E.Message]), mtError, [mbOK], 0);
+    end;
+  finally
+    Args.Free;
+    Proc.Free;
+  end;
 end;
 
 procedure TMainForm.CompileClick(Sender: TObject);
@@ -3487,15 +4686,144 @@ begin CompileCurrent(True, False); end;
 procedure TMainForm.CompileRunClick(Sender: TObject);
 begin CompileCurrent(False, True); end;
 procedure TMainForm.RunClick(Sender: TObject);
-var Doc: TDocument; FileName: string;
+var Doc: TDocument; FileName, ProjectFile: string;
 begin
+  if FCompileActive or (Application.ModalLevel > 0) then Exit;
   Doc := CurrentDoc;
-  if (FProjectPath <> '') and ((Doc = nil) or
-     (FProjectFiles.IndexOf(Doc.FileName) >= 0)) then
-    FileName := ChangeFileExt(FProjectPath, '')
-  else if Doc <> nil then FileName := ChangeFileExt(Doc.FileName, '')
-  else FileName := FLastExecutable;
-  RunExecutable(FileName);
+  ProjectFile := '';
+  FileName := '';
+  if DocumentBelongsToProject(Doc) then
+  begin
+    ProjectFile := FProjectPath;
+    FileName := ChangeFileExt(ProjectFile, '');
+  end
+  else if (Doc <> nil) and (Doc.FileName <> '') then
+    FileName := ChangeFileExt(Doc.FileName, '');
+  RunExecutable(FileName, ProjectFile);
+end;
+
+function TMainForm.DebuggerActive: Boolean;
+begin
+  Result := (FDebugger <> nil) and FDebugger.Session.Active;
+end;
+
+function TMainForm.DebuggerStopped: Boolean;
+begin
+  Result := (FDebugger <> nil) and (FDebugger.Session.State = gsStopped);
+end;
+
+procedure TMainForm.InitializeDebugger;
+begin
+  if FDebugger <> nil then Exit;
+  if FDebugTab = nil then
+  begin
+    FDebugTab := TTabSheet.Create(Self);
+    FDebugTab.PageControl := FReportTabs;
+    FDebugTab.Caption := Tr('Debug');
+  end;
+  FDebugger := TDebuggerPanel.Create(Self);
+  FDebugger.Parent := FDebugTab; FDebugger.Align := alClient;
+  FDebugger.Session.OnLocation := @DebugLocation;
+  FDebugger.OnStateChange := @DebugStateChange;
+  FDebugTimer := TTimer.Create(Self);
+  FDebugTimer.Interval := 40; FDebugTimer.OnTimer := @DebugTick;
+  FDebugTimer.Enabled := True;
+end;
+
+procedure TMainForm.ShutdownDebugger;
+begin
+  FreeAndNil(FDebugTimer);
+  if FDebugger <> nil then FDebugger.OnStateChange := nil;
+  FreeAndNil(FDebugger);
+end;
+
+procedure TMainForm.DebugTick(Sender: TObject);
+begin
+  if FDebugger <> nil then FDebugger.Session.Poll;
+end;
+
+procedure TMainForm.DebugStateChange(Sender: TObject);
+var I: Integer;
+begin
+  if not DebuggerStopped then begin FDebugLine := 0; FDebugFile := ''; end;
+  if FDocs <> nil then
+    for I := 0 to FDocs.Count - 1 do TDocument(FDocs[I]).Editor.Invalidate;
+  RefreshCommandStates(Self);
+end;
+
+procedure TMainForm.DebugLocation(Sender: TObject; const FileName: string; Line: Integer);
+var Doc: TDocument;
+begin
+  if not FileExists(FileName) then Exit;
+  OpenFile(FileName);
+  Doc := FindDoc(FileName);
+  if Doc = nil then Exit;
+  FDebugFile := Doc.FileName; FDebugLine := Line;
+  FPages.ActivePage := Doc.Tab;
+  Doc.Editor.CaretY := EnsureRange(Line, 1, Max(1, Doc.Editor.Lines.Count));
+  Doc.Editor.CaretX := 1;
+  Doc.Editor.TopLine := Max(1, Line - 5);
+  Doc.Editor.Invalidate;
+  Doc.Editor.SetFocus;
+  UpdateStatus;
+end;
+
+procedure TMainForm.DebugStartClick(Sender: TObject);
+var Doc: TDocument; ProjectFile, Arguments, WorkDirectory, ErrorText: string;
+  Args: TStringList;
+begin
+  if FCompileActive or DebuggerActive or (Application.ModalLevel > 0) then Exit;
+  InitializeDebugger;
+  Doc := CurrentDoc; ProjectFile := '';
+  if DocumentBelongsToProject(Doc) then ProjectFile := FProjectPath;
+  FDebugBuild := True;
+  try CompileCurrent(False, False); finally FDebugBuild := False; end;
+  if not FLastCompileSucceeded then Exit;
+  Args := TStringList.Create;
+  try
+    try
+      ReadRunSettings(ProjectFile, Arguments, WorkDirectory);
+      if not ParseRunArguments(Arguments, Args, ErrorText) then
+        raise Exception.Create(Tr(ErrorText));
+      WorkDirectory := ResolveRunDirectory(WorkDirectory, FLastExecutable);
+      if not DirectoryExists(WorkDirectory) then
+        raise Exception.Create(Tr('The working directory does not exist.'));
+      FReportTabs.ActivePage := FDebugTab;
+      FDebugger.BeginSession;
+      FDebugger.Session.Start(FLastExecutable, WorkDirectory, Args);
+    except
+      on E: Exception do UiMessageDlg(Tr('Debug failed: ') + E.Message,
+        mtError, [mbOK], 0);
+    end;
+  finally Args.Free; end;
+end;
+
+procedure TMainForm.DebugToggleBreakpointClick(Sender: TObject);
+var Doc: TDocument;
+begin
+  if FCompileActive then Exit;
+  Doc := CurrentDoc;
+  if Doc = nil then Exit;
+  if (Doc.FileName = '') and not SaveDoc(Doc) then Exit;
+  InitializeDebugger;
+  try
+    FDebugger.Session.ToggleBreakpoint(Doc.FileName, Doc.Editor.CaretY);
+    FDebugger.RefreshBreakpoints; Doc.Editor.Invalidate;
+  except on E: Exception do UiMessageDlg(E.Message, mtInformation, [mbOK], 0); end;
+end;
+
+procedure TMainForm.DebugContinueClick(Sender: TObject);
+begin if FDebugger <> nil then FDebugger.Session.ContinueExecution; end;
+procedure TMainForm.DebugStepIntoClick(Sender: TObject);
+begin if FDebugger <> nil then FDebugger.Session.StepInto; end;
+procedure TMainForm.DebugStepOverClick(Sender: TObject);
+begin if FDebugger <> nil then FDebugger.Session.StepOver; end;
+procedure TMainForm.DebugStopClick(Sender: TObject);
+begin if FDebugger <> nil then FDebugger.Session.Stop; end;
+procedure TMainForm.DebugEvaluateClick(Sender: TObject);
+begin
+  if FDebugger = nil then Exit;
+  FReportTabs.ActivePage := FDebugTab; FDebugger.FocusExpression;
 end;
 
 procedure TMainForm.AboutClick(Sender: TObject);
