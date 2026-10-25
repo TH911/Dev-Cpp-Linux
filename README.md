@@ -33,4 +33,4 @@ bash run.sh /path/to/project.dev
 
 打包与卸载说明见 [PACKAGING.md](docs/PACKAGING.md)。源码仓库不提交可执行文件和安装包；既有 `v1.0.0` 标签保持不变，上述资产适用于后续发布。未发布的构建也可从 [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml) 下载。
 
-兼容性检查使用 Ubuntu 20.04 amd64 容器，固定 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3.0 和 GDB 9.1；[检查入口](ci/check.sh) 包含文件保存、编辑、运行参数、调试和真实 GTK2 交互回归，并验证压缩包及 `.deb` 安装/卸载。容器使用 Xvfb 和 XTerm，NOI Linux 2.0 原版 GNOME 桌面的显示、焦点及 GNOME Terminal 行为仍需实机验收。
+兼容性检查使用 Ubuntu 20.04 amd64 容器，固定 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3.0 和 GDB 9.1；[检查入口](ci/check.sh) 包含文件保存、编辑、运行参数、调试和真实 GTK2 交互回归，；[打包检查](ci/build-and-package.sh) 另验证压缩包及 `.deb` 安装/卸载。容器使用 Xvfb 和 XTerm，NOI Linux 2.0 原版 GNOME 桌面的显示、焦点及 GNOME Terminal 行为仍需实机验收。

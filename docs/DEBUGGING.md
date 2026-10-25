@@ -37,7 +37,8 @@ No user argument is inserted as an unquoted shell expression.
 inferior. Reads are limited to 64 KiB per stream per tick, incomplete MI records
 are capped at 1 MiB, and each visible text history is bounded. Shutdown has a
 bounded termination fallback. Breakpoints are kept for the current IDE session;
-editing/moving source lines after stopping does not relocate them. Call-stack
+Save As migrates their file paths after a successful save. Inserting, deleting
+or moving source lines after stopping does not relocate their line numbers. Call-stack
 browsing, persistent watch lists and conditional breakpoints are not implemented.
 
 To test with the target FPC 3.0.4 and GDB 9.1:
@@ -57,7 +58,9 @@ helper and C fixture.
 
 Both suites have passed with the versions above in the Ubuntu 20.04 container.
 The GUI test checks breakpoint and stopped-line highlighting, read-only editors
-while debugging, stepping, evaluation, terminal input/output, normal exit and
+while debugging (including Tab, Return, bracket pairing and completion, then
+saving and comparing the buffer after Stop), stepping, evaluation, terminal
+input/output, normal exit and
 Stop restoring editability. It uses a test-only read-only GTK widget probe; the
 probe is not part of the installed program. The original NOI Linux GNOME desktop
 still needs acceptance testing.

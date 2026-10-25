@@ -102,7 +102,7 @@
 | `preferences-ui-smoke.sh` | 真实菜单切换主题、创建和切换编译器配置后的实际编译、Cancel 丢弃编辑，以及重启持久化 |
 | `packaging/verify-artifacts.py`、`verify-install.sh` | 归档排除产物、Debian 元数据；隔离容器安装、普通用户打开中文相对路径、IPC、F11 编译运行、只读安装目录、卸载/purge 保留设置与 MIME 默认值 |
 
-`ui-interaction-smoke.sh` 的独立完整重跑已通过。另发现调试只读期间编辑回调仍可改写缓冲区的问题，已加入回调级防护，已通过暂停时输入普通字符、Tab、回车、配对括号和接受补全，停止后保存并比对原文的回归。文件 helper 证明底层保存规则，不能单独证明所有保存对话框和项目取消路径。完整检查由 [`ci/check.sh`](../ci/check.sh) 汇总，安装包另在一次性容器中验证；本文记录独立实测结果，不预先宣称 GitHub CI 已通过。
+`ui-interaction-smoke.sh` 的独立完整重跑已通过。另发现调试只读期间编辑回调仍可改写缓冲区的问题，已加入回调级防护，已通过暂停时输入普通字符、Tab、回车、配对括号和接受补全，停止后保存并比对原文的回归。文件 helper 证明底层保存规则，不能单独证明所有保存对话框和项目取消路径。完整检查由 [`ci/check.sh`](../ci/check.sh) 汇总，安装包另在一次性容器中验证；`ci/check.sh` 的本地完整集成运行亦已通过；GitHub CI 结果以对应提交的 Actions 记录为准。
 
 仍需在原版 NOI Linux 2.0 GNOME 桌面验收显示、焦点、字体与 GNOME Terminal。容器不复现官方 ISO 的完整桌面或内核，这一项不能由 Xvfb/XTerm 测试替代。
 
