@@ -1,6 +1,6 @@
 # GDB debugging on NOI Linux 2.0
 
-This guide describes version 1.1.1.
+This guide describes version 1.1.2.
 
 The native IDE uses the installed GDB 9.1 through its MI2 protocol. Starting a
 debug session rebuilds the current source or project with `-g3 -O0` and frame
@@ -23,9 +23,9 @@ the two areas. The left sidebar's Debug page lists breakpoints, and the main
 toolbar includes debugging actions. The compact GTK2 controls move toward the
 original structure without promising identical VCL rendering.
 
-Enter a line in the program input field and press Enter or Send Input to
+Enter a line in the program input field and press Enter  to
 supply standard input. Enter an expression, variable name or array subscript
-and press Enter or Evaluate Expression while paused. The result appears in
+and press Enter  while paused. The result appears in
 the expression/value table and the debugger log. Expressions use the current
 stopped frame; this table is not a persistent watch list.
 
@@ -84,3 +84,8 @@ input/output, normal exit and
 Stop restoring editability. It uses a test-only read-only GTK widget probe; the
 probe is not part of the installed program. The original NOI Linux GNOME desktop
 still needs acceptance testing.
+
+Version 1.1.2 keeps only Debug and Stop in the top compile/debug toolbar,
+as in the original 5.11 layout. Source stepping and Continue remain available
+in the original bottom controls, menus and shortcuts. The extra Evaluate
+and Send Input buttons were removed; press Enter in the relevant field.

@@ -13,7 +13,7 @@ initialization
     before the program body, even for a command that only prints its version. }
   if (ParamCount = 1) and (ParamStr(1) = '--version') then
   begin
-    WriteLn('Dev-C++ NOI ', AppVersion);
+    WriteLn(AppName, ' ', AppVersion);
     WriteLn(AppRepositoryUrl);
     Halt(0);
   end;

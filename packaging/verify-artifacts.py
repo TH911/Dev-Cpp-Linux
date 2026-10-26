@@ -48,6 +48,9 @@ def check_deb(deb_path, version):
         for name in ("devcpp-noi", "console-pauser.sh", "ui-language.sh", "devcpp.ico", "PORT_REVISION"):
             assert (app / name).is_file(), name
         assert (app / "devcpp-noi").read_bytes().startswith(b"\x7fELF")
+        original_icon = Path(__file__).resolve().parent.parent / "linux-noi-lazarus/devcpp.ico"
+        assert (root / "usr/share/pixmaps/devcpp-noi.ico").read_bytes() == (app / "devcpp.ico").read_bytes() == original_icon.read_bytes()
+        assert not (root / "usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg").exists(), "Unexpected replacement icon"
         assert list((app / "icons").glob("*.bmp")), "Missing toolbar icons"
         for path in root.rglob("*"):
             if path.is_dir():
@@ -66,6 +69,8 @@ def check_deb(deb_path, version):
         visible_desktop = (root / "usr/share/applications/devcpp-noi-installed.desktop").read_text()
         assert "Exec=/usr/bin/devcpp-noi %F" in visible_desktop and "NoDisplay=" not in visible_desktop
         assert "StartupWMClass=DevCppNoiInstalled" in visible_desktop
+        assert "Name=Dev-Cpp\n" in visible_desktop and "Name[zh_CN]=Dev-Cpp\n" in visible_desktop
+        assert "Icon=/usr/share/pixmaps/devcpp-noi.ico\n" in visible_desktop
         assert (app / "migrate-launchers.py").is_file()
         assert (root / "etc/xdg/autostart/devcpp-noi-migrate.desktop").is_file()
         for path in (root / "DEBIAN").iterdir():

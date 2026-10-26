@@ -18,7 +18,7 @@ type
   end;
 
 const
-  Translations: array[0..268] of TTranslationEntry = (
+  Translations: array[0..272] of TTranslationEntry = (
     (EnglishText: '&File'; ChineseText: '文件(&F)'),
     (EnglishText: '&Edit'; ChineseText: '编辑(&E)'),
     (EnglishText: '&Search'; ChineseText: '搜索(&S)'),
@@ -240,7 +240,7 @@ const
     (EnglishText: 'Step over'; ChineseText: '单步跳过'),
     (EnglishText: 'Stop'; ChineseText: '停止'),
     (EnglishText: 'Evaluate expression'; ChineseText: '表达式求值'),
-    (EnglishText: 'Expression evaluated in the current stack frame'; ChineseText: '在当前栈帧中计算表达式'),
+    (EnglishText: 'Expression evaluated in the current stack frame'; ChineseText: '在当��栈帧中计算表达式'),
     (EnglishText: 'Program input/output'; ChineseText: '程序输入输出'),
     (EnglishText: 'Send input'; ChineseText: '发送输入'),
     (EnglishText: 'Debugger log'; ChineseText: '调试器日志'),
@@ -287,7 +287,11 @@ const
     (EnglishText: 'Copy details'; ChineseText: '复制详细信息'),
     (EnglishText: 'Could not open the project repository.'; ChineseText: '无法打开项目仓库地址。'),
     (EnglishText: 'Details copied.'; ChineseText: '详细信息已复制。'),
-    (EnglishText: 'Could not copy details: '; ChineseText: '无法复制详细信息：')
+    (EnglishText: 'Could not copy details: '; ChineseText: '无法复制详细信息：'),
+    (EnglishText: '&About Dev-Cpp'; ChineseText: '关于 Dev-Cpp(&A)'),
+    (EnglishText: 'Evaluate:'; ChineseText: '求值：'),
+    (EnglishText: 'Press Enter to evaluate the expression in the current stack frame.'; ChineseText: '输入表达式后按 Enter，在当前栈帧中求值。'),
+    (EnglishText: 'Press Enter to send input to the program.'; ChineseText: '按 Enter 向程序发送输入。')
   );
 
   DeletedEnglish: string = '%s was deleted outside Dev-C++.' + LineEnding +

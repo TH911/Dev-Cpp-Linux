@@ -27,7 +27,7 @@ implementation
 
 uses
   TypInfo, IniFiles, Contnrs, ComCtrls, Forms, Controls, StdCtrls,
-  LCLType, Math, translation_catalog;
+  LCLType, Math, translation_catalog, app_version;
 
 type
   TOriginalText = class
@@ -95,7 +95,7 @@ begin
   DialogForm := TForm.CreateNew(nil, 0);
   ButtonList := TList.Create;
   try
-    DialogForm.Caption := 'Dev-C++';
+    DialogForm.Caption := AppName;
     DialogForm.HelpContext := HelpCtx;
     DialogForm.Position := poScreenCenter;
     DialogForm.BorderStyle := bsDialog;

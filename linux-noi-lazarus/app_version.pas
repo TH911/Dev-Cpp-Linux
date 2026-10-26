@@ -5,7 +5,8 @@ unit app_version;
 interface
 
 const
-  AppVersion = '1.1.1';
+  AppName = 'Dev-Cpp';
+  AppVersion = '1.1.2';
   AppRepositoryUrl = 'https://github.com/TH911/Dev-Cpp-Linux';
   AppUpstreamVersion = 'Orwell Dev-C++ 5.11';
   AppLicense = 'GPL-2.0-or-later';

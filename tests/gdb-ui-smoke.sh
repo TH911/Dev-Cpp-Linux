@@ -259,6 +259,14 @@ press F5
 wait_enabled 'Next Line' true
 source_line 6
 snapshot main-paused
+python3 - "$test_dir/state.json" <<'PY_BUTTONS'
+import json, sys
+widgets = json.load(open(sys.argv[1]))
+unexpected = {'Evaluate expression', 'Send input', 'Copy details'}
+shown = {widget['text'] for widget in widgets
+         if widget['type'] == 'GtkButton' and widget['visible']}
+assert not (unexpected & shown), 'Non-original debugger buttons are visible: ' + str(unexpected & shown)
+PY_BUTTONS
 echo 'PASS: actual line-number clicks add/remove source breakpoints; right-click and drag do not toggle; F5 builds and stops at main.'
 
 # A source edit attempted during debugging must be rejected by the IDE.

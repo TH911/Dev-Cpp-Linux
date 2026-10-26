@@ -11,16 +11,14 @@ procedure ShowAboutDialog(AOwner: TComponent);
 implementation
 
 uses SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Graphics,
-  Dialogs, Clipbrd, LCLIntf, LCLType, ui_language, app_version;
+  Dialogs, LCLIntf, LCLType, ui_language, app_version;
 
 type
   TAboutDialog = class(TForm)
   private
     FDetails: string;
-    FCopyStatus: TStaticText;
     procedure OpenRepository(Sender: TObject);
     procedure RepositoryKey(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure CopyDetails(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
   end;
@@ -58,7 +56,7 @@ var
 
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := Tr('About Dev-C++');
+  Caption := Tr('About') + ' ' + AppName;
   BorderStyle := bsDialog;
   Position := poMainFormCenter;
   ClientWidth := 600;
@@ -79,7 +77,7 @@ begin
     except
       { A missing desktop icon must not hide version and diagnostic details. }
     end;
-  LabelControl := TextAt(Self, 'Dev-C++', 104, 18, 470, 32);
+  LabelControl := TextAt(Self, AppName, 104, 18, 470, 32);
   LabelControl.Font.Size := 18;
   LabelControl.Font.Style := [fsBold];
   TextAt(Self, Tr('NOI Linux edition'), 106, 54, 468, 22);
@@ -115,7 +113,7 @@ begin
   if ExtractFileDir(ExecutablePath) = '/usr/lib/devcpp-noi' then
     Distribution := Tr('Debian package')
   else Distribution := Tr('Directory build');
-  FDetails := 'Dev-C++ ' + AppVersion + LineEnding +
+  FDetails := AppName + ' ' + AppVersion + LineEnding +
     Tr('Installation:') + ' ' + Distribution + LineEnding +
     Tr('Executable:') + ' ' + ExecutablePath + LineEnding +
     Tr('Configuration:') + ' ' + ConfigurationPath + LineEnding +
@@ -135,14 +133,8 @@ begin
 
   Button := TButton.Create(Self);
   Button.Parent := Self;
-  Button.SetBounds(20, 382, 140, 32);
-  Button.Caption := Tr('Copy details');
-  Button.OnClick := @CopyDetails;
-  FCopyStatus := TextAt(Self, '', 172, 388, 300, 24);
-  Button := TButton.Create(Self);
-  Button.Parent := Self;
   Button.SetBounds(490, 382, 90, 32);
-  Button.Caption := Tr('Close');
+  Button.Caption := Tr('OK');
   Button.Default := True;
   Button.Cancel := True;
   Button.ModalResult := mrOK;
@@ -163,17 +155,6 @@ begin
   begin
     Key := 0;
     OpenRepository(Sender);
-  end;
-end;
-
-procedure TAboutDialog.CopyDetails(Sender: TObject);
-begin
-  try
-    Clipboard.AsText := FDetails;
-    FCopyStatus.Caption := Tr('Details copied.');
-  except
-    on E: Exception do UiMessageDlg(Tr('Could not copy details: ') + E.Message,
-      mtError, [mbOK], 0);
   end;
 end;
 

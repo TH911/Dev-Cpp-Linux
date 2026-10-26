@@ -66,6 +66,28 @@ def main():
         assert context.stat().st_mode & 0o111
         repair()
         assert len(list((data / 'devcpp-noi/launcher-backups').glob('*.bak'))) == 2
+        source = apps / 'devcpp-noi-source.desktop'
+        source_text = text.replace('Name=Dev-C++\n',
+                                   'Name=Dev-C++ (Source)\nName[zh_CN]=Dev-C++（源码构建）\n', 1)
+        source.write_text(source_text)
+        repair()
+        migrated = source.read_text()
+        assert 'Name=Dev-Cpp\n' in migrated and 'Name[zh_CN]=Dev-Cpp\n' in migrated
+        assert 'NoDisplay=true\n' in migrated, 'Source registration duplicates the installed menu'
+        assert 'Icon=' + str(base / 'deleted 中文 source/devcpp.ico') in migrated
+        source_backups = list((data / 'devcpp-noi/launcher-backups').glob('devcpp-noi-source.desktop.*.bak'))
+        assert len(source_backups) == 1 and source_backups[0].read_text() == source_text
+        repair()
+        assert len(list((data / 'devcpp-noi/launcher-backups').glob('devcpp-noi-source.desktop.*.bak'))) == 1
+        custom_source = source_text + '\n[Custom User Section]\nKeep=true\n'
+        source.write_text(custom_source)
+        repair()
+        assert source.read_text() == custom_source, 'Customized source menu was rewritten'
+        source.unlink()
+        source.symlink_to(base / 'custom-source.desktop')
+        (base / 'custom-source.desktop').write_text(source_text)
+        repair()
+        assert source.is_symlink() and source.read_text() == source_text
         custom = text.replace('Name=Dev-C++\n', 'Name=My custom Dev-C++\n')
         old.write_text(custom)
         repair()
@@ -85,7 +107,7 @@ def main():
         assert old.is_symlink() and target.read_text() == text
         assert mime.read_text() == '[Default Applications]\ntext/x-c++src=my-editor.desktop;\n'
         assert ini.read_text() == '[Interface]\nLanguage=en\n'
-    print('PASS: precise legacy launcher migration, backup/idempotency, custom fields/names, symlinks, MIME and settings preserved')
+    print('PASS: precise launcher migration, source-menu deduplication, backups/idempotency, custom names/fields/flags, symlinks, MIME and settings preserved')
 
 
 if __name__ == '__main__':

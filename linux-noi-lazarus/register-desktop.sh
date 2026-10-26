@@ -11,6 +11,8 @@ if [[ -x /usr/lib/devcpp-noi/migrate-launchers.py ]]; then
   /usr/lib/devcpp-noi/migrate-launchers.py || true
 fi
 mkdir -p -- "$applications_dir"
+source_hidden=false
+if [[ -x /usr/bin/devcpp-noi ]]; then source_hidden=true; fi
 
 # Desktop files use double quotes around executable paths containing spaces.
 escaped_dir=${app_dir//\\/\\\\}
@@ -18,13 +20,14 @@ escaped_dir=${escaped_dir//\"/\\\"}
 cat > "$desktop_file" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Dev-C++ (Source)
-Name[zh_CN]=Dev-C++（源码构建）
+Name=Dev-Cpp
+Name[zh_CN]=Dev-Cpp
 Comment=Dev-C++ for NOI Linux
 Comment[zh_CN]=适用于 NOI Linux 的 Dev-C++
 Exec=/bin/bash "$escaped_dir/launch.sh" %F
 Icon=$app_dir/devcpp.ico
 Terminal=false
+NoDisplay=$source_hidden
 Categories=Development;IDE;
 MimeType=text/x-c++src;text/x-csrc;text/x-c++hdr;text/x-chdr;
 Actions=NewWindow;
@@ -38,8 +41,8 @@ EOF
 cat > "$applications_dir/devcpp-noi-source-new-window.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Dev-C++ Source (Open in New Window)
-Name[zh_CN]=Dev-C++ 源码构建（在新窗口打开）
+Name=Dev-Cpp
+Name[zh_CN]=Dev-Cpp
 Exec=/bin/bash "$escaped_dir/launch.sh" --new-window %F
 Icon=$app_dir/devcpp.ico
 Terminal=false
@@ -51,11 +54,13 @@ EOF
 scripts_dir="$data_dir/nautilus/scripts"
 mkdir -p -- "$scripts_dir"
 if [[ "$devcpp_ui_language" == en ]]; then
-  context_script="$scripts_dir/Open in New Window (Dev-C++ Source)"
+  context_script="$scripts_dir/Open in New Window (Dev-Cpp)"
 else
-  context_script="$scripts_dir/在新窗口打开 (Dev-C++ Source)"
+  context_script="$scripts_dir/在新窗口打开 (Dev-Cpp)"
 fi
-printf '#!/usr/bin/env bash\napp_launch=%q\n' "$app_dir/launch.sh" > "$context_script"
+context_launch="$app_dir/launch.sh"
+if [[ -x /usr/bin/devcpp-noi ]]; then context_launch=/usr/bin/devcpp-noi; fi
+printf '#!/usr/bin/env bash\napp_launch=%q\n' "$context_launch" > "$context_script"
 cat >> "$context_script" <<'EOF'
 set -euo pipefail
 if [[ -n ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS:-} ]]; then

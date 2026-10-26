@@ -755,7 +755,7 @@ var
 
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := 'Dev-C++ ' + AppVersion;
+  Caption := AppName + ' ' + AppVersion;
   Font.Name := 'Sans';
   Font.Size := 9;
   Constraints.MinWidth := 820;
@@ -927,7 +927,7 @@ begin
   FChineseLanguageItem.Checked := CurrentUiLanguage = ulChinese;
   FEnglishLanguageItem.Checked := CurrentUiLanguage = ulEnglish;
   HelpMenu := TMenuItem.Create(Self); HelpMenu.Caption := Tr('&Help'); Bar.Items.Add(HelpMenu);
-  AddMenu(HelpMenu, '&About Dev-C++', @AboutClick);
+  AddMenu(HelpMenu, '&About Dev-Cpp', @AboutClick);
 
   ToolImages := TImageList.Create(Self);
   ToolImages.Width := 16;
@@ -958,11 +958,8 @@ begin
   AddTool('Rebuild All', 'rebuild', @CompileClick);
   AddDivider;
   AddTool('Start Debugging', 'debug', @DebugStartClick);
-  AddTool('Continue', 'continue', @DebugContinueClick);
-  AddTool('Step over', 'step-over', @DebugStepOverClick);
-  AddTool('Step into', 'step-into', @DebugStepIntoClick);
+  AddDivider;
   AddTool('Stop', 'stop-debug', @DebugStopClick);
-  AddTool('Toggle Breakpoint', 'breakpoint', @DebugToggleBreakpointClick);
   AddDivider;
   FCompilerProfileCombo := TComboBox.Create(Self);
   FCompilerProfileCombo.Parent := Toolbar;
@@ -3050,8 +3047,8 @@ begin
   finally
     FProjectTree.Items.EndUpdate;
   end;
-  if FProjectPath = '' then Caption := 'Dev-C++ ' + AppVersion
-  else Caption := ExtractFileName(FProjectPath) + ' - Dev-C++ ' + AppVersion;
+  if FProjectPath = '' then Caption := AppName + ' ' + AppVersion
+  else Caption := ExtractFileName(FProjectPath) + ' - ' + AppName + ' ' + AppVersion;
 end;
 
 function TMainForm.TryCloseProject: Boolean;

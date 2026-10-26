@@ -12,15 +12,15 @@ python3 packaging/build-release.py deb --output dist \
   --binary linux-noi-lazarus/devcpp-noi
 
 # CI 也可一次生成全部资产；此命令本身不会编译。
-python3 packaging/build-release.py all --version v1.1.1 --output dist
-python3 packaging/verify-artifacts.py --version v1.1.1 --output dist
+python3 packaging/build-release.py all --version v1.1.2 --output dist
+python3 packaging/verify-artifacts.py --version v1.1.2 --output dist
 ```
 
-以 `VERSION=1.1.1` 为例，Release 资产名称为：
+以 `VERSION=1.1.2` 为例，Release 资产名称为：
 
-- `linux-noi-lazarus-1.1.1-src.tar.gz`
-- `linux-noi-lazarus-1.1.1-src.zip`
-- `devcpp-noi_1.1.1_amd64.deb`
+- `linux-noi-lazarus-1.1.2-src.tar.gz`
+- `linux-noi-lazarus-1.1.2-src.zip`
+- `devcpp-noi_1.1.2_amd64.deb`
 
 源码归档解压后直接得到 `linux-noi-lazarus/`，包含 Pascal/Lazarus 源码、构建和启动脚本、说明、许可证及运行资源。它们采用文件类型白名单，排除编译产物 `.o/.or/.ppu/.compiled`、可执行文件、`.build.lock`、IDE 会话、备份、临时文件和用户设置。新增运行资源类型时，请同步更新 `packaging/build-release.py` 中的白名单。归档内脚本为 0755，其他文件为 0644，不依赖 checkout 的权限。可设置 `SOURCE_DATE_EPOCH` 固定归档时间；默认固定为 1980-01-01，保证相同输入可重现。
 
@@ -35,7 +35,7 @@ Debian 打包需要 `dpkg-deb`，并拒绝非 amd64 ELF 输入。**发布的程�
 ## 安装与卸载
 
 ```bash
-sudo apt install ./devcpp-noi_1.1.1_amd64.deb
+sudo apt install ./devcpp-noi_1.1.2_amd64.deb
 /usr/bin/devcpp-noi --version
 /usr/bin/devcpp-noi
 /usr/bin/devcpp-noi --new-window '/home/user/中文 source/main.cpp'
@@ -52,40 +52,42 @@ sudo apt purge devcpp-noi
 | --- | --- |
 | `/usr/bin/devcpp-noi` | 直接 exec 已编译程序，保留参数和调用者工作目录 |
 | `/usr/lib/devcpp-noi/` | 程序、`console-pauser.sh`、`ui-language.sh`、窗口图标、工具栏图标及可用的 profiles |
-| `/usr/share/applications/devcpp-noi-installed.desktop` | 可见的“Dev-C++ NOI Linux”菜单项，直接启动安装版 |
+| `/usr/share/applications/devcpp-noi-installed.desktop` | 可见的“Dev-Cpp”菜单项，直接启动安装版 |
 | `/usr/share/applications/devcpp-noi.desktop`、`devcpp-noi-new-window.desktop` | 隐藏兼容入口，保留旧 MIME 关联与已固定的快捷方式 |
 | `/etc/xdg/autostart/devcpp-noi-migrate.desktop` | 用户登录时迁移本程序历史自动生成的启动入口 |
-| `/usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg` | 系统桌面图标 |
+| `/usr/share/pixmaps/devcpp-noi.ico` | 与源码版完全相同的原版图标 |
 | `/usr/share/doc/devcpp-noi/` | 说明和许可证 |
 
 安装版入口不会运行开发目录的 `launch.sh`、`run.sh` 或 `build.sh`，不会尝试在 `/usr` 编译、写锁或注册用户桌面项。所有目录可供普通用户遍历，程序和资源可读。设置仍由程序保存到 `~/.config/devcpp-noi.ini`，卸载脚本不删除用户设置或缓存。菜单仅声明支持的文件类型，不执行 `xdg-mime default`，不修改 `mimeapps.list`；如需默认打开应用，请通过桌面“打开方式”自行选择。
 
 ## 从旧源码版或 1.1.0 升级
 
-安装后，在软件面板中选择 **Dev-C++ NOI Linux**（中文桌面显示“Dev-C++ NOI Linux版”）。这是独立的安装版入口，旧源码目录被删除也不会影响它。`--version` 无需图形显示环境；“帮助 → 关于”显示实际版本、程序路径与安装来源，安装版程序应位于 `/usr/lib/devcpp-noi/devcpp-noi`。
+安装后，在软件面板中选择 **Dev-Cpp**。这是独立的安装版入口，旧源码目录被删除也不会影响它。`--version` 无需图形显示环境；“帮助 → 关于”显示实际版本、程序路径与安装来源，安装版程序应位于 `/usr/lib/devcpp-noi/devcpp-noi`。
 
-旧源码脚本曾将用户级 `devcpp-noi.desktop` 指向源码目录，该文件会遮蔽同名系统入口。新启动器只识别历史脚本完整生成的入口，先备份到 `${XDG_DATA_HOME:-~/.local/share}/devcpp-noi/launcher-backups/`，再迁移到安装版。自定义名称、参数、额外字段、符号链接及 MIME 默认设置保持不变。由 `sudo apt install` 安装时，安装脚本只处理明确的 `SUDO_USER`；其他用户在首次启动安装版或下次登录时处理，不遍历所有用户的家目录。也可主动执行：
+旧源码脚本曾将用户级 `devcpp-noi.desktop` 指向源码目录，该文件会遮蔽同名系统入口。安装包使用未修改的 `linux-noi-lazarus/devcpp.ico`，不再生成替代 SVG；升级时旧包拥有的 SVG 由 dpkg 移除。菜单回归通过 GIO 的实际应用发现、名称、可见性及图标加载来检查。
+
+新启动器只识别历史脚本完整生成的入口，先备份到 `${XDG_DATA_HOME:-~/.local/share}/devcpp-noi/launcher-backups/`，再迁移到安装版。自定义名称、参数、额外字段、符号链接及 MIME 默认设置保持不变。由 `sudo apt install` 安装时，安装脚本只处理明确的 `SUDO_USER`；其他用户在首次启动安装版或下次登录时处理，不遍历所有用户的家目录。也可主动执行：
 
 ```bash
 /usr/bin/devcpp-noi --repair-launchers
 ```
 
-源码版以后注册为独立的 Source 入口。实例通信按版本和程序位置隔离，安装版不会把启动请求转交给旧源码进程；通信句柄也不会被编译器或终端继承，IDE 退出后能够正常重开。
+源码版使用独立的桌面入口 ID，名称同样为 Dev-Cpp；检测到安装版时隐藏源码入口，避免菜单中出现重复项目，直接运行 `bash run.sh` 仍可启动源码版。实例通信按版本和程序位置隔离，安装版不会把启动请求转交给旧源码进程；通信句柄也不会被编译器或终端继承，IDE 退出后能够正常重开。
 
 ## 验证
 
 先验证压缩包内容一致、构建产物排除、Debian 元数据、依赖、启动器和文件权限：
 
 ```bash
-python3 packaging/verify-artifacts.py --version v1.1.1 --output dist
+python3 packaging/verify-artifacts.py --version v1.1.2 --output dist
 # 只有源码资产时：
-python3 packaging/verify-artifacts.py --source-only --version v1.1.1 --output dist
+python3 packaging/verify-artifacts.py --source-only --version v1.1.2 --output dist
 ```
 
 安装验证会实际安装和卸载包，**仅在一次性 Ubuntu 20.04 amd64 容器中以 root 运行**。镜像须已安装本包全部依赖及 `xvfb xauth xdotool`；可选 `desktop-file-utils` 验证 desktop 文件。依赖不齐时先用 `apt install ./包文件.deb` 解决依赖，再移除该包，恢复到未安装状态后运行验证；CI 更适合预先安装依赖。脚本拒绝覆盖已有的 `devcpp-noi` 安装。
 
 ```bash
-bash packaging/verify-install.sh dist/devcpp-noi_1.1.1_amd64.deb
+bash packaging/verify-install.sh dist/devcpp-noi_1.1.2_amd64.deb
 ```
 
 验证包括：`dpkg -i`、普通用户启动并打开含空格的中文相对路径、IPC 转发到当前安装实例、GIO 实际执行软件面板入口、旧实例隔离、旧入口备份、删除源码后重新打开、通信句柄不被终端继承、无 DISPLAY 版本查询、F11 实际编译运行 C++ 程序、`/usr/lib` 无变化和锁文件、文件类型默认关联保持不变、卸载和 purge 后设置保留。脚本需要能够创建 Xvfb 显示的容器，且结束后删除自己的临时 HOME。

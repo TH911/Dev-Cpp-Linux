@@ -70,7 +70,13 @@
 - 按原版 5.11 的 DebugSheet 整理底部左右分区，恢复左侧 Debug 页；断点红点、停止箭头和行色采用原版主题设置。
 - 真实行号单击增删断点；右键与拖动不会误触。运行中通过内部暂停修改后恢复，真实用户断点竞争仍保留暂停。GDB 9.1 会话回归及真实鼠标 UI 测试均已通过。
 - 安装版有独立菜单 ID、WM_CLASS 与按版本/路径隔离的 IPC，不转交旧源码实例。桌面入口迁移有精确识别与备份；实际 GIO 菜单启动、删除旧源码后重开、编译运行和卸载保留设置均通过。通信句柄设为 close-on-exec，终端不会让已退出的 IDE 保持“运行中”。
-- 关于窗口显示版本、仓库、原版与许可证、安装来源和实际路径；仓库点击、复制详细信息及无 DISPLAY 的 `--version` 已实测通过。
+- 关于窗口显示版本、仓库、原版与许可证、安装来源和实际路径；仓库点击、标准快捷键复制详细信息及无 DISPLAY 的 `--version` 已实测通过。
+
+## 1.1.2 原版按钮、图标与名称
+
+对照 `main.dfm` 的 `tbCompile`、`DebugStartPanel` 和 `AboutFrm.dfm`，移除顶部新增的 Continue、Step over、Step into、Toggle Breakpoint，以及 Evaluate、Send input、Copy details 按钮。原版已有的 Debug/Stop、底部继续/步进/停止与编译器选择保留；求值和程序输入用 Enter，关于详情用 Ctrl+A/C。
+
+源码与安装版的桌面名称、主标题统一为 Dev-Cpp，图标使用原版 ICO 原字节；Debug/Stop 使用原版 newlook BMP 原字节。源码运行脚本在构建后读取实际程序版本，兼容版本标记也纳入一致性检查，避免再次显示旧的 v1.0.0。
 
 ## 有意保留的差异
 

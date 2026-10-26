@@ -7,6 +7,7 @@ if [[ $EUID != 0 ]]; then
   exit 1
 fi
 deb=$(realpath -- "${1:?Usage: verify-install.sh /path/to/devcpp-noi_VERSION_amd64.deb}")
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 for tool in dpkg runuser xvfb-run xdotool timeout sha256sum fpc python3; do
   command -v "$tool" >/dev/null || { echo "Missing test tool: $tool" >&2; exit 1; }
 done
@@ -47,6 +48,11 @@ cat > "$test_dir/old source/launch.sh" <<'SH'
 echo old-launcher-was-used > "$HOME/old-launcher-was-used"
 exit 1
 SH
+cp "$script_dir/../linux-noi-lazarus/register-desktop.sh" \
+  "$script_dir/../linux-noi-lazarus/ui-language.sh" \
+  "$script_dir/../linux-noi-lazarus/devcpp.ico" "$test_dir/old source/"
+chmod 644 "$test_dir/old source/register-desktop.sh" "$test_dir/old source/ui-language.sh" \
+  "$test_dir/old source/devcpp.ico"
 python3 - "$test_dir" <<'PYFIXTURE'
 import sys
 from pathlib import Path
@@ -71,6 +77,9 @@ Exec=/bin/bash "{old}/launch.sh" --new-window %F
 '''
 (folder / 'home/.local/share/applications/devcpp-noi.desktop').write_text(text)
 (folder / 'legacy-desktop.expected').write_text(text)
+source_text = text.replace('Name=Dev-C++\n', 'Name=Dev-C++ (Source)\nName[zh_CN]=Dev-C++（源码构建）\n', 1)
+(folder / 'home/.local/share/applications/devcpp-noi-source.desktop').write_text(source_text)
+(folder / 'legacy-source-desktop.expected').write_text(source_text)
 PYFIXTURE
 # A v1.1.0 IPC server, using the old unversioned address, must never receive
 # activation from the new installed program.
@@ -96,10 +105,46 @@ fpc -FU"$test_dir" -FE"$test_dir" "$test_dir/legacy-instance.pas" > "$test_dir/l
   cat "$test_dir/legacy-build.log" >&2; exit 1;
 }
 chown -R "$test_user:$test_group" "$test_dir"
+# Upgrade a prior package, rather than checking only a clean installation.
+# CI uses a minimal 1.1.1 layout fixture so the regression does not download a
+# mutable network dependency. Pass a real 1.1.1 package as argument 2 for a
+# complete historical-package upgrade check.
+legacy_deb=${2:-}
+if [[ -z "$legacy_deb" ]]; then
+  mkdir -p "$test_dir/upgrade111/DEBIAN" \
+    "$test_dir/upgrade111/usr/share/icons/hicolor/scalable/apps" \
+    "$test_dir/upgrade111/usr/share/applications"
+  cat > "$test_dir/upgrade111/DEBIAN/control" <<'OLDMETA'
+Package: devcpp-noi
+Version: 1.1.1
+Architecture: amd64
+Maintainer: Dev-Cpp test fixture <test@example.invalid>
+Description: Historical icon and desktop layout for upgrade regression
+OLDMETA
+  cat > "$test_dir/upgrade111/usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg" <<'OLDSVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="#1266aa"/></svg>
+OLDSVG
+  cat > "$test_dir/upgrade111/usr/share/applications/devcpp-noi-installed.desktop" <<'OLDDESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Dev-C++ NOI Linux
+Exec=/usr/bin/devcpp-noi %F
+Icon=devcpp-noi
+Terminal=false
+Categories=Development;IDE;
+OLDDESKTOP
+  dpkg-deb --build --root-owner-group "$test_dir/upgrade111" "$test_dir/upgrade111.deb" >/dev/null
+  legacy_deb="$test_dir/upgrade111.deb"
+fi
+[[ $(dpkg-deb -f "$legacy_deb" Package) == devcpp-noi ]]
+[[ $(dpkg-deb -f "$legacy_deb" Version) == 1.1.1 ]]
+dpkg -i "$legacy_deb"
+test -r /usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg
 dpkg -i "$deb"
 dpkg --audit
 test -x /usr/bin/devcpp-noi
-test -r /usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg
+test ! -e /usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg
+cmp /usr/share/pixmaps/devcpp-noi.ico /usr/lib/devcpp-noi/devcpp.ico
 test -r /usr/share/applications/devcpp-noi-installed.desktop
 test -x /usr/lib/devcpp-noi/migrate-launchers.py
 test -r /etc/xdg/autostart/devcpp-noi-migrate.desktop
@@ -107,6 +152,8 @@ if command -v desktop-file-validate >/dev/null 2>&1; then
   desktop-file-validate /usr/share/applications/devcpp-noi.desktop
   desktop-file-validate /usr/share/applications/devcpp-noi-installed.desktop
 fi
+cp "$script_dir/verify-desktop.py" "$test_dir/verify-desktop.py"
+chmod 644 "$test_dir/verify-desktop.py"
 find /usr/lib/devcpp-noi -type f -exec sha256sum {} + | sort > "$test_dir/installed.before"
 # Launch from a directory containing a relative, spaced, non-ASCII filename;
 # verify a real window then forward to that instance using the installed wrapper.
@@ -116,6 +163,7 @@ runuser -u "$test_user" -- env HOME="$test_dir/home" XDG_CACHE_HOME="$test_dir/h
 set -euo pipefail
 [[ $PACKAGE_TEST_TRACE != 1 ]] || set -x
 cd "$PACKAGE_TEST_DIR/work folder"
+XDG_CURRENT_DESKTOP=GNOME python3 "$PACKAGE_TEST_DIR/verify-desktop.py"
 launch_desktop() {
   python3 - "$@" <<'DESKTOPPY'
 import ctypes, os, sys
@@ -239,7 +287,21 @@ from pathlib import Path
 folder = Path(sys.argv[1])
 files = list((folder / 'home/.local/share/devcpp-noi/launcher-backups').glob('devcpp-noi.desktop.*.bak'))
 assert len(files) == 1 and files[0].read_text() == (folder / 'legacy-desktop.expected').read_text()
+source = folder / 'home/.local/share/applications/devcpp-noi-source.desktop'
+assert 'Name=Dev-Cpp\n' in source.read_text() and 'NoDisplay=true\n' in source.read_text()
+backups = list((folder / 'home/.local/share/devcpp-noi/launcher-backups').glob('devcpp-noi-source.desktop.*.bak'))
+assert len(backups) == 1 and backups[0].read_text() == (folder / 'legacy-source-desktop.expected').read_text()
 BACKUP
+bash "$PACKAGE_TEST_DIR/old source/register-desktop.sh" --register
+python3 - "$HOME/.local/share/applications/devcpp-noi-source.desktop" <<'SOURCEENTRY'
+import configparser,sys
+config = configparser.ConfigParser(interpolation=None)
+config.read(sys.argv[1])
+entry = config['Desktop Entry']
+assert entry['Name'] == 'Dev-Cpp' and entry['Name[zh_CN]'] == 'Dev-Cpp'
+assert entry['NoDisplay'] == 'true', 'Installing source registration duplicates the packaged app'
+SOURCEENTRY
+XDG_CURRENT_DESKTOP=GNOME python3 "$PACKAGE_TEST_DIR/verify-desktop.py"
 # An existing favorite/MIME ID still resolves to a hidden package alias.
 launch_desktop /usr/share/applications/devcpp-noi.desktop "$PWD/中文 relative.cpp"
 /usr/bin/devcpp-noi --forward-only '中文 relative.cpp'
@@ -311,8 +373,9 @@ for attempt in {1..100}; do
 done
 [[ -n "$window" ]]
 test ! -e "$PACKAGE_TEST_DIR/legacy.received"
-/usr/bin/devcpp-noi --version | grep -Fx "Dev-C++ NOI $PACKAGE_TEST_VERSION"
-echo 'PASS: real installed desktop, legacy launcher backup, old/source IPC isolation, restart after source removal'
+/usr/bin/devcpp-noi --version | grep -Fx "Dev-Cpp $PACKAGE_TEST_VERSION"
+XDG_CURRENT_DESKTOP=GNOME python3 "$PACKAGE_TEST_DIR/verify-desktop.py"
+echo 'PASS: visible Dev-Cpp menu, original icon, real desktop launch, legacy launcher backup, old/source IPC isolation, restart after source removal'
 SH
 find /usr/lib/devcpp-noi -type f -exec sha256sum {} + | sort > "$test_dir/installed.after"
 cmp "$test_dir/installed.before" "$test_dir/installed.after"

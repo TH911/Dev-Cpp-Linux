@@ -102,7 +102,7 @@ for i in {1..100}; do
 done
 [[ -n $window ]] || fail 'Main window missing'
 xdotool windowfocus "$window" key --clearmodifiers --delay 80 alt+h a
-wait_text 'About Dev-C++'
+wait_text 'About Dev-Cpp'
 version=$(tr -d '\r\n' < "$source_root/VERSION")
 wait_text "Version $version"
 wait_text 'Orwell Dev-C++ 5.11'
@@ -117,14 +117,27 @@ wait_text 'Directory build'
 wait_text "Executable: $app_dir/devcpp-noi"
 wait_text "Configuration: $test_dir/home/.config/devcpp-noi.ini"
 snapshot installation-details
-click_text 'Copy details'
-wait_text 'Details copied.'
+position=$(python3 - "$test_dir/state.json" "$app_dir/devcpp-noi" <<'PY'
+import json,sys
+items=json.load(open(sys.argv[1]))
+assert not any(item['type']=='GtkButton' and item['text']=='Copy details'
+               for item in items), 'Non-original Copy details button is present'
+for item in items:
+ if item['type']=='GtkTextView' and sys.argv[2] in item['text'] and item['visible']:
+  print(item['x']+item['width']//2,item['y']+item['height']//2)
+  break
+else: raise SystemExit('Installation details text widget missing')
+PY
+)
+read -r details_x details_y <<< "$position"
+xdotool mousemove --sync "$details_x" "$details_y" click 1
+xdotool key --clearmodifiers ctrl+a ctrl+c
 "$test_dir/clipboard-reader" > "$test_dir/clipboard.txt"
 python3 - "$test_dir/clipboard.txt" "$version" "$app_dir/devcpp-noi" "$test_dir/home/.config/devcpp-noi.ini" <<'PY'
 from pathlib import Path
 import sys
 text=Path(sys.argv[1]).read_text()
-for expected in ('Dev-C++ '+sys.argv[2],sys.argv[3],sys.argv[4],
+for expected in ('Dev-Cpp '+sys.argv[2],sys.argv[3],sys.argv[4],
                  'Free Pascal 3.0.4','x86_64-linux / GTK2',
                  'Directory build','https://github.com/TH911/Dev-Cpp-Linux'):
  assert expected in text,(expected,text)

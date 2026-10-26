@@ -4,7 +4,7 @@ This is the **Lazarus/LCL native port in progress**. It uses only software
 listed in the official NOI Linux 2.0 environment: Lazarus 2.0.6, FPC 3.0.4,
 GCC/G++ 9.3 and GDB 9.1. This program follows Orwell Dev-C++ 5.11's main window
 structure, menu names, F9/F10/F11 actions, and `.dev` project format.
-The current version is **1.1.1**. See the [Release page](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.1)
+The current version is **1.1.2**. See the [Release page](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)
 for directory source archives and the installable amd64 Debian package.
 
 On a stock NOI Linux 2.0 desktop, open a terminal in this directory and run:
@@ -189,7 +189,7 @@ Modified/deleted files prompt before reload or overwrite. Compilation publishes
 a new executable only on success; failure/cancellation preserves the previous
 file but prevents F10 from silently running it as the latest result.
 
-The 1.1.1 source was built and tested in an Ubuntu 20.04 amd64 container
+The 1.1.2 source was built and tested in an Ubuntu 20.04 amd64 container
 with Lazarus 2.0.6, FPC 3.0.4, GCC/G++ 9.3.0 and GDB 9.1. Run
 `bash ci/check.sh` from the repository root with that toolchain to build and
 execute the helper and real GTK2 interaction suites. They cover file identity
@@ -204,7 +204,7 @@ need acceptance testing on that desktop.
 
 Future Release assets include a source ZIP and tar.gz rooted at
 `linux-noi-lazarus/`, plus an amd64 `.deb` with the prebuilt binary. Install
-with `sudo apt install ./devcpp-noi_VERSION_amd64.deb`, then open **Dev-C++ NOI Linux** from the software panel or run `/usr/bin/devcpp-noi`.
+with `sudo apt install ./devcpp-noi_VERSION_amd64.deb`, then open **Dev-Cpp** from the software panel or run `/usr/bin/devcpp-noi`.
 Use `/usr/bin/devcpp-noi --version` or Help > About to check the version and
 actual executable path. The installer keeps old custom launchers and MIME
 defaults; recognized historical source launchers are backed up and migrated.
@@ -228,3 +228,9 @@ the complete cause still needs confirmation on the NOI Linux desktop.
 
 The port is GPL-2.0-or-later; see `COPYING.txt`. The toolbar bitmaps are copied
 from Orwell Dev-C++ 5.11's `Source/Images/newlook` directory.
+
+Version 1.1.2 uses the name Dev-Cpp and the unchanged upstream ICO for both
+source and installed launches. Extra toolbar Continue/Step/Breakpoint actions
+and the added Evaluate/Send/Copy buttons were removed. Evaluation and program
+input use Enter; About details remain selectable with Ctrl+A/C. The source
+launcher prints the version reported by its actual compiled binary.

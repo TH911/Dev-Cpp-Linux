@@ -12,11 +12,13 @@ set -- "${run_args[@]}"
 cd "$(dirname "${BASH_SOURCE[0]}")"
 source ./ui-language.sh
 if [[ "$devcpp_ui_language" == en ]]; then
-  printf 'Dev-C++ NOI port: %s\n' "$(cat PORT_REVISION)"
+  printf 'Building Dev-Cpp...\n'
 else
-  printf 'Dev-C++ NOI 移植版：%s\n' "$(cat PORT_REVISION)"
+  printf '正在构建 Dev-Cpp...\n'
 fi
 bash build.sh
+if [[ $# == 1 && $1 == --version ]]; then exec ./devcpp-noi --version; fi
+./devcpp-noi --version
 bash register-desktop.sh --register || true
 runtime_cache=${XDG_CACHE_HOME:-"$HOME/.cache"}/devcpp-noi
 mkdir -p -- "$runtime_cache"

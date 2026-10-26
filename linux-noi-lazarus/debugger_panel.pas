@@ -14,7 +14,7 @@ type
     FTerminal, FLog: TMemo;
     FInput, FExpression: TEdit;
     FStatus: TLabel;
-    FContinue, FInto, FOver, FStop, FEvaluate, FSend: TButton;
+    FContinue, FInto, FOver, FStop: TButton;
     FControls, FCommandBar: TPanel;
     FPages: TPageControl;
     FProgramTab, FLogTab: TTabSheet;
@@ -58,6 +58,7 @@ uses LCLType, Graphics, Math, ui_language;
 constructor TDebuggerPanel.Create(AOwner: TComponent);
 var InputBar, EvalBar: TPanel; Splitter: TSplitter;
   Column: TListColumn;
+  EvaluateLabel: TLabel;
 
   function Button(ParentControl: TWinControl; const ACaption, AHint: string;
     Handler: TNotifyEvent): TButton;
@@ -121,18 +122,20 @@ begin
   EvalBar.Align := alTop;
   EvalBar.Height := 30;
   EvalBar.BevelOuter := bvNone;
-  FEvaluate := Button(EvalBar, 'Evaluate expression',
-    'Expression evaluated in the current stack frame', @EvaluateClick);
-  FEvaluate.Align := alRight;
-  FEvaluate.Width := 142;
-  FEvaluate.BorderSpacing.Left := 4;
+  EvaluateLabel := TLabel.Create(Self);
+  EvaluateLabel.Parent := EvalBar;
+  EvaluateLabel.AutoSize := False;
+  EvaluateLabel.Align := alLeft;
+  EvaluateLabel.Width := 64;
+  EvaluateLabel.Layout := tlCenter;
+  EvaluateLabel.Caption := Tr('Evaluate:');
   FExpression := TEdit.Create(Self);
   FExpression.Parent := EvalBar;
   FExpression.Align := alClient;
   FExpression.BorderSpacing.Top := 2;
   FExpression.BorderSpacing.Bottom := 3;
   FExpression.OnKeyDown := @ExpressionKey;
-  FExpression.Hint := Tr('Expression evaluated in the current stack frame');
+  FExpression.Hint := Tr('Press Enter to evaluate the expression in the current stack frame.');
   FExpression.ShowHint := True;
   FValues := TListView.Create(Self);
   FValues.Parent := FControls;
@@ -166,15 +169,11 @@ begin
   InputBar.Height := 30;
   InputBar.BevelOuter := bvNone;
   InputBar.BorderWidth := 2;
-  FSend := Button(InputBar, 'Send input', 'Send input to the program', @SendClick);
-  FSend.Align := alRight;
-  FSend.Width := 100;
-  FSend.BorderSpacing.Left := 4;
   FInput := TEdit.Create(Self);
   FInput.Parent := InputBar;
   FInput.Align := alClient;
   FInput.OnKeyDown := @InputKey;
-  FInput.Hint := Tr('Program input');
+  FInput.Hint := Tr('Press Enter to send input to the program.');
   FInput.ShowHint := True;
   FTerminal := TMemo.Create(Self);
   FTerminal.Parent := FProgramTab;
@@ -268,7 +267,6 @@ begin
   if FPendingExpression <> '' then
   begin
     FPendingExpression := '';
-    FEvaluate.Enabled := FSession.State = gsStopped;
   end;
 end;
 
@@ -293,7 +291,6 @@ begin
   else Item.SubItems[0] := AText;
   FStatus.Caption := ExpressionText + ' = ' + AText;
   FStatus.Hint := FStatus.Caption;
-  FEvaluate.Enabled := FSession.State = gsStopped;
   RefreshSidebar;
 end;
 
@@ -308,9 +305,7 @@ begin
   FContinue.Enabled := Paused;
   FInto.Enabled := Paused;
   FOver.Enabled := Paused;
-  FEvaluate.Enabled := Paused and (FPendingExpression = '');
   FStop.Enabled := FSession.Active;
-  FSend.Enabled := FSession.Active;
   FInput.Enabled := FSession.Active;
   FStatus.Caption := Tr(StateNames[FSession.State]);
   FStatus.Hint := FStatus.Caption;
@@ -399,7 +394,6 @@ begin
     (FPendingExpression <> '') or
     (Trim(FExpression.Text) = '') then Exit;
   FPendingExpression := Trim(FExpression.Text);
-  FEvaluate.Enabled := False;
   FSession.Evaluate(FPendingExpression);
 end;
 procedure TDebuggerPanel.SendClick(Sender: TObject);

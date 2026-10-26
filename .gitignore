@@ -16,3 +16,4 @@ tests/*.compiled
 tests/*.lps
 /dist/
 packaging/__pycache__/
+**/__pycache__/

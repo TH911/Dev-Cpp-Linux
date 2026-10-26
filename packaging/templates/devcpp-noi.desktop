@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Dev-C++
+Name=Dev-Cpp
 Comment=Dev-C++ for NOI Linux
 Comment[zh_CN]=适用于 NOI Linux 的 Dev-C++
 Exec=/usr/bin/devcpp-noi %F
-Icon=devcpp-noi
+Icon=/usr/share/pixmaps/devcpp-noi.ico
 Terminal=false
 StartupWMClass=DevCppNoiInstalled
 NoDisplay=true

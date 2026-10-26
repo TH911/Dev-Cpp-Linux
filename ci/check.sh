@@ -11,6 +11,7 @@ import re
 version = Path('VERSION').read_text().strip()
 source = Path('linux-noi-lazarus/app_version.pas').read_text()
 assert re.search(r"AppVersion\s*=\s*'" + re.escape(version) + r"'", source), 'Application and package versions differ'
+assert Path('linux-noi-lazarus/PORT_REVISION').read_text().strip() == 'v' + version, 'Legacy revision marker differs from application version'
 PY
 [[ $(fpc -iV) == 3.0.4 ]]
 [[ $(gcc -dumpfullversion) == 9.3.0 ]]
@@ -19,6 +20,12 @@ lazbuild --version | grep '^2\.0\.6'
 gdb --version | sed -n '1p' | grep '9\.1'
 bash linux-noi-lazarus/build.sh
 env -u DISPLAY linux-noi-lazarus/devcpp-noi --version | grep -F "$(cat VERSION)"
+env -u DISPLAY bash linux-noi-lazarus/run.sh --version > "$test_dir/source-version.log" 2>&1
+grep -Fx "Dev-Cpp $(cat VERSION)" "$test_dir/source-version.log"
+if grep -F 'v1.0.0' "$test_dir/source-version.log"; then
+  echo 'Source launcher printed an obsolete release version.' >&2
+  exit 1
+fi
 
 mkdir -p "$test_dir/documents" "$test_dir/profiles"
 fpc -Fulinux-noi-lazarus -FU"$test_dir/documents" -FE"$test_dir/documents" \

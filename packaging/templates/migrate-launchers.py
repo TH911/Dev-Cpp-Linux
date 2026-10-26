@@ -81,6 +81,81 @@ def backup(path, backup_dir):
     return target
 
 
+def generated_source_desktop(path):
+    """Recognize only the complete source entries produced by our own scripts."""
+    if not owned_regular(path):
+        return None
+    try:
+        ini = configparser.ConfigParser(interpolation=None, strict=True)
+        ini.optionxform = str
+        ini.read_string(path.read_text())
+        entry = ini['Desktop Entry']
+        args = shlex.split(entry.get('Exec', ''))
+        if (len(args) not in (3, 4) or args[0] != '/bin/bash' or args[-1] != '%F' or
+                (len(args) == 4 and args[2] != '--new-window')):
+            return None
+        launch = Path(args[1])
+        if not launch.is_absolute() or launch.name != 'launch.sh':
+            return None
+        if (entry.get('Type') != 'Application' or entry.get('Terminal') != 'false' or
+                entry.get('Icon') != str(launch.parent / 'devcpp.ico') or
+                entry.get('MimeType') != 'text/x-c++src;text/x-csrc;text/x-c++hdr;text/x-chdr;'):
+            return None
+        if path.name == 'devcpp-noi-source.desktop':
+            expected = {'Type', 'Name', 'Name[zh_CN]', 'Comment', 'Comment[zh_CN]', 'Exec',
+                        'Icon', 'Terminal', 'Categories', 'MimeType', 'Actions'}
+            if set(entry) - {'NoDisplay'} != expected or len(args) != 3:
+                return None
+            if (entry.get('Name'), entry.get('Name[zh_CN]')) not in (
+                    ('Dev-C++ (Source)', 'Dev-C++（源码构建）'), ('Dev-Cpp', 'Dev-Cpp')):
+                return None
+            if (entry.get('Comment') != 'Dev-C++ for NOI Linux' or
+                    entry.get('Comment[zh_CN]') != '适用于 NOI Linux 的 Dev-C++' or
+                    entry.get('Categories') != 'Development;IDE;' or entry.get('Actions') != 'NewWindow;' or
+                    set(ini.sections()) != {'Desktop Entry', 'Desktop Action NewWindow'}):
+                return None
+            action = ini['Desktop Action NewWindow']
+            if (set(action) != {'Name', 'Name[zh_CN]', 'Exec'} or action['Name'] != 'Open in New Window' or
+                    action['Name[zh_CN]'] != '在新窗口打开' or
+                    shlex.split(action['Exec']) != ['/bin/bash', str(launch), '--new-window', '%F']):
+                return None
+        else:
+            expected = {'Type', 'Name', 'Name[zh_CN]', 'Exec', 'Icon', 'Terminal', 'NoDisplay', 'MimeType'}
+            if (set(ini.sections()) != {'Desktop Entry'} or set(entry) != expected or
+                    entry.get('NoDisplay') != 'true' or len(args) != 4 or
+                    (entry.get('Name'), entry.get('Name[zh_CN]')) not in (
+                        ('Dev-C++ Source (Open in New Window)', 'Dev-C++ 源码构建（在新窗口打开）'),
+                        ('Dev-Cpp', 'Dev-Cpp'))):
+                return None
+        if entry.get('NoDisplay', 'false') not in ('true', 'false'):
+            return None
+        return ini
+    except (OSError, ValueError, configparser.Error):
+        return None
+
+
+def hide_source_entry(path, backup_dir):
+    ini = generated_source_desktop(path)
+    if ini is None:
+        return False
+    entry = ini['Desktop Entry']
+    if entry.get('NoDisplay') == 'true' and entry.get('Name') == 'Dev-Cpp':
+        return False
+    backup(path, backup_dir)
+    entry['Name'] = entry['Name[zh_CN]'] = 'Dev-Cpp'
+    entry['NoDisplay'] = 'true'
+    descriptor, temporary = tempfile.mkstemp(prefix='.devcpp-migrate-', dir=str(path.parent))
+    try:
+        with os.fdopen(descriptor, 'w') as stream:
+            ini.write(stream, space_around_delimiters=False)
+        os.chmod(temporary, path.stat().st_mode & 0o777)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return True
+
+
 def main():
     # Root without an explicit desktop user's identity must not inspect root's
     # settings or search /home. postinst invokes us through runuser if available.
@@ -99,6 +174,8 @@ def main():
             backup(path, backup_dir)
             path.unlink()
             changed = True
+    for name in ('devcpp-noi-source.desktop', 'devcpp-noi-source-new-window.desktop'):
+        changed = hide_source_entry(applications / name, backup_dir) or changed
     scripts = data / 'nautilus/scripts'
     for name in ('Open in New Window (Dev-C++)', '在新窗口打开 (Dev-C++)'):
         path = scripts / name
