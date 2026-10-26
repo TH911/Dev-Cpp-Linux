@@ -240,7 +240,7 @@ const
     (EnglishText: 'Step over'; ChineseText: '单步跳过'),
     (EnglishText: 'Stop'; ChineseText: '停止'),
     (EnglishText: 'Evaluate expression'; ChineseText: '表达式求值'),
-    (EnglishText: 'Expression evaluated in the current stack frame'; ChineseText: '在当��栈帧中计算表达式'),
+    (EnglishText: 'Expression evaluated in the current stack frame'; ChineseText: '在当前栈帧中计算表达式'),
     (EnglishText: 'Program input/output'; ChineseText: '程序输入输出'),
     (EnglishText: 'Send input'; ChineseText: '发送输入'),
     (EnglishText: 'Debugger log'; ChineseText: '调试器日志'),
