@@ -31,7 +31,7 @@ installed release does not activate a running source build or another version.
 Close earlier windows when upgrading to avoid confusing them with the new IDE.
 `bash launch.sh --new-window file.cpp` explicitly starts a new window. Desktop
 registration adds a New Window action and a second Open With application,
-plus GNOME Files' Scripts > Open in New Window (Dev-C++) context entry (Chinese
+plus GNOME Files' Scripts > Open in New Window (Dev-Cpp) context entry (Chinese
 when the interface language is Chinese). It forwards all selected files.
 `F9` compiles, `Ctrl+F9` checks syntax, `F10` runs, and `F11` compiles and runs in GNOME Terminal.
 Execute > Abort Compilation stops an active compiler process.
@@ -54,17 +54,19 @@ finds simple function definitions in the current file, open documents, project
 files, and local quoted headers. Template, macro, and overload resolution are
 not yet part of the navigation index.
 
-Launching a source build registers `Dev-C++ (Source)` in the desktop's **Open With** list for C/C++
+Launching a source build registers `Dev-Cpp` in the desktop's **Open With** list for C/C++
 files using only your user account. To make it the default application for
 `.cpp` and `.c` files, run `bash register-desktop.sh --default` in this folder.
 No sudo or network connection is needed. The user-level desktop entry points
 to this folder, so rerun the launcher after moving it. Source desktop entries use the separate `devcpp-noi-source.desktop` identity.
 The installed package has its own visible `devcpp-noi-installed.desktop` entry,
-so rebuilding from source does not shadow the installed application. Source
-entries are refreshed by `bash run.sh` or `bash register-desktop.sh --default`.
+so rebuilding from source does not shadow the installed application. The source
+entry is hidden from menus when the package is installed, keeping one visible
+Dev-Cpp application. Source entries are refreshed by `bash run.sh` or
+`bash register-desktop.sh --default`.
 When the package is installed, the explicit `--default` command chooses the
 installed entry. Normal launching or package installation does not change MIME
-defaults. See [launcher migration](../docs/PACKAGING.md#旧版启动入口迁移).
+defaults. See [launcher migration](../docs/PACKAGING.md).
 
 Current implementation: tabbed SynEdit editing with C/C++ syntax highlighting,
 line numbers, literal Tab indentation with width 4 on Enter and Tab (including
