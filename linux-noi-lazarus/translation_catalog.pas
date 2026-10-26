@@ -18,7 +18,7 @@ type
   end;
 
 const
-  Translations: array[0..232] of TTranslationEntry = (
+  Translations: array[0..268] of TTranslationEntry = (
     (EnglishText: '&File'; ChineseText: '文件(&F)'),
     (EnglishText: '&Edit'; ChineseText: '编辑(&E)'),
     (EnglishText: '&Search'; ChineseText: '搜索(&S)'),
@@ -251,7 +251,43 @@ const
     (EnglishText: 'Program paused'; ChineseText: '程序已暂停'),
     (EnglishText: 'Program exited'; ChineseText: '程序已退出'),
     (EnglishText: 'Debugger error'; ChineseText: '调试器错误'),
-    (EnglishText: 'Debug failed: '; ChineseText: '调试失败：')
+    (EnglishText: 'Debug failed: '; ChineseText: '调试失败：'),
+    (EnglishText: 'Pause the program before changing breakpoints.'; ChineseText: '请在调试器准备就绪后切换断点。'),
+    (EnglishText: 'Pause at a breakpoint before changing breakpoints.'; ChineseText: '请等待调试器准备就绪。'),
+    (EnglishText: 'Wait for the pending debugger command.'; ChineseText: '请等待上一条调试命令完成。'),
+    (EnglishText: 'Start Debugging'; ChineseText: '开始调试'),
+    (EnglishText: 'Toggle Breakpoint'; ChineseText: '切换断点'),
+    (EnglishText: 'Continue execution'; ChineseText: '继续运行'),
+    (EnglishText: 'Next line (F7)'; ChineseText: '下一行 (F7)'),
+    (EnglishText: 'Step into (F8)'; ChineseText: '单步进入 (F8)'),
+    (EnglishText: 'Stop debugging (F6)'; ChineseText: '停止调试 (F6)'),
+    (EnglishText: 'Expression'; ChineseText: '表达式'),
+    (EnglishText: 'Value'; ChineseText: '值'),
+    (EnglishText: 'Send input to the program'; ChineseText: '向程序发送输入'),
+    (EnglishText: 'Program input'; ChineseText: '程序输入'),
+    (EnglishText: 'Evaluated expressions'; ChineseText: '已求值的表达式'),
+    (EnglishText: 'Breakpoints'; ChineseText: '断点'),
+    (EnglishText: 'Evaluated expressions are snapshots of the selected stack frame.'; ChineseText: '此处显示所选栈帧中手动求值的结果快照。'),
+    (EnglishText: 'About Dev-C++'; ChineseText: '关于 Dev-C++'),
+    (EnglishText: 'NOI Linux edition'; ChineseText: 'NOI Linux 版'),
+    (EnglishText: 'Version'; ChineseText: '版本'),
+    (EnglishText: 'About'; ChineseText: '关于'),
+    (EnglishText: 'Build and installation'; ChineseText: '构建与安装信息'),
+    (EnglishText: 'Based on'; ChineseText: '基于'),
+    (EnglishText: 'License:'; ChineseText: '许可证：'),
+    (EnglishText: 'Project repository:'; ChineseText: '项目仓库：'),
+    (EnglishText: 'Native GTK2 IDE for NOI Linux 2.0.'; ChineseText: '面向 NOI Linux 2.0 的原生 GTK2 C/C++ 集成开发环境。'),
+    (EnglishText: 'Installation:'; ChineseText: '安装来源：'),
+    (EnglishText: 'Debian package'; ChineseText: 'Debian 安装包'),
+    (EnglishText: 'Directory build'; ChineseText: '源码目录构建'),
+    (EnglishText: 'Executable:'; ChineseText: '程序路径：'),
+    (EnglishText: 'Configuration:'; ChineseText: '配置文件：'),
+    (EnglishText: 'Compiler:'; ChineseText: '构建编译器：'),
+    (EnglishText: 'Platform:'; ChineseText: '运行平台：'),
+    (EnglishText: 'Copy details'; ChineseText: '复制详细信息'),
+    (EnglishText: 'Could not open the project repository.'; ChineseText: '无法打开项目仓库地址。'),
+    (EnglishText: 'Details copied.'; ChineseText: '详细信息已复制。'),
+    (EnglishText: 'Could not copy details: '; ChineseText: '无法复制详细信息：')
   );
 
   DeletedEnglish: string = '%s was deleted outside Dev-C++.' + LineEnding +

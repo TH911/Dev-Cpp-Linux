@@ -11,6 +11,7 @@ type
   TGdbTextEvent = procedure(Sender: TObject; const Text: string) of object;
   TGdbLocationEvent = procedure(Sender: TObject; const FileName: string;
     Line: Integer) of object;
+  TBreakpointEditPhase = (beNone, beWaitingStop, beReady, beChanging, beResuming);
   TGdbBreakpoint = class
     FileName, Number: string;
     Line: Integer;
@@ -27,6 +28,11 @@ type
     FInferiorPID: LongInt;
     FStopAt: QWord;
     FStopping: Boolean;
+    FBreakpointEdit: TBreakpointEditPhase;
+    FBreakpointFile, FBreakpointStopRecord, FBreakpointOldNumber: string;
+    FBreakpointLine: Integer;
+    FBreakpointResume: Boolean;
+    FBreakpointStarted: QWord;
     FOnLog, FOnOutput, FOnError, FOnEvaluation: TGdbTextEvent;
     FOnLocation: TGdbLocationEvent;
     FOnState: TNotifyEvent;
@@ -37,6 +43,12 @@ type
     procedure HandleLine(const S: string);
     procedure CloseResources;
     procedure Fail(const S: string);
+    procedure ApplyBreakpointToggle(const FileName: string; Line: Integer);
+    procedure AdvanceBreakpointEdit;
+    procedure CompleteBreakpointEdit;
+    procedure AbortBreakpointEdit(const MessageText: string);
+    procedure ShowStoppedLocation(const RecordText: string);
+    procedure NotifyBreakpointChange;
   public
     constructor Create;
     destructor Destroy; override;
@@ -52,6 +64,7 @@ type
     procedure RenameBreakpoints(const OldName, NewName: string);
     function HasBreakpoint(const FileName: string; Line: Integer): Boolean;
     function Active: Boolean;
+    function ChangingBreakpoint: Boolean;
     property State: TGdbState read FState;
     property Breakpoints: TObjectList read FBreakpoints;
     property InferiorPID: LongInt read FInferiorPID;
@@ -84,6 +97,9 @@ const
   cpStartup = 1;
   cpBreakpoint = 2;
   cpEvaluate = 3;
+  cpBreakpointInterrupt = 4;
+  cpBreakpointDelete = 5;
+  cpBreakpointResume = 6;
 
 function OpenPTY(var Master, Slave: LongInt; Name: PChar;
   Termios, WinSize: Pointer): LongInt; cdecl; external 'util' name 'openpty';
@@ -202,6 +218,11 @@ begin
   Result := Assigned(FProcess) and FProcess.Running;
 end;
 
+function TGdbSession.ChangingBreakpoint: Boolean;
+begin
+  Result := FBreakpointEdit <> beNone;
+end;
+
 procedure TGdbSession.CloseResources;
 var I: Integer;
 begin
@@ -212,6 +233,9 @@ begin
   if FSlave >= 0 then fpClose(FSlave);
   FMaster := -1; FSlave := -1;
   FStopping := False; FStopAt := 0;
+  FBreakpointEdit := beNone;
+  FBreakpointFile := ''; FBreakpointStopRecord := ''; FBreakpointOldNumber := '';
+  FBreakpointResume := False; FBreakpointStarted := 0;
   FInferiorPID := 0;
   for I := 0 to FBreakpoints.Count - 1 do
     TGdbBreakpoint(FBreakpoints[I]).Number := '';
@@ -241,6 +265,67 @@ begin
   S := IntToStr(Item.Token) + Item.Text + #10;
   try FProcess.Input.WriteBuffer(S[1], Length(S));
   except on E: Exception do begin Fail(E.Message); Stop; end; end;
+end;
+
+procedure TGdbSession.NotifyBreakpointChange;
+begin
+  { The panel already uses this notification to refresh its state snapshot.
+    A live edit can change breakpoint marks without changing public run state. }
+  if Assigned(FOnState) then FOnState(Self);
+end;
+
+procedure TGdbSession.ShowStoppedLocation(const RecordText: string);
+var FileName: string; LineNo: Integer;
+begin
+  FileName := MIField(RecordText, 'fullname');
+  if FileName = '' then FileName := MIField(RecordText, 'file');
+  LineNo := StrToIntDef(MIField(RecordText, 'line'), 0);
+  if Assigned(FOnLocation) and (FileName <> '') and (LineNo > 0) then
+    FOnLocation(Self, FileName, LineNo);
+end;
+
+procedure TGdbSession.AbortBreakpointEdit(const MessageText: string);
+var StopRecord: string;
+begin
+  StopRecord := FBreakpointStopRecord;
+  FBreakpointEdit := beNone;
+  FBreakpointResume := False; FBreakpointStopRecord := '';
+  { Once an internal interrupt really stopped the target, a failed edit must
+    leave it visibly paused. Never resume after an error or an uncertain stop. }
+  if (StopRecord <> '') and not FStopping then
+  begin
+    SetState(gsStopped);
+    ShowStoppedLocation(StopRecord);
+  end;
+  if (MessageText <> '') and Assigned(FOnError) then FOnError(Self, MessageText);
+  NotifyBreakpointChange;
+end;
+
+procedure TGdbSession.CompleteBreakpointEdit;
+begin
+  if FBreakpointEdit <> beChanging then Exit;
+  if FBreakpointResume and Active and not FStopping then
+  begin
+    FBreakpointEdit := beResuming;
+    Queue('-exec-continue', cpBreakpointResume);
+  end
+  else
+  begin
+    FBreakpointEdit := beNone;
+    FBreakpointStopRecord := '';
+  end;
+  NotifyBreakpointChange;
+end;
+
+procedure TGdbSession.AdvanceBreakpointEdit;
+begin
+  if (FBreakpointEdit <> beReady) or Assigned(FPending) or
+    (FQueue.Count <> 0) or not Active or FStopping then Exit;
+  FBreakpointEdit := beChanging;
+  ApplyBreakpointToggle(FBreakpointFile, FBreakpointLine);
+  NotifyBreakpointChange;
+  if FQueue.Count = 0 then CompleteBreakpointEdit;
+  SendNext;
 end;
 
 procedure TGdbSession.Start(const Executable, WorkDirectory: string; Arguments: TStrings);
@@ -301,7 +386,7 @@ begin
 end;
 
 procedure TGdbSession.HandleLine(const S: string);
-var P, T, LineNo: Integer; Kind: Char; Body, FileName, Value: string;
+var P, T: Integer; Kind: Char; Body, Value, StopFile: string;
   Item: TGdbCommand;
 begin
   if S = '' then Exit;
@@ -317,7 +402,10 @@ begin
     else if Assigned(FOnLog) then FOnLog(Self, Value);
   end
   else if (Kind = '*') and (Pos('running', Body) = 1) then
-    SetState(gsRunning)
+  begin
+    if FBreakpointEdit = beResuming then FBreakpointStopRecord := '';
+    SetState(gsRunning);
+  end
   else if (Kind = '=') and (Pos('thread-group-started,', Body) = 1) then
     FInferiorPID := StrToIntDef(MIField(Body, 'pid'), 0)
   else if (Kind = '=') and (Pos('thread-group-exited,', Body) = 1) then
@@ -332,15 +420,29 @@ begin
       { The IDE must regain editable documents after a normal program exit. }
       Stop;
     end
-    else
+    else if not FStopping then
     begin
-      SetState(gsStopped);
-      FileName := MIField(Body, 'fullname');
-      if FileName = '' then FileName := MIField(Body, 'file');
-      LineNo := StrToIntDef(MIField(Body, 'line'), 0);
-      if Assigned(FOnLog) then FOnLog(Self, Value + LineEnding);
-      if Assigned(FOnLocation) and (FileName <> '') and (LineNo > 0) then
-        FOnLocation(Self, FileName, LineNo);
+      if FBreakpointEdit = beWaitingStop then
+      begin
+        FBreakpointEdit := beReady;
+        FBreakpointStopRecord := Body;
+        { GDB reports our -exec-interrupt as SIGINT. A breakpoint, watchpoint,
+          other signal or stop at an existing source breakpoint belongs to the
+          user and must remain paused after the edit, even in this race. }
+        StopFile := MIField(Body, 'fullname');
+        if StopFile = '' then StopFile := MIField(Body, 'file');
+        FBreakpointResume := (Value = 'signal-received') and
+          (MIField(Body, 'signal-name') = 'SIGINT') and
+          not HasBreakpoint(StopFile, StrToIntDef(MIField(Body, 'line'), 0));
+      end
+      else FBreakpointResume := False;
+      if not ((FBreakpointEdit = beReady) and FBreakpointResume) then
+      begin
+        SetState(gsStopped);
+        if Assigned(FOnLog) then FOnLog(Self, Value + LineEnding);
+        ShowStoppedLocation(Body);
+      end;
+      AdvanceBreakpointEdit;
     end;
   end
   else if (Kind = '^') and Assigned(FPending) and
@@ -352,10 +454,26 @@ begin
       begin
         Value := MIField(Body, 'msg');
         if Item.Purpose = cpStartup then begin Fail(Value); Stop; end
+        else if (Item.Purpose = cpBreakpointInterrupt) and
+          (FBreakpointEdit = beReady) and not FBreakpointResume and
+          (Pos('not running', LowerCase(Value)) > 0) then
+          AdvanceBreakpointEdit
+        else if FBreakpointEdit <> beNone then AbortBreakpointEdit(Value)
         else if Assigned(FOnError) then FOnError(Self, Value);
       end
       else if Item.Purpose = cpBreakpoint then
-        Item.Breakpoint.Number := MIField(Body, 'number')
+      begin
+        Item.Breakpoint.Number := MIField(Body, 'number');
+        CompleteBreakpointEdit;
+      end
+      else if Item.Purpose = cpBreakpointDelete then CompleteBreakpointEdit
+      else if Item.Purpose = cpBreakpointInterrupt then AdvanceBreakpointEdit
+      else if Item.Purpose = cpBreakpointResume then
+      begin
+        FBreakpointEdit := beNone;
+        FBreakpointResume := False; FBreakpointStopRecord := '';
+        NotifyBreakpointChange;
+      end
       else if (Item.Purpose = cpEvaluate) and Assigned(FOnEvaluation) then
         FOnEvaluation(Self, MIField(Body, 'value'));
     finally Item.Free; end;
@@ -384,6 +502,10 @@ begin
     end;
     if Length(FBuffer) > 1048576 then begin FBuffer := ''; Fail('GDB response exceeded 1 MiB.'); Stop; end;
   end;
+  AdvanceBreakpointEdit;
+  if (FBreakpointEdit <> beNone) and
+    (GetTickCount64 - FBreakpointStarted > 10000) then
+    AbortBreakpointEdit('Timed out changing a running program breakpoint.');
   Limit := MaxBytesPerTick;
   if FMaster >= 0 then
     repeat
@@ -412,6 +534,8 @@ var S: RawByteString;
 begin
   if not Active or FStopping then Exit;
   FStopping := True; FStopAt := GetTickCount64;
+  FBreakpointEdit := beNone; FBreakpointResume := False;
+  FBreakpointStopRecord := '';
   FQueue.Clear;
   S := '-gdb-exit' + #10;
   try FProcess.Input.WriteBuffer(S[1], Length(S)); except end;
@@ -419,25 +543,26 @@ end;
 
 procedure TGdbSession.ContinueExecution;
 begin
-  if FState <> gsStopped then Exit;
+  if (FState <> gsStopped) or ChangingBreakpoint or FStopping then Exit;
   Queue('-exec-continue'); SendNext;
 end;
 
 procedure TGdbSession.StepInto;
 begin
-  if FState <> gsStopped then Exit;
+  if (FState <> gsStopped) or ChangingBreakpoint or FStopping then Exit;
   Queue('-exec-step'); SendNext;
 end;
 
 procedure TGdbSession.StepOver;
 begin
-  if FState <> gsStopped then Exit;
+  if (FState <> gsStopped) or ChangingBreakpoint or FStopping then Exit;
   Queue('-exec-next'); SendNext;
 end;
 
 procedure TGdbSession.Evaluate(const Expression: string);
 begin
-  if (FState <> gsStopped) or (Trim(Expression) = '') then Exit;
+  if (FState <> gsStopped) or ChangingBreakpoint or FStopping or
+    (Trim(Expression) = '') then Exit;
   Queue('-data-evaluate-expression ' + MIQuote(Expression), cpEvaluate); SendNext;
 end;
 
@@ -493,27 +618,47 @@ begin
 end;
 
 procedure TGdbSession.ToggleBreakpoint(const FileName: string; Line: Integer);
+begin
+  if FStopping then Exit;
+  if (FileName = '') or (Line < 1) then Exit;
+  if Active and not (FState in [gsStopped, gsRunning]) then
+    raise Exception.Create('Pause at a breakpoint before changing breakpoints.');
+  if Assigned(FPending) or (FQueue.Count > 0) or (FBreakpointEdit <> beNone) then
+    raise Exception.Create('Wait for the pending debugger command.');
+  if Active and (FState = gsRunning) then
+  begin
+    { Native Linux GDB 9 cannot reliably patch code while a thread is running.
+      Interrupt asynchronously, wait for its actual stop, make one edit, then
+      resume only if the stop was ours. The public state stays running during
+      that short internal pause, avoiding editor jumps and false step controls. }
+    FBreakpointFile := ExpandFileName(FileName); FBreakpointLine := Line;
+    FBreakpointEdit := beWaitingStop; FBreakpointResume := False;
+    FBreakpointStopRecord := ''; FBreakpointStarted := GetTickCount64;
+    Queue('-exec-interrupt --all', cpBreakpointInterrupt);
+    SendNext;
+    Exit;
+  end;
+  ApplyBreakpointToggle(FileName, Line);
+  SendNext;
+end;
+
+procedure TGdbSession.ApplyBreakpointToggle(const FileName: string; Line: Integer);
 var I: Integer; B: TGdbBreakpoint;
 begin
-  if (FileName = '') or (Line < 1) then Exit;
-  if Active and (FState <> gsStopped) then
-    raise Exception.Create('Pause at a breakpoint before changing breakpoints.');
-  if Assigned(FPending) or (FQueue.Count > 0) then
-    raise Exception.Create('Wait for the pending debugger command.');
   for I := 0 to FBreakpoints.Count - 1 do
   begin
     B := TGdbBreakpoint(FBreakpoints[I]);
     if (B.FileName = ExpandFileName(FileName)) and (B.Line = Line) then
     begin
-      if Active and (B.Number <> '') then Queue('-break-delete ' + B.Number);
-      FBreakpoints.Delete(I); SendNext; Exit;
+      FBreakpointOldNumber := B.Number;
+      if Active and (B.Number <> '') then Queue('-break-delete ' + B.Number, cpBreakpointDelete);
+      FBreakpoints.Delete(I); Exit;
     end;
   end;
   B := TGdbBreakpoint.Create;
   B.FileName := ExpandFileName(FileName); B.Line := Line;
   FBreakpoints.Add(B);
   if Active then Queue('-break-insert ' + MIQuote(B.FileName + ':' + IntToStr(Line)), cpBreakpoint, B);
-  SendNext;
 end;
 
 end.

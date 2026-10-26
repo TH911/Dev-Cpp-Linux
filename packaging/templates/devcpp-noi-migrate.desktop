@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Dev-C++ launcher migration
+Exec=/usr/bin/devcpp-noi --repair-launchers
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

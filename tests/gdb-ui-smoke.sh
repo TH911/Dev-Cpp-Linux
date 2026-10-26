@@ -87,6 +87,97 @@ go_line() {
   type_text "$1"
   press Return
 }
+# Read actual screen geometry and rendered line-number glyphs. No assumed
+# window position, font height or hard-coded screen click coordinates are used.
+# The probe only observes GTK; XGetImage below only observes the gutter pixels.
+gutter_geometry() {
+  python3 - "$test_dir/state.json" "$1" <<'PY_GUTTER'
+import array, ctypes, ctypes.util, json, sys
+items = json.load(open(sys.argv[1]))
+focused = [w for w in items if w['focus'] and w['type'] in
+           ('LCLWinapiClient', 'GtkCustomControl') and w.get('width', 0) > 80]
+if len(focused) != 1:
+    raise SystemExit('FAIL: focus the source editor before observing its gutter')
+w = focused[0]
+x, y, width, height = (int(w[k]) for k in ('x', 'y', 'width', 'height'))
+line = int(sys.argv[2])
+lib = ctypes.CDLL(ctypes.util.find_library('X11'))
+class XImage(ctypes.Structure):
+    _fields_ = [('width', ctypes.c_int), ('height', ctypes.c_int),
+                ('xoffset', ctypes.c_int), ('format', ctypes.c_int),
+                ('data', ctypes.c_void_p), ('byte_order', ctypes.c_int),
+                ('bitmap_unit', ctypes.c_int), ('bitmap_bit_order', ctypes.c_int),
+                ('bitmap_pad', ctypes.c_int), ('depth', ctypes.c_int),
+                ('bytes_per_line', ctypes.c_int), ('bits_per_pixel', ctypes.c_int)]
+lib.XOpenDisplay.argtypes = [ctypes.c_char_p]
+lib.XOpenDisplay.restype = ctypes.c_void_p
+lib.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+lib.XDefaultRootWindow.restype = ctypes.c_ulong
+lib.XGetImage.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_int,
+                         ctypes.c_uint, ctypes.c_uint, ctypes.c_ulong, ctypes.c_int]
+lib.XGetImage.restype = ctypes.POINTER(XImage)
+lib.XDestroyImage.argtypes = [ctypes.POINTER(XImage)]
+lib.XCloseDisplay.argtypes = [ctypes.c_void_p]
+display = lib.XOpenDisplay(None)
+if not display: raise SystemExit('FAIL: cannot open test display')
+image = lib.XGetImage(display, lib.XDefaultRootWindow(display), x, y,
+                      min(width, 60), height, 0xffffffff, 2)
+if not image: raise SystemExit('FAIL: cannot observe editor gutter')
+try:
+    picture = image.contents
+    if picture.bits_per_pixel != 32:
+        raise SystemExit('FAIL: test display must use 24-bit Xvfb/32-bit pixels')
+    pixels = array.array('I', ctypes.string_at(picture.data,
+                                               picture.bytes_per_line * height))
+    stride = picture.bytes_per_line // 4
+    def rgb(col, row):
+        value = pixels[row * stride + col]
+        return (value >> 16) & 255, (value >> 8) & 255, value & 255
+    def ink(col, row):
+        r,g,b = rgb(col, row)
+        return max(r,g,b) < 200 and max(r,g,b) - min(r,g,b) < 35
+    # Default SynEdit has a separate 22px marks part before the line-number
+    # part. Remove constant separator columns; retain only rendered digits.
+    columns = [col for col in range(23, min(width, 52))
+               if 0.01 < sum(ink(col,row) for row in range(2,height-2)) / height < 0.55]
+    rows = [row for row in range(2,height-2) if any(ink(col,row) for col in columns)]
+    bands = []
+    for row in rows:
+        if not bands or row - bands[-1][-1] > 2: bands.append([row])
+        else: bands[-1].append(row)
+    if line < 1 or line > len(bands):
+        raise SystemExit('FAIL: rendered gutter does not show requested fixture line: ' + str((line, bands)))
+    band = bands[line - 1]
+    center = (band[0] + band[-1]) // 2
+    marker = 0
+    for row in range(max(0,center-7), min(height,center+8)):
+        for col in range(2,22):
+            r,g,b = rgb(col,row)
+            marker += r > 120 and r > g * 1.4 and r > b * 1.4
+    # Aim inside the line-number part, rather than only its icon margin.
+    print(x + 34, y + center, marker)
+finally:
+    lib.XDestroyImage(image)
+    lib.XCloseDisplay(display)
+PY_GUTTER
+}
+click_gutter() {
+  local point gx gy red
+  point=$(gutter_geometry "$1") || fail 'could not locate actual rendered line number'
+  read -r gx gy red <<< "$point"
+  xdotool mousemove --sync "$gx" "$gy" click "${2:-1}"
+  sleep 0.2
+}
+expect_gutter_marker() {
+  local point gx gy red
+  for i in {1..30}; do
+    point=$(gutter_geometry "$1") || fail 'could not observe actual gutter marker'
+    read -r gx gy red <<< "$point"
+    if [[ $2 == present && $red -ge 8 ]] || [[ $2 == absent && $red -eq 0 ]]; then return 0; fi
+    alive; sleep 0.1
+  done
+  fail "line $1 breakpoint marker did not become $2 (red pixels: $red)"
+}
 evaluate() {
   press alt+d e ctrl+a
   type_text "$1"
@@ -140,19 +231,35 @@ env HOME="$test_dir/home" XDG_CACHE_HOME="$test_dir/home/.cache" \
 app_pid=$!
 window=''
 for i in {1..100}; do
-  window=$(xdotool search --onlyvisible --pid "$app_pid" --name 'Dev-C' 2>/dev/null | head -1) || true
+  window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C' 2>/dev/null | head -1) || true
   [[ -z $window ]] || break
   alive; sleep 0.1
 done
 [[ -n $window ]] || fail 'main window missing'
 wait_file "$test_dir/state.json"
-go_line 13
-press F4
+go_line 1
+click_gutter 13
+expect_gutter_marker 13 present
+click_gutter 13
+expect_gutter_marker 13 absent
+click_gutter 13 3
+press Escape
+expect_gutter_marker 13 absent
+# A drag across the line-number area must not toggle a breakpoint.
+read -r drag_x drag_y _ <<< "$(gutter_geometry 13)"
+read -r _ drag_end_y _ <<< "$(gutter_geometry 14)"
+xdotool mousemove --sync "$drag_x" "$drag_y" mousedown 1 \
+  mousemove --sync "$drag_x" "$drag_end_y" mouseup 1
+sleep 0.2
+expect_gutter_marker 13 absent
+expect_gutter_marker 14 absent
+click_gutter 13
+expect_gutter_marker 13 present
 press F5
 wait_enabled 'Next Line' true
 source_line 6
 snapshot main-paused
-echo 'PASS: F4 records a source breakpoint and F5 builds, starts GDB and stops at main in the real window.'
+echo 'PASS: actual line-number clicks add/remove source breakpoints; right-click and drag do not toggle; F5 builds and stops at main.'
 
 # A source edit attempted during debugging must be rejected by the IDE.
 press ctrl+alt+e
@@ -173,6 +280,14 @@ echo 'PASS: ordinary text, Tab, Return, paired brackets and accepted completion 
 press F5
 wait_enabled 'Next Line' true
 source_line 6
+# The paused editor is read-only, but its gutter must still support real MI
+# breakpoint deletion and insertion. This line is hit after program input.
+go_line 1
+click_gutter 13
+expect_gutter_marker 13 absent
+click_gutter 13
+expect_gutter_marker 13 present
+go_line 6
 press F7
 source_line 7
 press F7
@@ -227,9 +342,18 @@ wait_text 'GUI_READY'
 wait_file "$test_dir/run data/inferior.pid"
 inferior_pid=$(cat "$test_dir/run data/inferior.pid")
 kill -0 "$inferior_pid" 2>/dev/null || fail 'second inferior did not start'
+# The IDE remains visibly running while the backend briefly interrupts Linux
+# GDB's target, edits its breakpoint, then resumes it. Exercise both operations
+# while the program waits for input, without opening a modal dialog.
+go_line 1
+click_gutter 14
+expect_gutter_marker 14 present
+sleep 0.2
+click_gutter 14
+expect_gutter_marker 14 absent
 press F6
 wait_enabled 'Start Debugging' true
 if kill -0 "$inferior_pid" 2>/dev/null; then fail 'F6 left the inferior alive'; fi
 snapshot stopped
-echo 'PASS: a second debug run starts successfully and F6 terminates its running inferior.'
+echo 'PASS: line-number clicks add/remove breakpoints while the target is running; F6 terminates its inferior.'
 echo 'Scope: actual main-window keyboard actions and read-only GTK observations; no production instrumentation or guessed click coordinates.'

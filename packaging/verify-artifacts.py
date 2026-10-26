@@ -38,7 +38,7 @@ def check_deb(deb_path, version):
     if version:
         assert field("Version") == version.lstrip("v")
     depends = field("Depends")
-    for dependency in ("gcc", "g++", "gdb", "gnome-terminal | xterm", "libgtk2.0-0", "libc6"):
+    for dependency in ("gcc", "g++", "gdb", "python3", "gnome-terminal | xterm", "libgtk2.0-0", "libc6"):
         assert dependency in depends, dependency
     with tempfile.TemporaryDirectory(prefix="devcpp-verify-") as temp:
         root = Path(temp)
@@ -60,6 +60,14 @@ def check_deb(deb_path, version):
         assert "build.sh" not in launcher and "cd " not in launcher
         desktop = (root / "usr/share/applications/devcpp-noi.desktop").read_text()
         assert "Exec=/usr/bin/devcpp-noi %F" in desktop and "MimeType=" in desktop
+        assert "NoDisplay=true" in desktop
+        old_new_window = (root / "usr/share/applications/devcpp-noi-new-window.desktop").read_text()
+        assert "Exec=/usr/bin/devcpp-noi --new-window %F" in old_new_window and "NoDisplay=true" in old_new_window
+        visible_desktop = (root / "usr/share/applications/devcpp-noi-installed.desktop").read_text()
+        assert "Exec=/usr/bin/devcpp-noi %F" in visible_desktop and "NoDisplay=" not in visible_desktop
+        assert "StartupWMClass=DevCppNoiInstalled" in visible_desktop
+        assert (app / "migrate-launchers.py").is_file()
+        assert (root / "etc/xdg/autostart/devcpp-noi-migrate.desktop").is_file()
         for path in (root / "DEBIAN").iterdir():
             if path.name in ("preinst", "postinst", "prerm", "postrm"):
                 text = path.read_text()

@@ -10,7 +10,7 @@
       </Flags>
       <MainUnit Value="0"/>
     </General>
-    <Units Count="15">
+    <Units Count="19">
       <Unit0>
         <Filename Value="devcpp_noi.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -71,6 +71,22 @@
         <Filename Value="options_dialogs.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit14>
+      <Unit15>
+        <Filename Value="app_version.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit15>
+      <Unit16>
+        <Filename Value="debug_icons.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit16>
+      <Unit17>
+        <Filename Value="about_dialog.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit17>
+      <Unit18>
+        <Filename Value="app_cli.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit18>
     </Units>
     <RequiredPackages Count="2">
       <Item1>

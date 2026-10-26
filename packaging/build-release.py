@@ -112,6 +112,10 @@ def build_deb(version, output, binary, epoch):
                             copy_file(source, app / directory / source.relative_to(location))
         copy_file(TEMPLATES / "devcpp-noi", package / "usr/bin/devcpp-noi", 0o755)
         copy_file(TEMPLATES / "devcpp-noi.desktop", package / "usr/share/applications/devcpp-noi.desktop")
+        copy_file(TEMPLATES / "devcpp-noi-installed.desktop", package / "usr/share/applications/devcpp-noi-installed.desktop")
+        copy_file(TEMPLATES / "devcpp-noi-new-window.desktop", package / "usr/share/applications/devcpp-noi-new-window.desktop")
+        copy_file(TEMPLATES / "migrate-launchers.py", app / "migrate-launchers.py", 0o755)
+        copy_file(TEMPLATES / "devcpp-noi-migrate.desktop", package / "etc/xdg/autostart/devcpp-noi-migrate.desktop")
         copy_file(TEMPLATES / "devcpp-noi.svg", package / "usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg")
         docs = package / "usr/share/doc/devcpp-noi"
         copy_file(SOURCE / "COPYING.txt", docs / "copyright")

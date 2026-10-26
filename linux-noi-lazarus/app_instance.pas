@@ -14,11 +14,44 @@ procedure ReadInstanceRequests(Files: TStrings; var ActivateWindow: Boolean);
 
 implementation
 
-uses SimpleIPC;
+uses SimpleIPC, md5, app_version, BaseUnix;
 
 var
   InstanceServer: TSimpleIPCServer = nil;
   InstanceAddress: string;
+
+procedure IsolateInstanceHandle;
+var Search: TSearchRec; Descriptor, Flags: Integer;
+  TargetInfo, DescriptorInfo: Stat; Found: Boolean;
+begin
+  { FPC 3.0.4 SimpleIPC does not mark its FIFO close-on-exec. An editor's
+    compiler or terminal could otherwise keep the read end alive after the
+    editor exits, making later launches forward into an abandoned pipe. }
+  if (fpStat(InstanceAddress, TargetInfo) <> 0) or
+    not FPS_ISFIFO(TargetInfo.st_mode) then
+    raise EInOutError.Create('Could not identify the IDE instance handle.');
+  Found := False;
+  if FindFirst('/proc/self/fd/*', faAnyFile, Search) <> 0 then
+    raise EInOutError.Create('Could not inspect the IDE instance handle.');
+  try
+    repeat
+      Descriptor := StrToIntDef(Search.Name, -1);
+      if Descriptor < 0 then Continue;
+      if (fpFStat(Descriptor, DescriptorInfo) <> 0) or
+        (DescriptorInfo.st_dev <> TargetInfo.st_dev) or
+        (DescriptorInfo.st_ino <> TargetInfo.st_ino) then Continue;
+      Flags := fpFcntl(Descriptor, F_GETFD);
+      { FD_CLOEXEC is POSIX value 1, not exported by this FPC release. }
+      if (Flags < 0) or (fpFcntl(Descriptor, F_SETFD, Flags or 1) < 0) then
+        raise EInOutError.Create('Could not isolate the IDE instance handle.');
+      Found := True;
+    until FindNext(Search) <> 0;
+  finally
+    FindClose(Search);
+  end;
+  if not Found then
+    raise EInOutError.Create('The IDE instance handle was not found.');
+end;
 
 procedure AddPayloadFiles(const Payload: string; Files: TStrings);
 var
@@ -68,6 +101,7 @@ begin
     InstanceServer.ServerID := InstanceAddress;
     InstanceServer.Global := True;
     InstanceServer.StartServer(False);
+    IsolateInstanceHandle;
   except
     FreeAndNil(InstanceServer);
     raise;
@@ -86,7 +120,10 @@ begin
     CacheDirectory := GetEnvironmentVariable('HOME') + DirectorySeparator + '.cache';
   CacheDirectory := IncludeTrailingPathDelimiter(CacheDirectory) + 'devcpp-noi';
   ForceDirectories(CacheDirectory);
-  InstanceAddress := ExpandFileName(CacheDirectory + DirectorySeparator + 'instance.pipe');
+  { Separate installed releases and source builds; never activate a stale binary. }
+  InstanceAddress := ExpandFileName(CacheDirectory + DirectorySeparator +
+    'instance-' + Copy(MD5Print(MD5String(AppVersion + '|' +
+      ExpandFileName(ParamStr(0)))), 1, 16) + '.pipe');
   NewWindow := False;
   ForwardOnly := False;
   Payload := '';

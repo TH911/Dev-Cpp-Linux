@@ -5,6 +5,8 @@ type
   TObserver = class
     Output, Evaluation, Errors, FileName: string;
     Line, LocationCount: Integer;
+    Session: TGdbSession;
+    TryBusyActions, BusyActionsAttempted: Boolean;
     procedure OnOutput(Sender: TObject; const Text: string);
     procedure OnError(Sender: TObject; const Text: string);
     procedure OnEvaluation(Sender: TObject; const Text: string);
@@ -17,16 +19,31 @@ begin Errors := Errors + Text; end;
 procedure TObserver.OnEvaluation(Sender: TObject; const Text: string);
 begin Evaluation := Text; end;
 procedure TObserver.OnLocation(Sender: TObject; const AFileName: string; ALine: Integer);
-begin FileName := AFileName; Line := ALine; Inc(LocationCount); end;
+begin
+  FileName := AFileName; Line := ALine; Inc(LocationCount);
+  if TryBusyActions and Session.ChangingBreakpoint then
+  begin
+    TryBusyActions := False;
+    BusyActionsAttempted := True;
+    Session.ContinueExecution;
+    Session.StepInto;
+    Session.StepOver;
+    Session.Evaluate('invalid_expression_that_must_not_be_queued');
+  end;
+end;
 procedure Check(Value: Boolean; const MessageText: string);
 begin if not Value then raise Exception.Create(MessageText); end;
 var Session: TGdbSession; Observer: TObserver; Arguments: TStringList;
-  Started: QWord; Inferior: LongInt; Source, Executable, OldSource: string; P: Integer;
+  Started: QWord; Inferior: LongInt; Source, Executable, OldSource: string;
+  P, LocationsBeforeEdit: Integer;
 procedure Pump;
 begin
   Session.Poll;
   Check(Observer.Errors = '', 'GDB error: ' + Observer.Errors);
-  Check(GetTickCount64 - Started < 15000, 'Timed out waiting for GDB.');
+  Check(GetTickCount64 - Started < 15000,
+    Format('Timed out waiting for GDB (state=%d, changing=%s, source=%s:%d, output=%s).',
+      [Ord(Session.State), BoolToStr(Session.ChangingBreakpoint, True),
+       Observer.FileName, Observer.Line, Observer.Output]));
   Sleep(5);
 end;
 procedure WaitStopped;
@@ -38,6 +55,22 @@ begin
   PreviousCount := Observer.LocationCount;
   repeat Pump until Observer.LocationCount > PreviousCount;
 end;
+procedure ToggleAfterPending(const FileName: string; Line: Integer);
+var Accepted: Boolean;
+begin
+  Started := GetTickCount64;
+  repeat
+    Accepted := False;
+    try
+      Session.ToggleBreakpoint(FileName, Line);
+      Accepted := True;
+    except
+      on E: Exception do
+        if E.Message <> 'Wait for the pending debugger command.' then raise;
+    end;
+    if not Accepted then Pump;
+  until Accepted;
+end;
 procedure WaitEvaluation(const Expected: string);
 begin
   Started := GetTickCount64;
@@ -45,8 +78,14 @@ begin
   Check(Observer.Evaluation = Expected, 'Unexpected evaluation: ' + Observer.Evaluation);
   Observer.Evaluation := '';
 end;
+procedure WaitBreakpointChange;
+begin
+  Started := GetTickCount64;
+  repeat Pump until not Session.ChangingBreakpoint;
+end;
 begin
   Session := TGdbSession.Create; Observer := TObserver.Create;
+  Observer.Session := Session;
   Arguments := TStringList.Create;
   try
     Source := ExpandFileName(ParamStr(1)); Executable := ExpandFileName(ParamStr(2));
@@ -99,10 +138,22 @@ begin
       'Arguments were not passed literally: ' + Observer.Output);
     Check(Pos('argc=4 empty=<> last=<last>', Observer.Output) > 0,
       'Empty argument was not preserved: ' + Observer.Output);
+    Check(Session.State = gsRunning, 'Fixture is not running before live breakpoint changes.');
+    LocationsBeforeEdit := Observer.LocationCount;
+    ToggleAfterPending(Source, 11);
+    WaitBreakpointChange;
+    Check(not Session.HasBreakpoint(Source, 11), 'Running breakpoint deletion failed.');
+    ToggleAfterPending(Source, 11);
+    WaitBreakpointChange;
+    Started := GetTickCount64;
+    repeat Pump until TGdbBreakpoint(Session.Breakpoints[0]).Number <> '';
+    Check(Session.State = gsRunning, 'Live breakpoint edit interrupted the program.');
+    Check(Observer.LocationCount = LocationsBeforeEdit,
+      'Internal breakpoint pause was reported as a user source stop.');
     Session.SendInput('5' + #10);
     Started := GetTickCount64;
     repeat Pump until Session.State = gsStopped;
-    Check(Observer.Line = 11, 'Did not stop on the breakpoint migrated by Save As.');
+    Check(Observer.Line = 11, 'Did not stop on the migrated breakpoint reinserted while running.');
     Session.Evaluate('value'); WaitEvaluation('12');
     Session.StepInto; WaitStopped;
     Check(Observer.Line in [2, 3], 'Step into did not enter the source function: ' +
@@ -118,7 +169,7 @@ begin
     Check(Pos('value=24', Observer.Output) > 0, 'Program terminal output is missing.');
     { Normal inferior exit also closes GDB and releases the IDE edit lock. }
     Started := GetTickCount64;
-    repeat Pump until not Session.Active;
+    repeat Pump until (Session.State = gsInactive) and not Session.Active;
     Observer.Output := '';
     Session.Start(Executable, ExtractFilePath(Executable), Arguments);
     Started := GetTickCount64;
@@ -127,10 +178,45 @@ begin
     repeat Pump until Pos('ready:', Observer.Output) > 0;
     Inferior := Session.InferiorPID;
     Check(Inferior > 0, 'Inferior process ID not observed.');
+    ToggleAfterPending(Source, 12);
+    Check(Session.ChangingBreakpoint, 'Running edit did not enter its interrupt wait.');
     Session.Stop; Started := GetTickCount64;
-    repeat Pump until not Session.Active;
+    Check(not Session.ChangingBreakpoint, 'Stop left a breakpoint edit scheduled for resume.');
+    Session.ToggleBreakpoint(Source, 13);
+    Check(not Session.ChangingBreakpoint,
+      'A gutter click during Stop scheduled another interrupt or resume.');
+    Check(not Session.HasBreakpoint(Source, 13), 'Stopping still accepted a breakpoint change.');
+    repeat Pump until (Session.State = gsInactive) and not Session.Active;
     Check(fpKill(Inferior, 0) <> 0, 'Stopping left the inferior process alive.');
+
+    { Race a real user breakpoint against the internal SIGINT. Whichever stop
+      arrives first, the genuine breakpoint must eventually remain paused. }
+    Observer.Output := '';
+    ToggleAfterPending(Source, 10);
+    Session.Start(Executable, ExtractFilePath(Executable), Arguments);
+    Started := GetTickCount64;
+    repeat Pump until Session.State = gsStopped;
+    Session.ContinueExecution;
+    Started := GetTickCount64;
+    repeat Pump until Pos('ready:', Observer.Output) > 0;
+    Session.SendInput('5' + #10);
+    { Let the actual breakpoint stop reach the MI pipe before asking to edit,
+      while deliberately not Polling: public state still says running. }
+    Sleep(150);
+    Observer.TryBusyActions := True;
+    ToggleAfterPending(Source, 12);
+    WaitBreakpointChange;
+    Started := GetTickCount64;
+    repeat Pump until Session.State = gsStopped;
+    Check(Observer.Line = 10, 'Internal breakpoint edit resumed past a user breakpoint.');
+    Check(Observer.BusyActionsAttempted,
+      'Fixture did not exercise commands during a real-stop/breakpoint-edit race.');
+    Check(Session.HasBreakpoint(Source, 12), 'Breakpoint edit raced with a real stop was lost.');
+    for P := 1 to 20 do begin Session.Poll; Sleep(5); end;
+    Check(Session.State = gsStopped, 'User breakpoint was automatically resumed after the edit.');
+    Session.Stop; Started := GetTickCount64;
+    repeat Pump until (Session.State = gsInactive) and not Session.Active;
     Check(not FileExists(ExtractFilePath(Executable) + 'must-not-exist'), 'Arguments invoked a shell.');
-    WriteLn('PASS: MI strings, literal argv, breakpoint add/delete/Save As migration, source stop, step over/into, expression evaluation, PTY stdin/stdout, exit/restart and stop cleanup.');
+    WriteLn('PASS: MI strings, literal argv, breakpoint add/delete while running and paused/Save As migration, source stop, step over/into, expression evaluation, PTY stdin/stdout, exit/restart, stop during breakpoint edit, real-stop race and stop cleanup.');
   finally Arguments.Free; Session.Free; Observer.Free; end;
 end.

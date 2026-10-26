@@ -4,7 +4,7 @@ run_origin=$PWD
 run_args=()
 for run_arg in "$@"; do
   case "$run_arg" in
-    --new-window|--forward-only|/*) run_args+=("$run_arg") ;;
+    --new-window|--forward-only|--version|/*) run_args+=("$run_arg") ;;
     *) run_args+=("$run_origin/$run_arg") ;;
   esac
 done

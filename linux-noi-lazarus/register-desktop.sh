@@ -5,7 +5,11 @@ app_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$app_dir/ui-language.sh"
 data_dir=${XDG_DATA_HOME:-"$HOME/.local/share"}
 applications_dir="$data_dir/applications"
-desktop_file="$applications_dir/devcpp-noi.desktop"
+desktop_file="$applications_dir/devcpp-noi-source.desktop"
+# Source builds have a separate identity and never shadow the installed menu.
+if [[ -x /usr/lib/devcpp-noi/migrate-launchers.py ]]; then
+  /usr/lib/devcpp-noi/migrate-launchers.py || true
+fi
 mkdir -p -- "$applications_dir"
 
 # Desktop files use double quotes around executable paths containing spaces.
@@ -14,7 +18,8 @@ escaped_dir=${escaped_dir//\"/\\\"}
 cat > "$desktop_file" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Dev-C++
+Name=Dev-C++ (Source)
+Name[zh_CN]=Dev-C++（源码构建）
 Comment=Dev-C++ for NOI Linux
 Comment[zh_CN]=适用于 NOI Linux 的 Dev-C++
 Exec=/bin/bash "$escaped_dir/launch.sh" %F
@@ -30,11 +35,11 @@ Name[zh_CN]=在新窗口打开
 Exec=/bin/bash "$escaped_dir/launch.sh" --new-window %F
 EOF
 
-cat > "$applications_dir/devcpp-noi-new-window.desktop" <<EOF
+cat > "$applications_dir/devcpp-noi-source-new-window.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Dev-C++ (Open in New Window)
-Name[zh_CN]=Dev-C++（在新窗口打开）
+Name=Dev-C++ Source (Open in New Window)
+Name[zh_CN]=Dev-C++ 源码构建（在新窗口打开）
 Exec=/bin/bash "$escaped_dir/launch.sh" --new-window %F
 Icon=$app_dir/devcpp.ico
 Terminal=false
@@ -46,9 +51,9 @@ EOF
 scripts_dir="$data_dir/nautilus/scripts"
 mkdir -p -- "$scripts_dir"
 if [[ "$devcpp_ui_language" == en ]]; then
-  context_script="$scripts_dir/Open in New Window (Dev-C++)"
+  context_script="$scripts_dir/Open in New Window (Dev-C++ Source)"
 else
-  context_script="$scripts_dir/在新窗口打开 (Dev-C++)"
+  context_script="$scripts_dir/在新窗口打开 (Dev-C++ Source)"
 fi
 printf '#!/usr/bin/env bash\napp_launch=%q\n' "$app_dir/launch.sh" > "$context_script"
 cat >> "$context_script" <<'EOF'
@@ -74,8 +79,10 @@ if [[ "${1:-}" == "--default" ]]; then
     fi
     exit 1
   fi
-  xdg-mime default devcpp-noi.desktop text/x-c++src
-  xdg-mime default devcpp-noi.desktop text/x-csrc
+  default_desktop=devcpp-noi-source.desktop
+  if [[ -x /usr/bin/devcpp-noi ]]; then default_desktop=devcpp-noi-installed.desktop; fi
+  xdg-mime default "$default_desktop" text/x-c++src
+  xdg-mime default "$default_desktop" text/x-csrc
   if [[ "$devcpp_ui_language" == en ]]; then
     echo 'Dev-C++ is the default application for .cpp and .c files.'
   else

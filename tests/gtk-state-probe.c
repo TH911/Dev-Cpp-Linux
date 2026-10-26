@@ -42,6 +42,24 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
     fprintf(out, "{\"id\":\"%p\",\"type\":", (void *)widget);
     json_string(out, G_OBJECT_TYPE_NAME(widget));
     fputs(",\"text\":", out); json_string(out, text);
+    GtkAllocation allocation;
+    gint root_x = 0, root_y = 0;
+    gtk_widget_get_allocation(widget, &allocation);
+    if (gtk_widget_get_realized(widget) && gtk_widget_get_window(widget)) {
+        /* Native controls own a GdkWindow; labels and layout containers share
+           their parent's window and need their allocation offset. Translating
+           through a GtkWindow double-counts its allocation on some GTK2 modal
+           windows, leaving the observed point in client coordinates. */
+        gdk_window_get_origin(gtk_widget_get_window(widget), &root_x, &root_y);
+        if (!gtk_widget_get_has_window(widget)) {
+            root_x += allocation.x;
+            root_y += allocation.y;
+        }
+    }
+    fputs(",\"name\":", out); json_string(out, gtk_widget_get_name(widget));
+    fprintf(out, ",\"parent\":\"%p\",\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d",
+            (void *)gtk_widget_get_parent(widget), root_x, root_y,
+            allocation.width, allocation.height);
     fprintf(out, ",\"focus\":%s,\"sensitive\":%s,\"visible\":%s}",
             gtk_widget_has_focus(widget) ? "true" : "false",
             gtk_widget_is_sensitive(widget) ? "true" : "false",

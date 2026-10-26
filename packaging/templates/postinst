@@ -6,3 +6,17 @@ fi
 if [ "$1" = configure ] && command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true
 fi
+
+# Repair only the explicitly identified invoking desktop user. Other users
+# migrate at their next login or when launching the installed desktop entry.
+if [ "$1" = configure ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
+    account=$(getent passwd "$SUDO_USER" || true)
+    if [ -n "$account" ]; then
+        user_home=$(printf '%s\n' "$account" | cut -d: -f6)
+        user_uid=$(printf '%s\n' "$account" | cut -d: -f3)
+        if [ "$user_uid" != 0 ] && [ -d "$user_home" ] && [ ! -L "$user_home" ]; then
+            runuser -u "$SUDO_USER" -- env -u XDG_DATA_HOME HOME="$user_home" \
+                /usr/lib/devcpp-noi/migrate-launchers.py || true
+        fi
+    fi
+fi

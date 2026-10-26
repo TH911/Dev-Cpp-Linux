@@ -8,10 +8,11 @@ uses
   Classes, SysUtils, StrUtils, Math, Types, Forms, Controls, StdCtrls, ComCtrls, ExtCtrls,
   Menus, Dialogs, IniFiles, Process, Contnrs, LCLType, Graphics, ImgList,
   LazUTF8, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditHighlighter,
-  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, editor_actions,
+  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, SynGutterMarks,
+  SynEditMarks, SynGutter, editor_actions,
   cppcompletion, ui_language, app_instance, document_files, runtime_support,
   editor_themes, compiler_profiles, options_dialogs,
-  gdb_session, debugger_panel;
+  gdb_session, debugger_panel, debug_icons, app_version, about_dialog;
 
 type
   TNoiCppSyn = class(TSynCppSyn)
@@ -26,20 +27,32 @@ type
     function GetTokenAttribute: TSynHighlighterAttributes; override;
   end;
 
+  TEditorLineClickEvent = procedure(Sender: TObject; Line: Integer) of object;
+
   TNoiSynEdit = class(TSynEdit)
   private
     FHomeRepeat: Boolean;
+    FGutterPress: Boolean;
+    FGutterPoint: TPoint;
+    FGutterLine: Integer;
+    FOnLineClick: TEditorLineClickEvent;
+    function BreakpointLineAt(X, Y: Integer): Integer;
   protected
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState;
+      X, Y: Integer); override;
   public
+    property OnLineClick: TEditorLineClickEvent read FOnLineClick write FOnLineClick;
     procedure ResetHomeCycle;
     procedure MoveHome(SelectText: Boolean);
     function FindMatchingBracketLogical(LogicalStartBracket: TPoint;
       StartIncludeNeighborChars, MoveCaret, SelectBrackets,
       OnlyVisible: Boolean): TPoint; override;
   end;
+
+  TNoiDebugMark = class(TSynEditMark);
 
   TDocument = class
     Tab: TTabSheet;
@@ -63,6 +76,8 @@ type
   private
     FPages: TPageControl;
     FProjectTree: TTreeView;
+    FLeftTabs: TPageControl;
+    FLeftDebugTab: TTabSheet;
     FOutput: TMemo;
     FReportTabs: TPageControl;
     FCompilerTab: TTabSheet;
@@ -121,6 +136,7 @@ type
     FInstanceTimer: TTimer;
     FChineseLanguageItem, FEnglishLanguageItem: TMenuItem;
     FDebugger: TDebuggerPanel;
+    FDebugImages: TImageList;
     FDebugTab: TTabSheet;
     FDebugTimer: TTimer;
     FDebugFile: string;
@@ -136,6 +152,9 @@ type
     procedure DebugStateChange(Sender: TObject);
     procedure DebugStartClick(Sender: TObject);
     procedure DebugToggleBreakpointClick(Sender: TObject);
+    procedure EditorLineClick(Sender: TObject; Line: Integer);
+    procedure ToggleSourceBreakpoint(Doc: TDocument; Line: Integer);
+    procedure UpdateDebugMarkers(Doc: TDocument);
     procedure DebugContinueClick(Sender: TObject);
     procedure DebugStepIntoClick(Sender: TObject);
     procedure DebugStepOverClick(Sender: TObject);
@@ -416,7 +435,61 @@ procedure TNoiSynEdit.MouseDown(Button: TMouseButton; Shift: TShiftState;
   X, Y: Integer);
 begin
   FHomeRepeat := False;
+  FGutterPress := False;
+  if (Button = mbLeft) and ((Shift * [ssCtrl, ssAlt, ssShift]) = []) and
+    Assigned(FOnLineClick) then
+  begin
+    FGutterLine := BreakpointLineAt(X, Y);
+    if FGutterLine > 0 then
+    begin
+      FGutterPress := True;
+      FGutterPoint := Point(X, Y);
+      SetFocus;
+      Exit;
+    end;
+  end;
   inherited MouseDown(Button, Shift, X, Y);
+end;
+
+function TNoiSynEdit.BreakpointLineAt(X, Y: Integer): Integer;
+var Index, PartIndex: Integer; Position, Pixel: TPoint;
+begin
+  Result := 0;
+  if not Gutter.Visible or (Y < 0) or (Y >= ClientHeight) then Exit;
+  Index := -1;
+  for PartIndex := 0 to Gutter.Parts.Count - 1 do
+    if Gutter.Parts[PartIndex].Visible and
+      (X >= Gutter.Parts[PartIndex].Left) and
+      (X < Gutter.Parts[PartIndex].Left + Gutter.Parts[PartIndex].Width) then
+    begin
+      Index := PartIndex;
+      Break;
+    end;
+  if (Index < 0) or (Index >= Gutter.Parts.Count) then Exit;
+  if not ((Gutter.Parts[Index] is TSynGutterMarks) or
+    (Gutter.Parts[Index] is TSynGutterLineNumber)) then Exit;
+  Position := PixelsToLogicalPos(Point(X, Y));
+  if (Position.Y < 1) or (Position.Y > Lines.Count) then Exit;
+  Pixel := RowColumnToPixels(LogicalToPhysicalPos(Point(1, Position.Y)));
+  if (Y < Pixel.Y) or (Y >= Pixel.Y + LineHeight) then Exit;
+  Result := Position.Y;
+end;
+
+procedure TNoiSynEdit.MouseUp(Button: TMouseButton; Shift: TShiftState;
+  X, Y: Integer);
+var WasGutterPress: Boolean;
+begin
+  WasGutterPress := FGutterPress;
+  FGutterPress := False;
+  if WasGutterPress then
+  begin
+    if (Button = mbLeft) and ((Shift * [ssCtrl, ssAlt, ssShift]) = []) and
+      (Abs(X - FGutterPoint.X) <= 3) and (Abs(Y - FGutterPoint.Y) <= 3) and
+      (BreakpointLineAt(X, Y) = FGutterLine) and Assigned(FOnLineClick) then
+      FOnLineClick(Self, FGutterLine);
+    Exit;
+  end;
+  inherited MouseUp(Button, Shift, X, Y);
 end;
 
 function TNoiSynEdit.FindMatchingBracketLogical(LogicalStartBracket: TPoint;
@@ -638,7 +711,7 @@ var
   Toolbar: TToolBar;
   ToolImages: TImageList;
   LeftTabs: TPageControl;
-  LeftProjectTab, LeftClassTab, LeftDebugTab: TTabSheet;
+  LeftProjectTab, LeftClassTab: TTabSheet;
   Split: TSplitter;
   Button: TToolButton;
   Bitmap: TBitmap;
@@ -662,6 +735,13 @@ var
         Bitmap.LoadFromFile(IconPath);
         Button.ImageIndex := ToolImages.AddMasked(Bitmap, Bitmap.Canvas.Pixels[0, 0]);
       finally Bitmap.Free; end;
+    end
+    else if IconName <> '' then
+    begin
+      Bitmap := DebuggerIcon(IconName);
+      try
+        Button.ImageIndex := ToolImages.AddMasked(Bitmap, clFuchsia);
+      finally Bitmap.Free; end;
     end;
   end;
 
@@ -675,9 +755,13 @@ var
 
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := Tr('Dev-C++');
-  Width := 1100;
-  Height := 730;
+  Caption := 'Dev-C++ ' + AppVersion;
+  Font.Name := 'Sans';
+  Font.Size := 9;
+  Constraints.MinWidth := 820;
+  Constraints.MinHeight := 560;
+  Width := Min(1100, Screen.WorkAreaWidth - 32);
+  Height := Min(760, Screen.WorkAreaHeight - 40);
   Position := poScreenCenter;
   if FileExists(ExtractFilePath(ParamStr(0)) + 'devcpp.ico') then
     try
@@ -686,6 +770,18 @@ begin
       { The editor remains usable if the window manager cannot load ICO files. }
     end;
   FDocs := TObjectList.Create(True);
+  FDebugImages := TImageList.Create(Self);
+  FDebugImages.Width := 16;
+  FDebugImages.Height := 16;
+  for ArgIndex := 0 to 2 do
+  begin
+    case ArgIndex of
+      0: Bitmap := DebuggerIcon('breakpoint');
+      1: Bitmap := DebuggerIcon('current');
+      else Bitmap := DebuggerIcon('current-breakpoint');
+    end;
+    try FDebugImages.AddMasked(Bitmap, clFuchsia); finally Bitmap.Free; end;
+  end;
   FRecentFiles := TStringList.Create;
   FRecentFiles.CaseSensitive := True;
   FEditorFontSize := 10;
@@ -860,6 +956,14 @@ begin
   AddTool('Run', 'run', @RunClick);
   AddTool('Compile & Run', 'comprun', @CompileRunClick);
   AddTool('Rebuild All', 'rebuild', @CompileClick);
+  AddDivider;
+  AddTool('Start Debugging', 'debug', @DebugStartClick);
+  AddTool('Continue', 'continue', @DebugContinueClick);
+  AddTool('Step over', 'step-over', @DebugStepOverClick);
+  AddTool('Step into', 'step-into', @DebugStepIntoClick);
+  AddTool('Stop', 'stop-debug', @DebugStopClick);
+  AddTool('Toggle Breakpoint', 'breakpoint', @DebugToggleBreakpointClick);
+  AddDivider;
   FCompilerProfileCombo := TComboBox.Create(Self);
   FCompilerProfileCombo.Parent := Toolbar;
   FCompilerProfileCombo.Left := Toolbar.ButtonCount * Toolbar.ButtonWidth + 12;
@@ -875,7 +979,7 @@ begin
   FStatus.Parent := Self;
   FStatus.Align := alBottom;
   FStatus.SimplePanel := True;
-  FStatus.Height := 32;
+  FStatus.Height := 24;
 
   MainPanel := TPanel.Create(Self);
   MainPanel.Parent := Self;
@@ -883,20 +987,20 @@ begin
   MainPanel.BevelOuter := bvNone;
 
   LeftTabs := TPageControl.Create(Self);
+  FLeftTabs := LeftTabs;
   LeftTabs.Parent := MainPanel;
   LeftTabs.Align := alLeft;
-  LeftTabs.Width := 193;
+  LeftTabs.Width := 210;
   LeftProjectTab := TTabSheet.Create(LeftTabs);
   LeftProjectTab.PageControl := LeftTabs;
   LeftProjectTab.Caption := Tr('Project');
   LeftClassTab := TTabSheet.Create(LeftTabs);
   LeftClassTab.PageControl := LeftTabs;
   LeftClassTab.Caption := Tr('Classes');
-  LeftDebugTab := TTabSheet.Create(LeftTabs);
-  LeftDebugTab.PageControl := LeftTabs;
-  LeftDebugTab.Caption := Tr('Debug');
-  { The functional debugger occupies the wider results pane below the editor. }
-  LeftDebugTab.TabVisible := False;
+  FLeftDebugTab := TTabSheet.Create(LeftTabs);
+  FLeftDebugTab.PageControl := LeftTabs;
+  FLeftDebugTab.Caption := Tr('Debug');
+  LeftTabs.ActivePage := LeftProjectTab;
   FProjectTree := TTreeView.Create(Self);
   FProjectTree.Parent := LeftProjectTab;
   FProjectTree.Align := alClient;
@@ -910,7 +1014,9 @@ begin
   BottomPanel := TPanel.Create(Self);
   BottomPanel.Parent := CenterPanel;
   BottomPanel.Align := alBottom;
-  BottomPanel.Height := 183;
+  BottomPanel.Height := 220;
+  BottomPanel.BevelOuter := bvNone;
+  BottomPanel.Constraints.MinHeight := 150;
   BottomPanel.Caption := Tr('');
   FReportTabs := TPageControl.Create(Self);
   FReportTabs.Parent := BottomPanel;
@@ -937,7 +1043,7 @@ begin
   FOutput.Align := alClient;
   FOutput.ReadOnly := True;
   FOutput.ScrollBars := ssBoth;
-  FOutput.Font.Name := 'Courier New';
+  FOutput.Font.Name := DefaultEditorFontName;
   Split := TSplitter.Create(Self); Split.Parent := CenterPanel; Split.Align := alBottom;
 
   FPages := TPageControl.Create(Self);
@@ -1022,6 +1128,7 @@ begin
       Doc.Editor.OnKeyDown := nil;
       Doc.Editor.OnKeyPress := nil;
       Doc.Editor.OnKeyUp := nil;
+      TNoiSynEdit(Doc.Editor).OnLineClick := nil;
     end;
   FCompilerProfiles.Free;
   FRecentFiles.Free;
@@ -1071,11 +1178,15 @@ begin
   if IsCommand(@DebugStartClick) then
     Exit(not FCompileActive and not DebuggerActive and
       ((Doc <> nil) or (FProjectPath <> '')));
-  if IsCommand(@DebugToggleBreakpointClick) then Exit(not FCompileActive and InEditor);
+  if IsCommand(@DebugToggleBreakpointClick) then
+    Exit(not FCompileActive and InEditor and (not DebuggerActive or
+      ((FDebugger.Session.State in [gsStopped, gsRunning]) and
+        not FDebugger.Session.ChangingBreakpoint)));
   if IsCommand(@DebugStopClick) then Exit(DebuggerActive);
   if IsCommand(@DebugContinueClick) or IsCommand(@DebugStepIntoClick) or
     IsCommand(@DebugStepOverClick) or IsCommand(@DebugEvaluateClick) then
-    Exit(DebuggerStopped and not FCompileActive);
+    Exit(DebuggerStopped and not FCompileActive and
+      not FDebugger.Session.ChangingBreakpoint);
   if IsCommand(@ClearRecentClick) then Exit(FRecentFiles.Count > 0);
   if IsCommand(@CopyClick) then Exit(HasSelection);
   if IsCommand(@SelectAllClick) then Exit(InEditor or (NativeEdit <> nil));
@@ -1388,6 +1499,7 @@ begin
   FChineseLanguageItem.Checked := True;
   FEnglishLanguageItem.Checked := False;
   FCompletionList.Invalidate;
+  if FDebugger <> nil then FDebugger.RefreshBreakpoints;
   UpdateStatus;
 end;
 
@@ -1398,6 +1510,7 @@ begin
   FChineseLanguageItem.Checked := False;
   FEnglishLanguageItem.Checked := True;
   FCompletionList.Invalidate;
+  if FDebugger <> nil then FDebugger.RefreshBreakpoints;
   UpdateStatus;
 end;
 
@@ -1449,6 +1562,7 @@ begin
       TDocument(FDocs[I]).Dirty := TDocument(FDocs[I]).Editor.Modified or
         TDocument(FDocs[I]).KeepBufferConflict;
       TDocument(FDocs[I]).ErrorLine := -1;
+      UpdateDebugMarkers(TDocument(FDocs[I]));
       TDocument(FDocs[I]).Editor.Invalidate;
       UpdateTab(TDocument(FDocs[I]));
       Break;
@@ -1485,11 +1599,15 @@ begin
     if (FDebugger <> nil) and
       FDebugger.Session.HasBreakpoint(PaintedDoc.FileName, Line) then
     begin
-      Special := True; FG := clWhite; BG := $004040A0;
+      Special := True;
+      FG := PaintedDoc.ThemeColors.BreakpointForeground;
+      BG := PaintedDoc.ThemeColors.BreakpointBackground;
     end;
     if (FDebugLine = Line) and (PaintedDoc.FileName = FDebugFile) then
     begin
-      Special := True; FG := clBlack; BG := $0080FFFF;
+      Special := True;
+      FG := PaintedDoc.ThemeColors.DebugForeground;
+      BG := PaintedDoc.ThemeColors.DebugBackground;
     end;
     if PaintedDoc.ErrorLine = Line then
     begin
@@ -2805,6 +2923,7 @@ begin
   Doc.Editor.OnMouseWheel := @EditorMouseWheel;
   Doc.Editor.OnMouseUp := @EditorMouseUp;
   Doc.Editor.OnDropFiles := @EditorFilesDropped;
+  TNoiSynEdit(Doc.Editor).OnLineClick := @EditorLineClick;
   FDocs.Add(Doc);
   UpdateTab(Doc);
   FPages.ActivePage := Doc.Tab;
@@ -2840,6 +2959,7 @@ begin
       LoadDocumentLines(Doc.Editor.Lines, FileName, Doc.DiskSnapshot);
       Doc.SeenDiskSnapshot := Doc.DiskSnapshot;
       Doc.FileName := ExpandFileName(FileName);
+      UpdateDebugMarkers(Doc);
       Doc.Dirty := False;
       Doc.Editor.Modified := False;
       UpdateTab(Doc);
@@ -2930,8 +3050,8 @@ begin
   finally
     FProjectTree.Items.EndUpdate;
   end;
-  if FProjectPath = '' then Caption := Tr('Dev-C++')
-  else Caption := ExtractFileName(FProjectPath) + ' - Dev-C++';
+  if FProjectPath = '' then Caption := 'Dev-C++ ' + AppVersion
+  else Caption := ExtractFileName(FProjectPath) + ' - Dev-C++ ' + AppVersion;
 end;
 
 function TMainForm.TryCloseProject: Boolean;
@@ -4723,6 +4843,7 @@ begin
   end;
   FDebugger := TDebuggerPanel.Create(Self);
   FDebugger.Parent := FDebugTab; FDebugger.Align := alClient;
+  FDebugger.AttachSidebar(FLeftDebugTab);
   FDebugger.Session.OnLocation := @DebugLocation;
   FDebugger.OnStateChange := @DebugStateChange;
   FDebugTimer := TTimer.Create(Self);
@@ -4747,7 +4868,11 @@ var I: Integer;
 begin
   if not DebuggerStopped then begin FDebugLine := 0; FDebugFile := ''; end;
   if FDocs <> nil then
-    for I := 0 to FDocs.Count - 1 do TDocument(FDocs[I]).Editor.Invalidate;
+    for I := 0 to FDocs.Count - 1 do
+    begin
+      UpdateDebugMarkers(TDocument(FDocs[I]));
+      TDocument(FDocs[I]).Editor.Invalidate;
+    end;
   RefreshCommandStates(Self);
 end;
 
@@ -4759,6 +4884,7 @@ begin
   Doc := FindDoc(FileName);
   if Doc = nil then Exit;
   FDebugFile := Doc.FileName; FDebugLine := Line;
+  UpdateDebugMarkers(Doc);
   FPages.ActivePage := Doc.Tab;
   Doc.Editor.CaretY := EnsureRange(Line, 1, Max(1, Doc.Editor.Lines.Count));
   Doc.Editor.CaretX := 1;
@@ -4789,6 +4915,7 @@ begin
       if not DirectoryExists(WorkDirectory) then
         raise Exception.Create(Tr('The working directory does not exist.'));
       FReportTabs.ActivePage := FDebugTab;
+      FLeftTabs.ActivePage := FLeftDebugTab;
       FDebugger.BeginSession;
       FDebugger.Session.Start(FLastExecutable, WorkDirectory, Args);
     except
@@ -4801,15 +4928,85 @@ end;
 procedure TMainForm.DebugToggleBreakpointClick(Sender: TObject);
 var Doc: TDocument;
 begin
-  if FCompileActive then Exit;
   Doc := CurrentDoc;
   if Doc = nil then Exit;
+  ToggleSourceBreakpoint(Doc, Doc.Editor.CaretY);
+end;
+
+procedure TMainForm.EditorLineClick(Sender: TObject; Line: Integer);
+var I: Integer; Doc: TDocument;
+begin
+  if FDocs = nil then Exit;
+  HideCompletion;
+  HideFunctionTip;
+  for I := 0 to FDocs.Count - 1 do
+  begin
+    Doc := TDocument(FDocs[I]);
+    if Doc.Editor = Sender then
+    begin
+      ToggleSourceBreakpoint(Doc, Line);
+      Exit;
+    end;
+  end;
+end;
+
+procedure TMainForm.ToggleSourceBreakpoint(Doc: TDocument; Line: Integer);
+begin
+  if (Doc = nil) or FCompileActive or (Application.ModalLevel > 0) or
+    (Line < 1) or (Line > Doc.Editor.Lines.Count) then Exit;
+  if DebuggerActive and not (FDebugger.Session.State in [gsStopped, gsRunning]) then
+  begin
+    FStatus.SimpleText := Tr('Pause the program before changing breakpoints.');
+    Exit;
+  end;
   if (Doc.FileName = '') and not SaveDoc(Doc) then Exit;
   InitializeDebugger;
   try
-    FDebugger.Session.ToggleBreakpoint(Doc.FileName, Doc.Editor.CaretY);
-    FDebugger.RefreshBreakpoints; Doc.Editor.Invalidate;
-  except on E: Exception do UiMessageDlg(E.Message, mtInformation, [mbOK], 0); end;
+    FDebugger.Session.ToggleBreakpoint(Doc.FileName, Line);
+    FDebugger.RefreshBreakpoints;
+    UpdateDebugMarkers(Doc);
+    Doc.Editor.Invalidate;
+  except on E: Exception do FStatus.SimpleText := Tr(E.Message); end;
+end;
+
+procedure TMainForm.UpdateDebugMarkers(Doc: TDocument);
+var I, Image: Integer; Mark: TSynEditMark; B: TGdbBreakpoint;
+begin
+  if (Doc = nil) or (FDebugImages = nil) then Exit;
+  for I := Doc.Editor.Marks.Count - 1 downto 0 do
+    if Doc.Editor.Marks[I] is TNoiDebugMark then Doc.Editor.Marks[I].Free;
+  if (FDebugger = nil) or (Doc.FileName = '') then Exit;
+  for I := 0 to FDebugger.Session.Breakpoints.Count - 1 do
+  begin
+    B := TGdbBreakpoint(FDebugger.Session.Breakpoints[I]);
+    if (B.FileName <> Doc.FileName) or (B.Line < 1) or
+      (B.Line > Doc.Editor.Lines.Count) then Continue;
+    Image := 0;
+    if (FDebugFile = Doc.FileName) and (FDebugLine = B.Line) then Image := 2;
+    Mark := TNoiDebugMark.Create(Doc.Editor);
+    Mark.Line := B.Line;
+    Mark.Column := 1;
+    Mark.BookmarkNumber := -1;
+    Mark.InternalImage := False;
+    Mark.ImageList := FDebugImages;
+    Mark.ImageIndex := Image;
+    Mark.Visible := True;
+    Doc.Editor.Marks.Add(Mark);
+  end;
+  if (FDebugFile = Doc.FileName) and (FDebugLine > 0) and
+    not FDebugger.Session.HasBreakpoint(Doc.FileName, FDebugLine) then
+  begin
+    Mark := TNoiDebugMark.Create(Doc.Editor);
+    Mark.Line := FDebugLine;
+    Mark.Column := 1;
+    Mark.BookmarkNumber := -1;
+    Mark.InternalImage := False;
+    Mark.ImageList := FDebugImages;
+    Mark.ImageIndex := 1;
+    Mark.Visible := True;
+    Doc.Editor.Marks.Add(Mark);
+  end;
+  Doc.Editor.InvalidateGutter;
 end;
 
 procedure TMainForm.DebugContinueClick(Sender: TObject);
@@ -4828,8 +5025,7 @@ end;
 
 procedure TMainForm.AboutClick(Sender: TObject);
 begin
-  UiMessageDlg(Tr('Dev-C++ 5.11 - NOI Linux native prototype') + LineEnding +
-    Tr('Based on Orwell Dev-C++ 5.11. GPL-2.0-or-later.'), mtInformation, [mbOK], 0);
+  ShowAboutDialog(Self);
 end;
 
 end.

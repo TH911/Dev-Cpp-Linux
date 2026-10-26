@@ -4,6 +4,8 @@ This is the **Lazarus/LCL native port in progress**. It uses only software
 listed in the official NOI Linux 2.0 environment: Lazarus 2.0.6, FPC 3.0.4,
 GCC/G++ 9.3 and GDB 9.1. This program follows Orwell Dev-C++ 5.11's main window
 structure, menu names, F9/F10/F11 actions, and `.dev` project format.
+The current version is **1.1.1**. See the [Release page](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.1)
+for directory source archives and the installable amd64 Debian package.
 
 On a stock NOI Linux 2.0 desktop, open a terminal in this directory and run:
 
@@ -24,8 +26,9 @@ Normal launches forward file paths to an existing window using FPC SimpleIPC,
 which is part of the preinstalled Free Pascal libraries. The UI polls requests
 without creating a background GUI thread. If no window exists, a window starts.
 The desktop launcher attempts forwarding before checking whether a build is
-needed. Close all windows from an earlier release once when applying this
-update, because those releases do not implement the forwarding protocol.
+needed. Instance forwarding is now separated by executable path and version, so an
+installed release does not activate a running source build or another version.
+Close earlier windows when upgrading to avoid confusing them with the new IDE.
 `bash launch.sh --new-window file.cpp` explicitly starts a new window. Desktop
 registration adds a New Window action and a second Open With application,
 plus GNOME Files' Scripts > Open in New Window (Dev-C++) context entry (Chinese
@@ -51,12 +54,17 @@ finds simple function definitions in the current file, open documents, project
 files, and local quoted headers. Template, macro, and overload resolution are
 not yet part of the navigation index.
 
-Launching once registers `Dev-C++` in the desktop's **Open With** list for C/C++
+Launching a source build registers `Dev-C++ (Source)` in the desktop's **Open With** list for C/C++
 files using only your user account. To make it the default application for
 `.cpp` and `.c` files, run `bash register-desktop.sh --default` in this folder.
 No sudo or network connection is needed. The user-level desktop entry points
-to this folder, so rerun the launcher after moving it. Existing desktop entries
-are refreshed by `bash run.sh` or `bash register-desktop.sh --default`.
+to this folder, so rerun the launcher after moving it. Source desktop entries use the separate `devcpp-noi-source.desktop` identity.
+The installed package has its own visible `devcpp-noi-installed.desktop` entry,
+so rebuilding from source does not shadow the installed application. Source
+entries are refreshed by `bash run.sh` or `bash register-desktop.sh --default`.
+When the package is installed, the explicit `--default` command chooses the
+installed entry. Normal launching or package installation does not change MIME
+defaults. See [launcher migration](../docs/PACKAGING.md#旧版启动入口迁移).
 
 Current implementation: tabbed SynEdit editing with C/C++ syntax highlighting,
 line numbers, literal Tab indentation with width 4 on Enter and Tab (including
@@ -145,8 +153,15 @@ and a UTF-8 keypress prompt. The member index does not yet parse the full C++
 standard library or resolve overloads, macros, and expression chains.
 Debug > Start Debugging (F5) rebuilds with debug information and stops at
 `main`. F4 toggles a breakpoint, F7 steps over, F8 steps into, and F6 stops the
-session. The Debug report tab provides input/output, expression evaluation, a
-breakpoint list and the GDB log. Editors become read-only during a session and
+session. Left-clicking a line number or gutter marker also toggles its
+breakpoint; right-clicks and drag selection do not toggle it. Red dots mark
+breakpoints, yellow arrows mark the stopped source line, and line colors come
+from the corresponding original syntax theme.
+The 1.1.1 Debug report tab places commands and an expression/value table on the
+left, with program input/output and the GDB log on the right. The left sidebar
+Debug page lists breakpoints; the main toolbar provides debugger actions.
+The compact Sans 9 interface and panel structure move toward the original
+5.11 layout while remaining native GTK2 controls. Editors become read-only during a session and
 are restored after Stop or normal exit. See [the debugger guide](../docs/DEBUGGING.md).
 Persistent watches, conditional breakpoints, call-stack browsing, attach and
 other advanced debugger features remain pending. Project resource builds,
@@ -174,23 +189,36 @@ Modified/deleted files prompt before reload or overwrite. Compilation publishes
 a new executable only on success; failure/cancellation preserves the previous
 file but prevents F10 from silently running it as the latest result.
 
-The application has been built and tested in an Ubuntu 20.04 amd64 container
+The 1.1.1 source was built and tested in an Ubuntu 20.04 amd64 container
 with Lazarus 2.0.6, FPC 3.0.4, GCC/G++ 9.3.0 and GDB 9.1. Run
 `bash ci/check.sh` from the repository root with that toolchain to build and
 execute the helper and real GTK2 interaction suites. They cover file identity
 and save conflicts, Home/Shift+Home and undo, focus, quoted execution arguments,
 working directories, compilation cancellation, actual GDB sessions, themes
-and compiler profiles. See [the parity audit](../docs/DEVCPP-5.11-PARITY.md).
+and compiler profiles, along with the revised layout, actual line-number clicks,
+running breakpoint changes, About links/clipboard and launcher migration.
+See [the parity audit](../docs/DEVCPP-5.11-PARITY.md).
 Tests use Xvfb and the XTerm fallback. They do not reproduce the official NOI
 Linux ISO's GNOME desktop or kernel; visual behavior and GNOME Terminal still
 need acceptance testing on that desktop.
 
 Future Release assets include a source ZIP and tar.gz rooted at
 `linux-noi-lazarus/`, plus an amd64 `.deb` with the prebuilt binary. Install
-with `sudo apt install ./devcpp-noi_VERSION_amd64.deb`, then run `devcpp-noi`.
+with `sudo apt install ./devcpp-noi_VERSION_amd64.deb`, then open **Dev-C++ NOI Linux** from the software panel or run `/usr/bin/devcpp-noi`.
+Use `/usr/bin/devcpp-noi --version` or Help > About to check the version and
+actual executable path. The installer keeps old custom launchers and MIME
+defaults; recognized historical source launchers are backed up and migrated.
 APT installs runtime dependencies; Lazarus/FPC are required only for source
 builds. The installed program uses `/usr/lib/devcpp-noi` read-only and stores
 user settings separately. See [packaging and uninstall instructions](../docs/PACKAGING.md).
+
+Help > About now shows the application version, the clickable GitHub project
+link, Orwell Dev-C++ 5.11 attribution and GPL license. Build and installation
+details show the executable and configuration paths, installation type, FPC
+version and target platform. Copy Details copies this information for bug
+reports. For a terminal-only version check, use `./devcpp-noi --version` from a
+source build or `/usr/bin/devcpp-noi --version` for the package; no GUI window
+is opened. Check the executable path in About when diagnosing an old launcher.
 
 The launcher now initializes Xlib thread support before GTK and uses CreateNew
 for the resource-free main form. Runtime stderr is saved in

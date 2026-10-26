@@ -4,7 +4,7 @@ launch_origin=$PWD
 launch_args=()
 for launch_arg in "$@"; do
   case "$launch_arg" in
-    --new-window|--forward-only|/*) launch_args+=("$launch_arg") ;;
+    --new-window|--forward-only|--version|/*) launch_args+=("$launch_arg") ;;
     *) launch_args+=("$launch_origin/$launch_arg") ;;
   esac
 done
@@ -16,6 +16,7 @@ new_window=false
 for launch_arg in "$@"; do
   if [[ "$launch_arg" == --new-window ]]; then new_window=true; fi
 done
+if [[ $# == 1 && $1 == --version ]]; then new_window=true; fi
 if [[ "$new_window" == false && -x ./devcpp-noi && -f ./devcpp-noi.instance-api ]]; then
   if ./devcpp-noi --forward-only "$@" 2>/dev/null; then exit 0; fi
 fi

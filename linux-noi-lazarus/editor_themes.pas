@@ -12,6 +12,7 @@ const EditorThemeCount = 4;
 type
   TEditorThemeColors = record
     ErrorForeground, ErrorBackground: TColor;
+    BreakpointForeground, BreakpointBackground, DebugForeground, DebugBackground: TColor;
   end;
 
 function EditorThemeName(Index: Integer): string;
@@ -250,6 +251,10 @@ begin
     Editor.FoldedCodeColor.Background := Background[20];
     Colors.ErrorForeground := Foreground[18];
     Colors.ErrorBackground := Background[18];
+    Colors.BreakpointForeground := Foreground[17];
+    Colors.BreakpointBackground := Background[17];
+    Colors.DebugForeground := Foreground[19];
+    Colors.DebugBackground := Background[19];
     if Colors.ErrorForeground = clNone then Colors.ErrorForeground := clRed;
     if Colors.ErrorBackground = clNone then Colors.ErrorBackground := Editor.Color;
     Editor.Invalidate;
