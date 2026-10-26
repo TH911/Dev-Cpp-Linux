@@ -352,6 +352,50 @@ begin
     (Suffix = 'lu') or (Suffix = 'llu');
 end;
 
+function ValidFloatingLiteral(const S: string): Boolean;
+var
+  I, Digits, ExponentStart: Integer;
+  Hexadecimal, HasPoint, HasExponent: Boolean;
+
+  function MantissaDigit(C: Char): Boolean;
+  begin
+    Result := (C in ['0'..'9']) or
+      (Hexadecimal and (C in ['a'..'f', 'A'..'F']));
+  end;
+
+begin
+  Result := False;
+  I := 1;
+  Hexadecimal := (Length(S) > 2) and (S[1] = '0') and (S[2] in ['x', 'X']);
+  if Hexadecimal then I := 3;
+  Digits := 0;
+  while (I <= Length(S)) and MantissaDigit(S[I]) do
+  begin Inc(I); Inc(Digits); end;
+  HasPoint := (I <= Length(S)) and (S[I] = '.');
+  if HasPoint then
+  begin
+    Inc(I);
+    while (I <= Length(S)) and MantissaDigit(S[I]) do
+    begin Inc(I); Inc(Digits); end;
+  end;
+  if Digits = 0 then Exit;
+  HasExponent := (I <= Length(S)) and
+    (((not Hexadecimal) and (S[I] in ['e', 'E'])) or
+      (Hexadecimal and (S[I] in ['p', 'P'])));
+  if HasExponent then
+  begin
+    Inc(I);
+    if (I <= Length(S)) and (S[I] in ['+', '-']) then Inc(I);
+    ExponentStart := I;
+    while (I <= Length(S)) and (S[I] in ['0'..'9']) do Inc(I);
+    if I = ExponentStart then Exit;
+  end;
+  if Hexadecimal and not HasExponent then Exit;
+  if not (HasPoint or HasExponent) then Exit;
+  if (I <= Length(S)) and (S[I] in ['f', 'F', 'l', 'L']) then Inc(I);
+  Result := I > Length(S);
+end;
+
 constructor TNoiCppSyn.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
@@ -382,20 +426,30 @@ begin
   begin
     StartPos := GetTokenPos + 1;
     EndPos := StartPos;
-    while (StartPos > 1) and
-      (FCurrentLine[StartPos - 1] in ['A'..'Z', 'a'..'z', '0'..'9', '_']) do
-      Dec(StartPos);
-    while (EndPos <= Length(FCurrentLine)) and
-      (FCurrentLine[EndPos] in ['A'..'Z', 'a'..'z', '0'..'9', '_']) do Inc(EndPos);
+    while StartPos > 1 do
+      if (FCurrentLine[StartPos - 1] in ['A'..'Z', 'a'..'z', '0'..'9', '_', '.']) or
+        ((StartPos > 2) and (FCurrentLine[StartPos - 1] in ['+', '-']) and
+          (FCurrentLine[StartPos - 2] in ['e', 'E', 'p', 'P'])) then Dec(StartPos)
+      else Break;
+    while EndPos <= Length(FCurrentLine) do
+      if (FCurrentLine[EndPos] in ['A'..'Z', 'a'..'z', '0'..'9', '_', '.']) or
+        ((EndPos > 1) and (FCurrentLine[EndPos] in ['+', '-']) and
+          (FCurrentLine[EndPos - 1] in ['e', 'E', 'p', 'P'])) then Inc(EndPos)
+      else Break;
     WholeLiteral := Copy(FCurrentLine, StartPos, EndPos - StartPos);
-    if (WholeLiteral <> '') and (WholeLiteral[1] in ['0'..'9']) and
+    if (WholeLiteral <> '') and (WholeLiteral[1] in ['0'..'9', '.']) and
       (GetTokenID in [tkNumber, tkIdentifier]) then
     begin
-      { Float/exponent tokens retain the native C++ highlighter behavior. }
-      if Pos('.', TokenValue) = 0 then
-        if ValidIntegerLiteral(WholeLiteral) then Result := NumberAttri
-        else Result := IdentifierAttri;
+      if ValidIntegerLiteral(WholeLiteral) or ValidFloatingLiteral(WholeLiteral) then
+        Result := NumberAttri
+      else Result := IdentifierAttri;
     end;
+    { GTK2's older lexer can split leading decimal points, hex exponents and
+      suffixes. Color only punctuation contained in a complete valid float. }
+    if (GetTokenID = tkSymbol) and (Length(TokenValue) = 1) and
+      (TokenValue[1] in ['.', '+', '-']) and
+      (GetTokenPos + Length(TokenValue) < EndPos) and
+      ValidFloatingLiteral(WholeLiteral) then Result := NumberAttri;
   end;
   { Lazarus may emit a quote delimiter as a symbol rather than include it
     in the string token.  Keep the original Classic Plus string/char colors. }
@@ -1040,7 +1094,7 @@ begin
   FOutput.Align := alClient;
   FOutput.ReadOnly := True;
   FOutput.ScrollBars := ssBoth;
-  FOutput.Font.Name := DefaultEditorFontName;
+  FOutput.Font.Name := ResolveEditorFontName(FEditorFontName);
   Split := TSplitter.Create(Self); Split.Parent := CenterPanel; Split.Align := alBottom;
 
   FPages := TPageControl.Create(Self);
@@ -1062,7 +1116,7 @@ begin
   FCompletionList.BorderStyle := bsNone;
   FCompletionList.Style := lbOwnerDrawFixed;
   FCompletionList.ItemHeight := 28;
-  FCompletionList.Font.Name := 'Courier New';
+  FCompletionList.Font.Name := ResolveEditorFontName(FEditorFontName);
   FCompletionList.Font.Size := 10;
   FCompletionList.OnDrawItem := @CompletionDrawItem;
   FCompletionList.OnKeyDown := @CompletionKeyDown;
@@ -2605,7 +2659,7 @@ begin
   end;
   FTipParamIndex := ActiveParam;
   FTipForm.HandleNeeded;
-  FTipPaint.Canvas.Font.Name := 'Courier New';
+  FTipPaint.Canvas.Font.Name := ResolveEditorFontName(FEditorFontName);
   FTipPaint.Canvas.Font.Size := 10;
   FTipForm.ClientWidth := Min(640, FTipPaint.Canvas.TextWidth(FTipSignature) + 12);
   FTipForm.ClientHeight := FTipPaint.Canvas.TextHeight('Ag') + 6;
@@ -2637,7 +2691,7 @@ begin
   FTipPaint.Canvas.Rectangle(0, 0, FTipPaint.Width - 1,
     FTipPaint.Height - 1);
   FTipPaint.Canvas.Brush.Style := bsClear;
-  FTipPaint.Canvas.Font.Name := 'Courier New';
+  FTipPaint.Canvas.Font.Name := ResolveEditorFontName(FEditorFontName);
   FTipPaint.Canvas.Font.Size := 10;
   FTipPaint.Canvas.Font.Color := clBlack;
   FTipPaint.Canvas.TextOut(6, 3, FTipSignature);
@@ -2886,7 +2940,7 @@ begin
   Doc.Editor := TNoiSynEdit.Create(Doc.Tab);
   Doc.Editor.Parent := Doc.Tab;
   Doc.Editor.Align := alClient;
-  Doc.Editor.Font.Name := FEditorFontName;
+  Doc.Editor.Font.Name := ResolveEditorFontName(FEditorFontName);
   Doc.Editor.Font.Size := FEditorFontSize;
   Doc.Editor.Options := (Doc.Editor.Options + [eoTabIndent]) -
     [eoAutoIndent, eoSmartTabs, eoTabsToSpaces, eoTrimTrailingSpaces,
@@ -3445,7 +3499,7 @@ end;
 
 procedure TMainForm.ApplyDocumentEditorSettings(Doc: TDocument);
 begin
-  Doc.Editor.Font.Name := FEditorFontName;
+  Doc.Editor.Font.Name := ResolveEditorFontName(FEditorFontName);
   Doc.Editor.Font.Size := FEditorFontSize;
   Doc.Editor.Font.Style := [];
   Doc.Editor.TabWidth := FEditorTabWidth;
@@ -3459,6 +3513,9 @@ procedure TMainForm.ApplyAllEditorSettings;
 var I: Integer;
 begin
   for I := 0 to FDocs.Count - 1 do ApplyDocumentEditorSettings(TDocument(FDocs[I]));
+  if FOutput <> nil then FOutput.Font.Name := ResolveEditorFontName(FEditorFontName);
+  if FCompletionList <> nil then
+    FCompletionList.Font.Name := ResolveEditorFontName(FEditorFontName);
   if FEditorThemeMenu <> nil then
     for I := 0 to FEditorThemeMenu.Count - 1 do
       FEditorThemeMenu.Items[I].Checked := FEditorThemeMenu.Items[I].Tag =

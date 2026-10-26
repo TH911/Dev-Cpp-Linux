@@ -53,7 +53,7 @@ type
 
 implementation
 
-uses LCLType, Graphics, Math, ui_language;
+uses LCLType, Graphics, Math, ui_language, editor_themes;
 
 constructor TDebuggerPanel.Create(AOwner: TComponent);
 var InputBar, EvalBar: TPanel; Splitter: TSplitter;
@@ -73,7 +73,7 @@ var InputBar, EvalBar: TPanel; Splitter: TSplitter;
 
   procedure SetOutputFont(Memo: TMemo);
   begin
-    Memo.Font.Name := 'DejaVu Sans Mono';
+    Memo.Font.Name := DefaultEditorFontName;
     Memo.Font.Size := 9;
     Memo.ReadOnly := True;
     Memo.ScrollBars := ssAutoBoth;

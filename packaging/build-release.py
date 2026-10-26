@@ -120,6 +120,7 @@ def build_deb(version, output, binary, epoch):
         docs = package / "usr/share/doc/devcpp-noi"
         copy_file(SOURCE / "COPYING.txt", docs / "copyright")
         copy_file(SOURCE / "README.md", docs / "README.md")
+        copy_file(SOURCE / "FONTS.md", docs / "FONTS.md")
         copy_file(ROOT / "docs/PACKAGING.md", docs / "PACKAGING.md")
         (package / "DEBIAN").mkdir()
         size = sum(p.stat().st_size for p in package.rglob("*") if p.is_file())

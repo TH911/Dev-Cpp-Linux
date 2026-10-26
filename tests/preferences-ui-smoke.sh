@@ -39,12 +39,12 @@ press() {
 }
 dialog_press() {
   alive
-  xdotool windowfocus "$dialog_window" key --window "$dialog_window" --clearmodifiers --delay 70 "$@"
+  xdotool windowfocus "$dialog_window" key --clearmodifiers --delay 70 "$@"
   sleep 0.15
 }
 type_text() {
   alive
-  xdotool type --window "$dialog_window" --clearmodifiers --delay 5 -- "$1"
+  xdotool type --clearmodifiers --delay 5 -- "$1"
   sleep 0.15
 }
 wait_dialog() {
@@ -226,6 +226,20 @@ dialog_press Escape
 compile_expect 41
 echo 'PASS: switching profiles does not mix flags, and Cancel discards new profiles and edits.'
 
+# Accept a Consolas preference even on a system without that font. The renderer
+# must use a monospace fallback while retaining the user's requested family.
+press alt+t Home Down Return
+wait_dialog 'Editor Options'
+dialog_press Tab ctrl+a
+type_text 'Consolas'
+dialog_press Tab ctrl+a
+type_text '12'
+dialog_press Tab Tab space
+expect_config Editor FontName Consolas
+expect_config Editor FontSize 12
+press ctrl+n ctrl+w
+echo 'PASS: accepting Consolas and font size persists the requested settings.'
+
 # Tools -> Editor Options (second item): change font then cancel.
 config_before=$(sha256sum "$config")
 press alt+t Home Down Return
@@ -238,6 +252,8 @@ echo 'PASS: cancelling font preferences preserves the saved configuration.'
 
 stop_app
 start_app
+expect_config Editor FontName Consolas
+expect_config Editor FontSize 12
 expect_config Editor Theme Obsidian
 expect_background 293134 obsidian-restarted
 expect_config CompilerProfiles Active 0

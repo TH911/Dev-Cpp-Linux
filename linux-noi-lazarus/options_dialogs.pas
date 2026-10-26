@@ -267,6 +267,9 @@ begin
     Tabs.MinValue := 1;
     Tabs.MaxValue := 16;
     Tabs.Value := TabWidth;
+    LabelAt(Dialog,
+      'Consolas requires an installed font file. If unavailable, a monospace font is used.',
+      14, 246, 550).Height := 44;
     Button := ButtonAt(Dialog, 'OK', 354, 300, 100, nil);
     Button.Default := True;
     Button.ModalResult := mrOK;

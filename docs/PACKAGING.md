@@ -46,6 +46,22 @@ sudo apt purge devcpp-noi
 
 `apt install` 会安装 GCC、G++、GDB、GTK2 等共享库，以及 `gnome-terminal | xterm`。建议安装 `fonts-dejavu-core` 和 `fonts-noto-cjk` 保证等宽字体与中文显示。二进制发行不需要 Lazarus/FPC；从源码构建则按 `linux-noi-lazarus/README.md` 安装构建依赖。
 
+## 双击安装 `.deb`
+
+`.deb` 是标准 Debian 软件包，图形安装由 NOI Linux 桌面的“软件安装”或 GDebi 处理，不需要赋予包文件可执行权限。若双击没有安装器或打开了压缩管理器，可先安装 GDebi：
+
+```bash
+sudo apt install gdebi
+```
+
+然后右键 `.deb` →“使用其他应用打开”→“GDebi 软件包安装程序”；在文件属性的“打开方式”中将其设为默认后，即可双击安装。需要认证时输入当前管理员密码。这里设置的是系统如何打开 `.deb`，Dev-Cpp 包不会擅自修改此文件关联，也不会把 GDebi 设为自身的运行依赖。
+
+也可参考 [Ubuntu 安装软件说明](https://help.ubuntu.com/community/InstallingSoftware)中的本地 `.deb` 与 GDebi 安装方式。
+
+如果安装器能打开但安装失败，应查看其具体错误：依赖下载失败、软件源不可用、认证取消和软件包格式错误是不同问题。可以使用 `sudo apt install ./包文件.deb` 获取完整错误信息。终端中出现“正在设置 devcpp-noi”且没有后续错误表示安装成功。
+
+测试构建使用 `1.1.3~beta1` 这样的 Debian 预发布版本，以区分稳定版；版本顺序为 `1.1.2 < 1.1.3~beta1 < 1.1.3`。
+
 安装位置：
 
 | 位置 | 用途 |

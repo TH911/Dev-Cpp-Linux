@@ -18,6 +18,7 @@ type
 function EditorThemeName(Index: Integer): string;
 function EditorThemeIndex(const Name: string): Integer;
 function DefaultEditorFontName: string;
+function ResolveEditorFontName(const RequestedName: string): string;
 procedure ApplyEditorTheme(Editor: TSynEdit; Syntax: TSynCppSyn;
   BracketAttr, CharacterAttr: TSynHighlighterAttributes; const ThemeName: string;
   out Colors: TEditorThemeColors);
@@ -143,13 +144,23 @@ begin
 end;
 
 function DefaultEditorFontName: string;
-const Candidates: array[0..2] of string =
-  ('DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono');
+const Candidates: array[0..3] of string =
+  ('Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono');
 var I: Integer;
 begin
   for I := Low(Candidates) to High(Candidates) do
     if Screen.Fonts.IndexOf(Candidates[I]) >= 0 then Exit(Candidates[I]);
   Result := 'Monospace';
+end;
+
+function ResolveEditorFontName(const RequestedName: string): string;
+begin
+  Result := Trim(RequestedName);
+  { Retain the saved preference so a later font installation takes effect.
+    GTK's substitution for missing Consolas need not be monospaced. }
+  if (Result = '') or
+    (SameText(Result, 'Consolas') and (Screen.Fonts.IndexOf('Consolas') < 0)) then
+    Result := DefaultEditorFontName;
 end;
 
 function ThemeColor(const Value: string): TColor;

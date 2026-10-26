@@ -4,8 +4,12 @@ This is the **Lazarus/LCL native port in progress**. It uses only software
 listed in the official NOI Linux 2.0 environment: Lazarus 2.0.6, FPC 3.0.4,
 GCC/G++ 9.3 and GDB 9.1. This program follows Orwell Dev-C++ 5.11's main window
 structure, menu names, F9/F10/F11 actions, and `.dev` project format.
-The current version is **1.1.2**. See the [Release page](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)
-for directory source archives and the installable amd64 Debian package.
+The beta branch adds installed Consolas detection and a monospace fallback; see
+[font setup](FONTS.md). Existing user font preferences are retained.
+
+This beta build is **1.1.3~beta1**. Test packages are available from
+[beta Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta).
+The stable release is [v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2).
 
 On a stock NOI Linux 2.0 desktop, open a terminal in this directory and run:
 

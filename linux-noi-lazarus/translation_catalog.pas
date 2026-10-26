@@ -18,7 +18,7 @@ type
   end;
 
 const
-  Translations: array[0..272] of TTranslationEntry = (
+  Translations: array[0..273] of TTranslationEntry = (
     (EnglishText: '&File'; ChineseText: '文件(&F)'),
     (EnglishText: '&Edit'; ChineseText: '编辑(&E)'),
     (EnglishText: '&Search'; ChineseText: '搜索(&S)'),
@@ -291,7 +291,8 @@ const
     (EnglishText: '&About Dev-Cpp'; ChineseText: '关于 Dev-Cpp(&A)'),
     (EnglishText: 'Evaluate:'; ChineseText: '求值：'),
     (EnglishText: 'Press Enter to evaluate the expression in the current stack frame.'; ChineseText: '输入表达式后按 Enter，在当前栈帧中求值。'),
-    (EnglishText: 'Press Enter to send input to the program.'; ChineseText: '按 Enter 向程序发送输入。')
+    (EnglishText: 'Press Enter to send input to the program.'; ChineseText: '按 Enter 向程序发送输入。'),
+    (EnglishText: 'Consolas requires an installed font file. If unavailable, a monospace font is used.'; ChineseText: '使用 Consolas 需先安装字体文件；未安装时使用其他等宽字体。')
   );
 
   DeletedEnglish: string = '%s was deleted outside Dev-C++.' + LineEnding +
