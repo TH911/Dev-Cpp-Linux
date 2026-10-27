@@ -13,7 +13,7 @@ function EditEditorSettings(Owner: TComponent; var ThemeName, FontName: string;
 
 implementation
 
-uses ui_language, editor_themes;
+uses ui_language, editor_themes, input_appearance;
 
 type
   TCompilerProfilesDialog = class(TForm)
@@ -65,6 +65,7 @@ var Y: Integer; Button: TButton;
     Result := TEdit.Create(Self);
     Result.Parent := Self;
     Result.SetBounds(246, Y + 28, 630, 34);
+    UseReadableInput(Result);
     Inc(Y, 72);
   end;
 
@@ -100,6 +101,7 @@ begin
   RefreshList;
   LoadSelected;
   ActiveControl := FList;
+  PrepareInputAppearance(Self);
 end;
 
 procedure TCompilerProfilesDialog.RefreshList;
@@ -276,7 +278,12 @@ begin
     Button := ButtonAt(Dialog, 'Cancel', 464, 300, 100, nil);
     Button.Cancel := True;
     Button.ModalResult := mrCancel;
+    UseReadableInput(Theme);
+    UseReadableInput(Font);
+    UseReadableInput(Size);
+    UseReadableInput(Tabs);
     Dialog.ActiveControl := Theme;
+    PrepareInputAppearance(Dialog);
     repeat
       Result := Dialog.ShowModal = mrOK;
       if not Result then Exit;

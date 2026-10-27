@@ -148,3 +148,7 @@ F11 编译运行、关闭和重新打开项目，以及 Ctrl+N 新建源码；�
 [upstream-debug-reader]: https://sourceforge.net/p/orwelldevcpp/code/ci/0e4d598b172efd7df97b7ecc941d6aa08340cd70/tree/Source/DebugReader.pas
 [upstream-project]: https://sourceforge.net/p/orwelldevcpp/code/ci/0e4d598b172efd7df97b7ecc941d6aa08340cd70/tree/Source/Project.pas
 [upstream-find]: https://sourceforge.net/p/orwelldevcpp/code/ci/0e4d598b172efd7df97b7ecc941d6aa08340cd70/tree/Source/FindFrm.pas
+
+### v1.2.0 输入框可读性
+
+编译器/编辑器选项、运行参数、编译日志、调试输入和关于详情使用黑字白底；原生选区和禁用配色保留。窗口显示时重新应用颜色，覆盖 GTK 模态窗口重建控件的情况。`tests/input-colors-ui-smoke.sh` 使用普通文字为灰色的 GTK2 测试主题，验证实际鼠标聚焦、Ctrl+A 选区、控件敏感状态及对比度，旧版在编译器选项处不能通过该检查。

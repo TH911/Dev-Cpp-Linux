@@ -60,10 +60,29 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
     fprintf(out, ",\"parent\":\"%p\",\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d",
             (void *)gtk_widget_get_parent(widget), root_x, root_y,
             allocation.width, allocation.height);
-    fprintf(out, ",\"focus\":%s,\"sensitive\":%s,\"visible\":%s}",
+    fprintf(out, ",\"focus\":%s,\"sensitive\":%s,\"visible\":%s",
             gtk_widget_has_focus(widget) ? "true" : "false",
             gtk_widget_is_sensitive(widget) ? "true" : "false",
             gtk_widget_get_visible(widget) ? "true" : "false");
+    if (GTK_IS_ENTRY(widget) || GTK_IS_TEXT_VIEW(widget)) {
+        GtkStyle *style = gtk_widget_get_style(widget);
+        const GtkStateType states[] = {GTK_STATE_NORMAL, GTK_STATE_ACTIVE,
+            GTK_STATE_SELECTED, GTK_STATE_INSENSITIVE};
+        const char *names[] = {"normal", "active", "selected", "insensitive"};
+        for (int i = 0; i < 4; ++i) {
+            const GdkColor *text = &style->text[states[i]];
+            const GdkColor *base = &style->base[states[i]];
+            fprintf(out, ",\"%s_text\":\"%02x%02x%02x\",\"%s_base\":\"%02x%02x%02x\"",
+                names[i], text->red >> 8, text->green >> 8, text->blue >> 8,
+                names[i], base->red >> 8, base->green >> 8, base->blue >> 8);
+        }
+        if (GTK_IS_ENTRY(widget)) {
+            gint start = 0, end = 0;
+            gboolean selected = gtk_editable_get_selection_bounds(GTK_EDITABLE(widget), &start, &end);
+            fprintf(out, ",\"selected\":%s", selected && start != end ? "true" : "false");
+        }
+    }
+    fputc('}', out);
     g_free(owned_text);
     if (GTK_IS_CONTAINER(widget)) gtk_container_forall(GTK_CONTAINER(widget), inspect_widget, out);
 }

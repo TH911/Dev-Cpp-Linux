@@ -11,7 +11,7 @@ procedure ShowAboutDialog(AOwner: TComponent);
 implementation
 
 uses SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Graphics,
-  Dialogs, LCLIntf, LCLType, ui_language, app_version;
+  Dialogs, LCLIntf, LCLType, ui_language, app_version, input_appearance;
 
 type
   TAboutDialog = class(TForm)
@@ -126,6 +126,7 @@ begin
   DetailsMemo.Parent := DetailsPage;
   DetailsMemo.Align := alClient;
   DetailsMemo.ReadOnly := True;
+  UseReadableInput(DetailsMemo);
   DetailsMemo.ScrollBars := ssAutoBoth;
   DetailsMemo.WordWrap := True;
   DetailsMemo.BorderSpacing.Around := 8;
@@ -139,6 +140,7 @@ begin
   Button.Cancel := True;
   Button.ModalResult := mrOK;
   ActiveControl := Button;
+  PrepareInputAppearance(Self);
 end;
 
 procedure TAboutDialog.OpenRepository(Sender: TObject);

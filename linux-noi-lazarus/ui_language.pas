@@ -31,7 +31,7 @@ implementation
 
 uses
   TypInfo, IniFiles, Contnrs, ComCtrls, Forms, Controls, StdCtrls,
-  LCLType, Math, translation_catalog, language_catalog, app_version;
+  LCLType, Math, translation_catalog, language_catalog, app_version, input_appearance;
 
 type
   TPhrase = class
@@ -226,6 +226,7 @@ begin
     ValueEdit := TEdit.Create(DialogForm);
     ValueEdit.Parent := DialogForm;
     ValueEdit.Text := Value;
+    UseReadableInput(ValueEdit);
     PreferredWidth := 0;
     PreferredHeight := 0;
     ValueEdit.GetPreferredSize(PreferredWidth, PreferredHeight);
@@ -257,6 +258,7 @@ begin
     CancelButton.Cancel := True;
     DialogForm.ActiveControl := ValueEdit;
     ValueEdit.SelectAll;
+    PrepareInputAppearance(DialogForm);
     Result := DialogForm.ShowModal = mrOK;
     if Result then Value := ValueEdit.Text;
   finally

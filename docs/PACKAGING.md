@@ -12,15 +12,15 @@ python3 packaging/build-release.py deb --output dist \
   --binary linux-noi-lazarus/devcpp-noi
 
 # CI 也可一次生成全部资产；此命令本身不会编译。
-python3 packaging/build-release.py all --version v1.1.2 --output dist
-python3 packaging/verify-artifacts.py --version v1.1.2 --output dist
+python3 packaging/build-release.py all --version v1.2.0 --output dist
+python3 packaging/verify-artifacts.py --version v1.2.0 --output dist
 ```
 
-以 `VERSION=1.1.2` 为例，Release 资产名称为：
+以 `VERSION=1.2.0` 为例，Release 资产名称为：
 
-- `linux-noi-lazarus-1.1.2-src.tar.gz`
-- `linux-noi-lazarus-1.1.2-src.zip`
-- `devcpp-noi_1.1.2_amd64.deb`
+- `linux-noi-lazarus-1.2.0-src.tar.gz`
+- `linux-noi-lazarus-1.2.0-src.zip`
+- `devcpp-noi_1.2.0_amd64.deb`
 
 源码归档解压后直接得到 `linux-noi-lazarus/`，包含 Pascal/Lazarus 源码、构建和启动脚本、说明、许可证及运行资源。它们采用文件类型白名单，排除编译产物 `.o/.or/.ppu/.compiled`、可执行文件、`.build.lock`、IDE 会话、备份、临时文件和用户设置。新增运行资源类型时，请同步更新 `packaging/build-release.py` 中的白名单。归档内脚本为 0755，其他文件为 0644，不依赖 checkout 的权限。可设置 `SOURCE_DATE_EPOCH` 固定归档时间；默认固定为 1980-01-01，保证相同输入可重现。
 
@@ -41,7 +41,7 @@ beta 版本使用 `1.1.3~beta3` 格式，Git 标签将 `~` 转成 `-`，对应 `
 已经安装的用户可直接覆盖更新，完整步骤见 [README：使用命令行更新已安装的 Dev-Cpp](../README.md#使用命令行更新已安装的-dev-cpp)。
 
 ```bash
-sudo apt install ./devcpp-noi_1.1.2_amd64.deb
+sudo apt install ./devcpp-noi_1.2.0_amd64.deb
 /usr/bin/devcpp-noi --version
 /usr/bin/devcpp-noi
 /usr/bin/devcpp-noi --new-window '/home/user/中文 source/main.cpp'
@@ -118,15 +118,15 @@ PNG 转换使用已有 GTK2 运行依赖中的 GdkPixbuf；不需要额外的 Py
 及运行 `appstreamcli validate --no-net`：
 
 ```bash
-python3 packaging/verify-artifacts.py --version v1.1.2 --output dist
+python3 packaging/verify-artifacts.py --version v1.2.0 --output dist
 # 只有源码资产时：
-python3 packaging/verify-artifacts.py --source-only --version v1.1.2 --output dist
+python3 packaging/verify-artifacts.py --source-only --version v1.2.0 --output dist
 ```
 
 安装验证会实际安装和卸载包，**仅在一次性 Ubuntu 20.04 amd64 容器中以 root 运行**。镜像须已安装本包全部依赖及 `xvfb xauth xdotool`；可选 `desktop-file-utils` 验证 desktop 文件。依赖不齐时先用 `apt install ./包文件.deb` 解决依赖，再移除该包，恢复到未安装状态后运行验证；CI 更适合预先安装依赖。脚本拒绝覆盖已有的 `devcpp-noi` 安装。
 
 ```bash
-bash packaging/verify-install.sh dist/devcpp-noi_1.1.2_amd64.deb
+bash packaging/verify-install.sh dist/devcpp-noi_1.2.0_amd64.deb
 ```
 
 验证包括：`dpkg -i`、普通用户启动并打开含空格的中文相对路径、IPC 转发到当前安装实例、GIO 实际执行软件面板入口、旧实例隔离、旧入口备份、删除源码后重新打开、通信句柄不被终端继承、无 DISPLAY 版本查询、F11 实际编译运行 C++ 程序、`/usr/lib` 无变化和锁文件、文件类型默认关联保持不变、卸载和 purge 后设置保留。脚本需要能够创建 Xvfb 显示的容器，且结束后删除自己的临时 HOME。

@@ -4,11 +4,11 @@
 
 ## 中文
 
-基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。最近稳定版本为 **[v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)**，本分支测试版本为 **1.1.3~beta7**。
+基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**。
 
-开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。当前测试包见 [v1.1.3-beta7](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta7)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。beta 已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
+开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。当前正式安装包见 [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
 
-本次 beta 同时修复科学计数法高亮，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
+正式版同时包含科学计数法高亮修复，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
 
 目标工具链以 [NOI 官方环境说明](https://www.noi.cn/gynoi/jsgz/2021-07-16/732450.shtml) 为准：
 
@@ -54,6 +54,8 @@ Release 除 GitHub 默认的整库源码外，由 [发布工作流](.github/work
 
 ### 主题和界面语言
 
+v1.2.0 修复编译器选项、编辑器选项、运行参数及调试等输入框的灰色文字：普通文字使用黑字白底，选中文字保留 GTK 原生高亮配色，禁用控件仍使用禁用状态的颜色。
+
 “工具 → 编辑器主题”或“工具 → 编辑器选项”提供原版 5.11 的全部 11 套配色：Classic、Classic Plus、Twilight、Ocean、Visual Studio、Borland、Matrix、Obsidian、GSS Hacker、Oblivion 和 PlasticCodeWrap。字体、字号、Tab 宽度和主题会保存，适用于现有及新建文档。
 
 “工具 → 语言”提供原版的 33 种语言文件，包括简体/繁体中文、英语、日语、韩语、法语、德语、西班牙语等，选择后即时应用并在重启后恢复。旧语言文件已从各自的 Windows 编码转换为 UTF-8；Linux 新增功能中原版没有提供的译文回退为英语，简体中文继续使用已有补充翻译。详细列表和来源见 [语言资源说明](linux-noi-lazarus/languages/README.md)。这是语言资源接入范围，不表示新增功能已由所有语言的母语使用者完成校对。
@@ -66,20 +68,20 @@ Release 除 GitHub 默认的整库源码外，由 [发布工作流](.github/work
 
 从 [Releases](https://github.com/TH911/Dev-Cpp-Linux/releases) 下载新的 amd64 `.deb`；测试版标记为 **Pre-release**。先保存代码，并正常关闭所有 Dev-Cpp 窗口。
 
-在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `devcpp-noi_1.1.3-beta7_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
+在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `devcpp-noi_1.2.0_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
 
 #### 2. 确认下载包的版本
 
 ```bash
-dpkg-deb -f ./devcpp-noi_1.1.3-beta7_amd64.deb Version
+dpkg-deb -f ./devcpp-noi_1.2.0_amd64.deb Version
 ```
 
-这个示例应输出 `1.1.3~beta7`。文件名里的 `-beta7` 和包内版本的 `~beta7` 是正常的表示差异。若这里仍显示旧版本，请先确认下载的是新版文件。
+这个示例应输出 `1.2.0`。若这里仍显示旧版本，请先确认下载的是新版文件。
 
 #### 3. 覆盖安装新版
 
 ```bash
-sudo apt install --reinstall ./devcpp-noi_1.1.3-beta7_amd64.deb
+sudo apt install --reinstall ./devcpp-noi_1.2.0_amd64.deb
 ```
 
 `./` 表示使用当前文件夹中的安装包，不能漏掉。APT 会处理依赖；`--reinstall` 也允许重新安装相同版本，适合修复安装文件。输入管理员密码时，终端不显示字符是正常的。若命令报错，请先保留完整输出、处理错误，再继续核对版本。
@@ -91,7 +93,7 @@ dpkg-query -W -f='${Version}\n' devcpp-noi
 /usr/bin/devcpp-noi --version
 ```
 
-这个示例中，第一条应输出 `1.1.3~beta7`，第二条应包含 `Dev-Cpp 1.1.3~beta7` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
+这个示例中，第一条应输出 `1.2.0`，第二条应包含 `Dev-Cpp 1.2.0` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
 
 确认版本正确后，直接启动安装版的新窗口：
 
@@ -124,7 +126,7 @@ dpkg-query -W -f='${Version}\n' devcpp-noi
 
 ## English
 
-Dev-Cpp is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The stable release is [v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2); this beta is **1.1.3~beta7** ([download](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta7)).
+Dev-Cpp is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The stable release is **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
 
 Development goes to the [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta) branch. Successful compatibility, GUI and installation checks automatically publish a GitHub **Pre-release** with an amd64 `.deb` and source ZIP/tar.gz archives containing `linux-noi-lazarus/`. Existing release tags and assets are preserved. `main` is reserved for stable releases. [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) also retains build artifacts.
 
@@ -158,6 +160,8 @@ See the [port README](linux-noi-lazarus/README.md) and [5.11 parity audit](docs/
 
 ### Themes and interface languages
 
+Version 1.2.0 fixes gray text in compiler options, editor options, runtime parameters and debugger inputs. Normal input text uses black on white, selection retains native GTK highlight colors, and disabled controls retain their insensitive appearance.
+
 **Tools → Editor Theme**, also available in **Editor Options**, includes all 11 original presets: Classic, Classic Plus, Twilight, Ocean, Visual Studio, Borland, Matrix, Obsidian, GSS Hacker, Oblivion and PlasticCodeWrap. Theme, font, font size and tab width are saved and applied to existing and new documents.
 
 **Tools → Language** offers the original 33 language files, including Simplified/Traditional Chinese, English, Japanese, Korean, French, German and Spanish variants. Changes apply immediately and survive restart. The original Windows encodings are converted to UTF-8. Linux-specific text without an upstream translation falls back to English; Simplified Chinese retains the port's existing extra translations. See [language resources](linux-noi-lazarus/languages/README.md) for the complete list and provenance. Availability does not imply that every new feature has been reviewed by native speakers in every language.
@@ -178,15 +182,15 @@ For graphical installation, use your system's package installer or GDebi. If “
 2. Check the version inside that file:
 
 ```bash
-dpkg-deb -f ./devcpp-noi_1.1.3-beta7_amd64.deb Version
+dpkg-deb -f ./devcpp-noi_1.2.0_amd64.deb Version
 ```
 
-The example should report `1.1.3~beta7`. The `-beta7` in the filename and `~beta7` in the Debian version are intentional.
+The example should report `1.2.0`.
 
 3. Install or reinstall the downloaded package:
 
 ```bash
-sudo apt install --reinstall ./devcpp-noi_1.1.3-beta7_amd64.deb
+sudo apt install --reinstall ./devcpp-noi_1.2.0_amd64.deb
 ```
 
 Keep the leading `./`. APT handles dependencies; `--reinstall` also permits repairing an installation of the same version. Password input is not echoed. If this command fails, retain its full output and resolve the error before proceeding.
@@ -198,7 +202,7 @@ dpkg-query -W -f='${Version}\n' devcpp-noi
 /usr/bin/devcpp-noi --version
 ```
 
-Expect `1.1.3~beta7` and `Dev-Cpp 1.1.3~beta7` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
+Expect `1.2.0` and `Dev-Cpp 1.2.0` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
 
 5. Start the installed program explicitly:
 

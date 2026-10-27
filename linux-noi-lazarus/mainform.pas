@@ -11,7 +11,7 @@ uses
   SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, SynGutterMarks,
   SynEditMarks, SynGutter, editor_actions,
   cppcompletion, ui_language, app_instance, document_files, runtime_support,
-  editor_themes, compiler_profiles, options_dialogs, language_catalog,
+  editor_themes, compiler_profiles, options_dialogs, language_catalog, input_appearance,
   gdb_session, debugger_panel, debug_icons, app_version, about_dialog;
 
 type
@@ -867,6 +867,7 @@ begin
   LoadRecentPaths;
   InitUiLanguage(FOptionsPath);
   OnShow := @FormShown;
+  PrepareInputAppearance(Self);
   OnActivate := @RefreshCommandStates;
   OnCloseQuery := @CloseQueryHandler;
   KeyPreview := True;
@@ -1050,6 +1051,7 @@ begin
   FCompilerProfileCombo.Top := 2;
   FCompilerProfileCombo.Width := 230;
   FCompilerProfileCombo.Style := csDropDownList;
+  UseReadableInput(FCompilerProfileCombo);
   FCompilerProfileCombo.Hint := Tr('Active compiler profile:');
   FCompilerProfileCombo.ShowHint := True;
   PopulateCompilerProfiles(FCompilerProfileCombo);
@@ -1125,6 +1127,7 @@ begin
   FOutput.ReadOnly := True;
   FOutput.ScrollBars := ssBoth;
   FOutput.Font.Name := ResolveEditorFontName(FEditorFontName);
+  UseReadableInput(FOutput);
   Split := TSplitter.Create(Self); Split.Parent := CenterPanel; Split.Align := alBottom;
 
   FPages := TPageControl.Create(Self);
@@ -3586,7 +3589,11 @@ procedure TMainForm.ApplyAllEditorSettings;
 var I: Integer;
 begin
   for I := 0 to FDocs.Count - 1 do ApplyDocumentEditorSettings(TDocument(FDocs[I]));
-  if FOutput <> nil then FOutput.Font.Name := ResolveEditorFontName(FEditorFontName);
+  if FOutput <> nil then
+  begin
+    FOutput.Font.Name := ResolveEditorFontName(FEditorFontName);
+    UseReadableInput(FOutput);
+  end;
   if FCompletionList <> nil then
     FCompletionList.Font.Name := ResolveEditorFontName(FEditorFontName);
   if FEditorThemeMenu <> nil then
