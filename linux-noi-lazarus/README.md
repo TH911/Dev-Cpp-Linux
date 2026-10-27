@@ -1,4 +1,42 @@
-# Dev-C++ 5.11 for NOI Linux 2.0
+# Dev-Cpp for NOI Linux 2.0
+
+[中文](#中文) | [English](#english)
+
+## 中文
+
+这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前测试版本为 **1.1.3~beta7**；[下载预发布安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta7)。
+
+在此目录打开终端，运行：
+
+```sh
+bash run.sh
+# 打开指定源码或项目：
+bash run.sh /path/to/main.cpp
+bash run.sh /path/to/project.dev
+```
+
+首次运行会编译程序，后续可用 `bash launch.sh` 启动；源码变动后会重新编译。请保留旁边的脚本、`icons/`、`profiles/` 和 `languages/`。编译错误保存到 `~/.cache/devcpp-noi/launch-build.log`，运行错误保存到 `~/.cache/devcpp-noi/runtime.log`。
+
+- F9 编译、F10 运行、F11 编译并运行；Ctrl+F9 检查语法。
+- “文件 → 新建 → 项目”创建空的控制台 `.dev` 项目，再通过“项目 → 添加文件到项目”添加 C/C++ 源文件。Ctrl+N 新建源码。完整项目模板向导尚未实现。
+- “工具 → 编辑器主题”提供原版全部 11 套配色；“编辑器选项”可设置字体、字号和 Tab 宽度。设置保存并应用于现有和新建文档。Consolas 的安装与回退规则见 [FONTS.md](FONTS.md)，安装包不附带微软字体文件。
+- “工具 → 语言”提供原版 33 份语言资源，切换即时生效并保存。Linux 新增文字缺少译文时回退英语，简体中文保留已有补充翻译。资源数量不代表所有新功能都已完成母语校对，详见 [语言说明](languages/README.md)。控制台提示目前提供中英两种。
+- F5 开始调试、F4 切换断点、F7 单步跳过、F8 单步进入、F6 停止；单击行号或标记区也可切换断点。红点表示断点，黄色箭头表示当前执行行。监视、条件断点、调用栈浏览、进程附加等高级功能尚未完成。
+- “帮助 → 关于”显示版本、GitHub 链接、许可证和实际程序路径。菜单弹窗会在 GTK 菜单激活完成后打开；编辑或切换文档后，按钮状态立即刷新。
+
+`.deb` 安装版无需 Lazarus/FPC。更新时先保存代码并关闭旧窗口，然后在安装包所在目录运行（替换为实际文件名）：
+
+```bash
+sudo apt install --reinstall ./devcpp-noi_1.1.3-beta7_amd64.deb
+/usr/bin/devcpp-noi --version
+/usr/bin/devcpp-noi --new-window
+```
+
+更新无需先卸载，用户设置会保留。源码版与安装版使用不同启动入口和实例标识；如果旧图标仍打开旧版，可运行 `/usr/bin/devcpp-noi --repair-launchers` 迁移可识别的历史自动生成入口。自定义入口保持不变。完整的中英双语更新步骤见 [仓库 README](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/README.md#使用命令行更新已安装的-dev-cpp)。
+
+当前仍有移植范围限制，包括完整模板向导、增量项目构建、完整 C++ 语义解析、第二编辑视图及高级调试功能。完整检查使用 Ubuntu 20.04 对应工具链、Xvfb 和 XTerm；NOI Linux 原版 GNOME 桌面上的焦点、缩放和终端行为仍需实机验收。代码与原始资源按 GPL-2.0-or-later 提供，见 `COPYING.txt`。
+
+## English
 
 This is the **Lazarus/LCL native port in progress**. It uses only software
 listed in the official NOI Linux 2.0 environment: Lazarus 2.0.6, FPC 3.0.4,
@@ -7,9 +45,9 @@ structure, menu names, F9/F10/F11 actions, and `.dev` project format.
 The beta branch adds installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.1.3~beta6**. Pushes to `beta` automatically publish a
+This beta build is **1.1.3~beta7**. Pushes to `beta` automatically publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.1.3-beta6](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta6).
+and directory source archives. See [v1.1.3-beta7](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta7).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2).
 
@@ -78,8 +116,9 @@ Current implementation: tabbed SynEdit editing with C/C++ syntax highlighting,
 line numbers, literal Tab indentation with width 4 on Enter and Tab (including
 Enter between `{}`), caret movement across each whole Tab, preserved Tab-only
 lines, colored preprocessor directives and modern C++ keywords, hidden gutter
-change bars, four selectable original syntax themes (Classic Plus, Twilight, Visual Studio
-and Obsidian), with independent bracket highlighting and configurable font;
+change bars, all eleven original syntax themes (Classic, Classic Plus, Twilight, Ocean,
+Visual Studio, Borland, Matrix, Obsidian, GSS Hacker, Oblivion and
+PlasticCodeWrap), with independent bracket highlighting and configurable font;
 Classic Plus retains red symbols, bold blue strings, blue comments, a light
 gray gutter, turquoise current-line color and red matched-bracket backgrounds, vertical caret movement with a remembered visual column
 and 4-column Tab width (clamped only on shorter lines until a nonvertical action), Home toggling
@@ -103,11 +142,14 @@ snippet. Ctrl+mouse wheel zooms the fonts of all open editors. New files are
 named Untitled1, Untitled2, and so on for the current session; the Save dialog
 prefills UntitledN.cpp. String quote delimiters follow the original string
 color; bracket matching excludes quotes, as in Orwell Dev-C++.
-The interface defaults to Chinese. Tools > Language switches between Chinese
-and English immediately; the choice persists in `~/.config/devcpp-noi.ini`.
-Menus, tooltips, settings, dialog buttons, status text,
-and console exit messages follow the language. Compiler diagnostics and C++
-source identifiers retain their original text.
+The interface defaults to Chinese. Tools > Language offers all 33 original
+language catalogs; changes apply immediately and persist in
+`~/.config/devcpp-noi.ini`. Missing Linux-specific translations fall back to
+English; Simplified Chinese keeps its existing extra translations. See
+[language resources](languages/README.md) for provenance and translation limits.
+Menus, tooltips, settings, dialog buttons and status labels use the selected
+locale where a translation exists. Console exit messages currently offer Chinese
+and English. Compiler diagnostics and C++ source identifiers retain their original text.
 Integer suffixes are validated as a whole: `1ll` and `1ull` are colored as
 numbers, while malformed literals such as `1llllll` are black. Ctrl+; acts only
 on a selection and retains the selected content when toggling comment markers.
@@ -197,14 +239,16 @@ Modified/deleted files prompt before reload or overwrite. Compilation publishes
 a new executable only on success; failure/cancellation preserves the previous
 file but prevents F10 from silently running it as the latest result.
 
-The 1.1.2 source was built and tested in an Ubuntu 20.04 amd64 container
+The beta source is built and tested in an Ubuntu 20.04 amd64 container
 with Lazarus 2.0.6, FPC 3.0.4, GCC/G++ 9.3.0 and GDB 9.1. Run
 `bash ci/check.sh` from the repository root with that toolchain to build and
 execute the helper and real GTK2 interaction suites. They cover file identity
 and save conflicts, Home/Shift+Home and undo, focus, quoted execution arguments,
 working directories, compilation cancellation, actual GDB sessions, themes
 and compiler profiles, along with the revised layout, actual line-number clicks,
-running breakpoint changes, About links/clipboard and launcher migration.
+running breakpoint changes, repeated single-click About activation, immediate
+command states, all eleven themes, all 33 language actions, About links/clipboard
+and launcher migration.
 See [the parity audit](../docs/DEVCPP-5.11-PARITY.md).
 Tests use Xvfb and the XTerm fallback. They do not reproduce the official NOI
 Linux ISO's GNOME desktop or kernel; visual behavior and GNOME Terminal still
