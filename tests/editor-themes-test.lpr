@@ -52,9 +52,12 @@ begin
     for I := 0 to EditorThemeCount - 1 do
     begin
       ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr,
-        EditorThemeName(I), Colors);
+        EditorThemeName(I), Colors, Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
       Check(EditorThemeIndex(EditorThemeName(I)) = I, 'theme names must round-trip');
-      Check(Editor.SelectedColor.Background <> Editor.Color, 'selection must remain visible');
+      Check((Editor.SelectedColor.Background <> Editor.Color) or
+        ((Editor.SelectedColor.Foreground <> clNone) and
+         (Editor.SelectedColor.Foreground <> Syntax.IdentifierAttri.Foreground)),
+        'selection must remain visible');
       Check(Editor.BracketMatchColor.Background <> Editor.Color, 'matched brackets must remain visible');
       Check(Editor.LineHighlightColor.Background <> Editor.Color, 'current line must remain visible');
       Check(Colors.ErrorForeground <> Colors.ErrorBackground, 'error line needs readable foreground');
@@ -67,16 +70,16 @@ begin
       Check(Editor.Gutter.SeparatorPart.MarkupInfo.Background = Editor.Gutter.Color,
         'gutter spacing follows the selected theme');
     end;
-    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Classic Plus', Colors);
+    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Classic Plus', Colors, Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     Check(Syntax.NumberAttri.Foreground = clPurple, 'Classic Plus numbers retain original purple');
-    CheckLiteral(Syntax, '1e5', Syntax.NumberAttri);
-    CheckLiteral(Syntax, '1E+5', Syntax.NumberAttri);
-    CheckLiteral(Syntax, '1e-5', Syntax.NumberAttri);
-    CheckLiteral(Syntax, '1e-5f', Syntax.NumberAttri);
-    CheckLiteral(Syntax, '1.25e+10L', Syntax.NumberAttri);
-    CheckLiteral(Syntax, '.5e2', Syntax.NumberAttri);
-    CheckLiteral(Syntax, '0x1.fp+2', Syntax.NumberAttri);
-    CheckLiteral(Syntax, '0x1e5ULL', Syntax.NumberAttri);
+    CheckLiteral(Syntax, '1e5', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '1E+5', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '1e-5', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '1e-5f', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '1.25e+10L', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '.5e2', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '0x1.fp+2', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '0x1e5ULL', Syntax.HexAttri);
     CheckLiteral(Syntax, '0b1010ull', Syntax.NumberAttri);
     CheckLiteral(Syntax, '123abc', Syntax.IdentifierAttri);
     CheckLiteral(Syntax, '1e', Syntax.IdentifierAttri);
@@ -88,17 +91,26 @@ begin
     Check(Editor.Gutter.Color = $00F0F0F0, 'Classic Plus Windows gutter');
     Check((Colors.ErrorForeground = clWhite) and (Colors.ErrorBackground = clMaroon),
       'Classic Plus error line');
-    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Twilight', Colors);
+    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Twilight', Colors, Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     Check((Editor.Color = clBlack) and (Syntax.IdentifierAttri.Foreground = clWhite), 'Twilight text');
     Check((Syntax.KeyAttri.Style = []) and (Syntax.StringAttri.Style = []),
       'switching from Classic Plus must clear bold styles');
     Check(CharacterAttr.Foreground = clYellow, 'Twilight character literals');
-    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Obsidian', Colors);
+    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Obsidian', Colors, Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     Check(Editor.Color = $00343129, 'Obsidian removes Windows palette flags');
     Check(Syntax.IdentifierAttri.Foreground = $00E4E2E0, 'Obsidian identifier color');
-    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Visual Studio', Colors);
+    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Visual Studio', Colors, Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     Check((Editor.Color = clWhite) and (Syntax.CommentAttri.Foreground = clGreen), 'Visual Studio text');
     Check(Editor.Gutter.Color = clWhite, 'Visual Studio gutter must reset dark theme');
+    Check(EditorThemeCount = 11, 'all original 5.11 themes are available');
+    ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Matrix', Colors,
+      Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
+    CheckLiteral(Syntax, '123', Syntax.NumberAttri);
+    CheckLiteral(Syntax, '1e5', Syntax.FloatAttri);
+    CheckLiteral(Syntax, '0x1e5', Syntax.HexAttri);
+    CheckLiteral(Syntax, '077', Syntax.OctalAttri);
+    Check(Syntax.NumberAttri.Foreground = clBlue, 'Matrix decimal numbers');
+    Check(Syntax.FloatAttri.Foreground = clFuchsia, 'Matrix floats have their own attribute');
     Check(EditorThemeIndex('unknown theme') = 0, 'missing theme should fall back to Classic Plus');
     Check(DefaultEditorFontName <> '', 'Linux font fallback must have a name');
     if Screen.Fonts.IndexOf('Consolas') >= 0 then

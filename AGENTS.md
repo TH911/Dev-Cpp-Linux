@@ -7,3 +7,5 @@
 Git 分支仅提交源码、文档和必要的原始运行资源，不提交可执行文件、安装包或本地构建状态。正式 Release 包含 `linux-noi-lazarus/` 的 ZIP、tar.gz 源码归档及 amd64 `.deb`。
 
 目标环境是 NOI Linux 2.0：Ubuntu 20.04、Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3、GDB 9.1。修改界面后使用对应工具链和相关真实 GTK2 回归验证；完整检查入口为 `ci/check.sh`，打包和安装检查入口为 `ci/build-and-package.sh`。
+
+README 使用中英双语编写，新增使用说明须同时维护两种语言。主题与语言资源以已记录的原版 Dev-C++ 5.11 为基准；缺少的 Linux 专用译文明确回退为英语，不冒称全部翻译已完成校对。

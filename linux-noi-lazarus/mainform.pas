@@ -11,17 +11,20 @@ uses
   SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, SynGutterMarks,
   SynEditMarks, SynGutter, editor_actions,
   cppcompletion, ui_language, app_instance, document_files, runtime_support,
-  editor_themes, compiler_profiles, options_dialogs,
+  editor_themes, compiler_profiles, options_dialogs, language_catalog,
   gdb_session, debugger_panel, debug_icons, app_version, about_dialog;
 
 type
   TNoiCppSyn = class(TSynCppSyn)
   private
     FCurrentLine: string;
-    FBracketAttri, FCharacterAttri: TSynHighlighterAttributes;
+    FBracketAttri, FCharacterAttri, FFloatAttri, FHexAttri, FOctalAttri: TSynHighlighterAttributes;
   public
     constructor Create(AOwner: TComponent); override;
     property BracketAttri: TSynHighlighterAttributes read FBracketAttri;
+    property FloatAttri: TSynHighlighterAttributes read FFloatAttri;
+    property HexAttri: TSynHighlighterAttributes read FHexAttri;
+    property OctalAttri: TSynHighlighterAttributes read FOctalAttri;
     property CharacterAttri: TSynHighlighterAttributes read FCharacterAttri;
     procedure SetLine(const NewValue: string; LineNumber: Integer); override;
     function GetTokenAttribute: TSynHighlighterAttributes; override;
@@ -89,6 +92,9 @@ type
     FRecentMenu: TMenuItem;
     FRecentMenuDirty: Boolean;
     FUiTimer: TTimer;
+    FRefreshingCommands: Boolean;
+    FDialogQueued: Boolean;
+    FQueuedDialogAction: TNotifyEvent;
     FFullScreen: Boolean;
     FNormalBounds: TRect;
     FNormalWindowState: TWindowState;
@@ -134,7 +140,7 @@ type
     FFileWatchTimer: TTimer;
     FDocumentDialogs: Integer;
     FInstanceTimer: TTimer;
-    FChineseLanguageItem, FEnglishLanguageItem: TMenuItem;
+    FLanguageMenu: TMenuItem;
     FDebugger: TDebuggerPanel;
     FDebugImages: TImageList;
     FDebugTab: TTabSheet;
@@ -163,6 +169,8 @@ type
     function EditorHasFocus: Boolean;
     function CommandAvailable(Handler: TNotifyEvent): Boolean;
     procedure RefreshCommandStates(Sender: TObject);
+    procedure QueueMenuDialog(DialogAction: TNotifyEvent);
+    procedure RunMenuDialog(Data: PtrInt);
     procedure LoadRecentPaths;
     procedure SaveRecentPaths;
     procedure RebuildRecentMenu;
@@ -177,8 +185,7 @@ type
     procedure FocusEditorClick(Sender: TObject);
     procedure FormShown(Sender: TObject);
     procedure InstanceTick(Sender: TObject);
-    procedure ChineseLanguageClick(Sender: TObject);
-    procedure EnglishLanguageClick(Sender: TObject);
+    procedure LanguageClick(Sender: TObject);
     function AddMenu(ParentItem: TMenuItem; const ACaption: string;
       Handler: TNotifyEvent; AShortcut: TShortCut = 0): TMenuItem;
     function CurrentDoc: TDocument;
@@ -199,6 +206,7 @@ type
       var Special: Boolean; var FG, BG: TColor);
     procedure FileWatchTick(Sender: TObject);
     procedure EditorClicked(Sender: TObject);
+    procedure EditorFocusEntered(Sender: TObject);
     procedure EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure EditorKeyPress(Sender: TObject; var Key: Char);
     procedure EditorProcessCommand(Sender: TObject;
@@ -403,6 +411,12 @@ begin
   AddAttribute(FBracketAttri);
   FCharacterAttri := TSynHighlighterAttributes.Create('Character', 'Character');
   AddAttribute(FCharacterAttri);
+  FFloatAttri := TSynHighlighterAttributes.Create('Float', 'Float');
+  AddAttribute(FFloatAttri);
+  FHexAttri := TSynHighlighterAttributes.Create('Hexadecimal', 'Hexadecimal');
+  AddAttribute(FHexAttri);
+  FOctalAttri := TSynHighlighterAttributes.Create('Octal', 'Octal');
+  AddAttribute(FOctalAttri);
   SetAttributesOnChange(@DefHighlightChange);
 end;
 
@@ -440,8 +454,15 @@ begin
     if (WholeLiteral <> '') and (WholeLiteral[1] in ['0'..'9', '.']) and
       (GetTokenID in [tkNumber, tkIdentifier]) then
     begin
-      if ValidIntegerLiteral(WholeLiteral) or ValidFloatingLiteral(WholeLiteral) then
-        Result := NumberAttri
+      if ValidFloatingLiteral(WholeLiteral) then Result := FFloatAttri
+      else if ValidIntegerLiteral(WholeLiteral) then
+      begin
+        if (Length(WholeLiteral) > 2) and (WholeLiteral[1] = '0') and
+          (WholeLiteral[2] in ['x', 'X']) then Result := FHexAttri
+        else if (Length(WholeLiteral) > 1) and (WholeLiteral[1] = '0') and
+          (WholeLiteral[2] in ['0'..'7']) then Result := FOctalAttri
+        else Result := NumberAttri;
+      end
       else Result := IdentifierAttri;
     end;
     { GTK2's older lexer can split leading decimal points, hex exponents and
@@ -449,7 +470,7 @@ begin
     if (GetTokenID = tkSymbol) and (Length(TokenValue) = 1) and
       (TokenValue[1] in ['.', '+', '-']) and
       (GetTokenPos + Length(TokenValue) < EndPos) and
-      ValidFloatingLiteral(WholeLiteral) then Result := NumberAttri;
+      ValidFloatingLiteral(WholeLiteral) then Result := FFloatAttri;
   end;
   { Lazarus may emit a quote delimiter as a symbol rather than include it
     in the string token.  Keep the original Classic Plus string/char colors. }
@@ -770,7 +791,7 @@ var
   Button: TToolButton;
   Bitmap: TBitmap;
   Col: TListColumn;
-  ArgIndex, BookmarkIndex: Integer;
+  ArgIndex, BookmarkIndex, LanguageIndex: Integer;
 
   procedure AddTool(const ACaption, IconName: string; Handler: TNotifyEvent);
   var IconPath: string;
@@ -846,6 +867,7 @@ begin
   LoadRecentPaths;
   InitUiLanguage(FOptionsPath);
   OnShow := @FormShown;
+  OnActivate := @RefreshCommandStates;
   OnCloseQuery := @CloseQueryHandler;
   KeyPreview := True;
   OnKeyDown := @FormKeyDown;
@@ -978,10 +1000,15 @@ begin
   AddMenu(ToolsMenu, 'E&ditor Options...', @EditorOptionsClick);
   InitializeEditorThemes(ToolsMenu);
   LanguageMenu := AddMenu(ToolsMenu, '&Language', nil);
-  FChineseLanguageItem := AddMenu(LanguageMenu, 'Chinese', @ChineseLanguageClick);
-  FEnglishLanguageItem := AddMenu(LanguageMenu, 'English', @EnglishLanguageClick);
-  FChineseLanguageItem.Checked := CurrentUiLanguage = ulChinese;
-  FEnglishLanguageItem.Checked := CurrentUiLanguage = ulEnglish;
+  FLanguageMenu := LanguageMenu;
+  for LanguageIndex := 0 to UiLanguageCount - 1 do
+  begin
+    BookmarkItem := AddMenu(LanguageMenu, UiLanguageName(LanguageIndex), @LanguageClick);
+    BookmarkItem.Tag := LanguageIndex;
+    BookmarkItem.RadioItem := True;
+    BookmarkItem.GroupIndex := 43;
+    BookmarkItem.Checked := CurrentUiLanguage = UiLanguageCode(LanguageIndex);
+  end;
   HelpMenu := TMenuItem.Create(Self); HelpMenu.Caption := Tr('&Help'); Bar.Items.Add(HelpMenu);
   AddMenu(HelpMenu, '&About Dev-Cpp', @AboutClick);
 
@@ -1092,6 +1119,7 @@ begin
   FLogTab.PageControl := FReportTabs;
   FLogTab.Caption := Tr('Compile log');
   FOutput := TMemo.Create(Self);
+  FOutput.OnEnter := @RefreshCommandStates;
   FOutput.Parent := FLogTab;
   FOutput.Align := alClient;
   FOutput.ReadOnly := True;
@@ -1165,6 +1193,9 @@ end;
 destructor TMainForm.Destroy;
 var I: Integer; Doc: TDocument;
 begin
+  { Tab destruction can raise focus/status events while other tabs are gone. }
+  FRefreshingCommands := True;
+  Application.RemoveAsyncCalls(Self);
   FLoading := True;
   ShutdownDebugger;
   if FUiTimer <> nil then FUiTimer.Enabled := False;
@@ -1295,45 +1326,71 @@ var
   Button: TToolButton;
   Doc: TDocument;
 begin
-  if (Application.ModalLevel > 0) or FLoading then Exit;
-  for I := 0 to FDocs.Count - 1 do
-  begin
-    Doc := TDocument(FDocs[I]);
-    if (FCompileActive or DebuggerActive) and not Doc.DebugReadOnlyApplied then
+  if (FDocs = nil) or FRefreshingCommands or (Application.ModalLevel > 0) or FLoading then Exit;
+  FRefreshingCommands := True;
+  try
+    for I := 0 to FDocs.Count - 1 do
     begin
-      Doc.ReadOnlyBeforeDebug := Doc.Editor.ReadOnly;
-      Doc.DebugReadOnlyApplied := True;
-      Doc.Editor.ReadOnly := True;
-      if (FCompletionForm <> nil) and (FCompletionDoc = Doc) then
-        HideCompletion;
-    end
-    else if not FCompileActive and not DebuggerActive and Doc.DebugReadOnlyApplied then
-    begin
-      Doc.Editor.ReadOnly := Doc.ReadOnlyBeforeDebug;
-      Doc.DebugReadOnlyApplied := False;
+      Doc := TDocument(FDocs[I]);
+      if (FCompileActive or DebuggerActive) and not Doc.DebugReadOnlyApplied then
+      begin
+        Doc.ReadOnlyBeforeDebug := Doc.Editor.ReadOnly;
+        Doc.DebugReadOnlyApplied := True;
+        Doc.Editor.ReadOnly := True;
+        if (FCompletionForm <> nil) and (FCompletionDoc = Doc) then
+          HideCompletion;
+      end
+      else if not FCompileActive and not DebuggerActive and Doc.DebugReadOnlyApplied then
+      begin
+        Doc.Editor.ReadOnly := Doc.ReadOnlyBeforeDebug;
+        Doc.DebugReadOnlyApplied := False;
+      end;
     end;
+    if FCompilerProfileCombo <> nil then
+      FCompilerProfileCombo.Enabled := not FCompileActive and not DebuggerActive;
+    if FRecentMenuDirty then RebuildRecentMenu;
+    Doc := CurrentDoc;
+    for I := 0 to ComponentCount - 1 do
+      if Components[I] is TMenuItem then
+      begin
+        Item := TMenuItem(Components[I]);
+        if Assigned(Item.OnClick) then Item.Enabled := CommandAvailable(Item.OnClick);
+        if SameHandler(Item.OnClick, @ToggleBookmarkClick) then
+          Item.Checked := (Doc <> nil) and Doc.Editor.GetBookMark(Item.Tag, X, Y);
+        if SameHandler(Item.OnClick, @GotoBookmarkClick) then
+          Item.Enabled := Item.Enabled and (Doc <> nil) and
+            Doc.Editor.GetBookMark(Item.Tag, X, Y);
+      end;
+    if FMainToolbar <> nil then
+      for I := 0 to FMainToolbar.ButtonCount - 1 do
+      begin
+        Button := FMainToolbar.Buttons[I];
+        if Assigned(Button.OnClick) then Button.Enabled := CommandAvailable(Button.OnClick);
+      end;
+  finally
+    FRefreshingCommands := False;
   end;
-  if FCompilerProfileCombo <> nil then
-    FCompilerProfileCombo.Enabled := not FCompileActive and not DebuggerActive;
-  if FRecentMenuDirty then RebuildRecentMenu;
-  Doc := CurrentDoc;
-  for I := 0 to ComponentCount - 1 do
-    if Components[I] is TMenuItem then
-    begin
-      Item := TMenuItem(Components[I]);
-      if Assigned(Item.OnClick) then Item.Enabled := CommandAvailable(Item.OnClick);
-      if SameHandler(Item.OnClick, @ToggleBookmarkClick) then
-        Item.Checked := (Doc <> nil) and Doc.Editor.GetBookMark(Item.Tag, X, Y);
-      if SameHandler(Item.OnClick, @GotoBookmarkClick) then
-        Item.Enabled := Item.Enabled and (Doc <> nil) and
-          Doc.Editor.GetBookMark(Item.Tag, X, Y);
-    end;
-  if FMainToolbar <> nil then
-    for I := 0 to FMainToolbar.ButtonCount - 1 do
-    begin
-      Button := FMainToolbar.Buttons[I];
-      if Assigned(Button.OnClick) then Button.Enabled := CommandAvailable(Button.OnClick);
-    end;
+end;
+
+{ Finish the native GTK menu activation and release its pointer grab before
+  entering another modal event loop. Coalesce repeated activation requests. }
+procedure TMainForm.QueueMenuDialog(DialogAction: TNotifyEvent);
+begin
+  if FDialogQueued or (csDestroying in ComponentState) or
+    (Application.ModalLevel > 0) then Exit;
+  FDialogQueued := True;
+  FQueuedDialogAction := DialogAction;
+  Application.QueueAsyncCall(@RunMenuDialog, 0);
+end;
+
+procedure TMainForm.RunMenuDialog(Data: PtrInt);
+var DialogAction: TNotifyEvent;
+begin
+  DialogAction := FQueuedDialogAction;
+  FQueuedDialogAction := nil;
+  FDialogQueued := False;
+  if (csDestroying in ComponentState) or (Application.ModalLevel > 0) then Exit;
+  if Assigned(DialogAction) and CommandAvailable(DialogAction) then DialogAction(Self);
 end;
 
 function EncodeHistoryPath(const FileName: string): string;
@@ -1545,23 +1602,15 @@ begin
   end;
 end;
 
-procedure TMainForm.ChineseLanguageClick(Sender: TObject);
+procedure TMainForm.LanguageClick(Sender: TObject);
+var I: Integer;
 begin
-  SetUiLanguage(ulChinese);
+  if not (Sender is TMenuItem) then Exit;
+  SetUiLanguage(UiLanguageCode(TMenuItem(Sender).Tag));
   ApplyUiLanguage(Self);
-  FChineseLanguageItem.Checked := True;
-  FEnglishLanguageItem.Checked := False;
-  FCompletionList.Invalidate;
-  if FDebugger <> nil then FDebugger.RefreshBreakpoints;
-  UpdateStatus;
-end;
-
-procedure TMainForm.EnglishLanguageClick(Sender: TObject);
-begin
-  SetUiLanguage(ulEnglish);
-  ApplyUiLanguage(Self);
-  FChineseLanguageItem.Checked := False;
-  FEnglishLanguageItem.Checked := True;
+  for I := 0 to FLanguageMenu.Count - 1 do
+    FLanguageMenu.Items[I].Checked :=
+      CurrentUiLanguage = UiLanguageCode(FLanguageMenu.Items[I].Tag);
   FCompletionList.Invalidate;
   if FDebugger <> nil then FDebugger.RefreshBreakpoints;
   UpdateStatus;
@@ -1600,6 +1649,7 @@ begin
   Doc := CurrentDoc;
   if Doc = nil then FStatus.SimpleText := Tr('Ready')
   else FStatus.SimpleText := Format(Tr('%s    Line: %d  Col: %d'), [Doc.FileName, Doc.Editor.CaretY, Doc.Editor.CaretX]);
+  RefreshCommandStates(Self);
 end;
 
 procedure TMainForm.EditorChanged(Sender: TObject);
@@ -1628,7 +1678,8 @@ var I: Integer; Doc: TDocument;
 begin
   { Modified notifications also arrive after Undo/Redo reaches the saved point.
     OnChange alone can run before the undo list updates this state. }
-  if FLoading or (FDocs = nil) or not (scModified in Changes) then Exit;
+  if FLoading or (FDocs = nil) then Exit;
+  if scModified in Changes then
   for I := 0 to FDocs.Count - 1 do
   begin
     Doc := TDocument(FDocs[I]);
@@ -1637,6 +1688,7 @@ begin
     UpdateTab(Doc);
     Break;
   end;
+  RefreshCommandStates(Self);
 end;
 
 procedure TMainForm.EditorSpecialLineColors(Sender: TObject; Line: Integer;
@@ -1767,6 +1819,11 @@ begin
     Dec(FDocumentDialogs);
     FFileWatchTimer.Enabled := True;
   end;
+end;
+
+procedure TMainForm.EditorFocusEntered(Sender: TObject);
+begin
+  RefreshCommandStates(Self);
 end;
 
 procedure TMainForm.EditorClicked(Sender: TObject);
@@ -2966,6 +3023,7 @@ begin
   ApplyDocumentEditorSettings(Doc);
   Doc.Editor.Highlighter := Doc.Syntax;
   Doc.Editor.OnChange := @EditorChanged;
+  Doc.Editor.OnEnter := @EditorFocusEntered;
   Doc.Editor.OnStatusChange := @EditorStatusChanged;
   Doc.Editor.OnClick := @EditorClicked;
   Doc.Editor.OnKeyDown := @EditorKeyDown;
@@ -2981,6 +3039,7 @@ begin
   UpdateTab(Doc);
   FPages.ActivePage := Doc.Tab;
   if Visible then Doc.Editor.SetFocus;
+  UpdateStatus;
 end;
 
 procedure TMainForm.NewClick(Sender: TObject);
@@ -3150,6 +3209,8 @@ end;
 
 procedure TMainForm.CloseProjectClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@CloseProjectClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   TryCloseProject;
 end;
@@ -3161,6 +3222,8 @@ var
   ProjectFilePath: string;
   Snapshot: TFileSnapshot;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@NewProjectClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Dialog := TSaveDialog.Create(Self);
   try
@@ -3217,6 +3280,8 @@ var
   Added, AlreadyPresent: Boolean;
   Snapshot: TFileSnapshot;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@AddProjectFileClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   if FProjectPath = '' then
   begin
@@ -3291,6 +3356,8 @@ var
   SourcePath, UnitSection: string;
   Snapshot: TFileSnapshot;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@RemoveProjectFileClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   if FProjectPath = '' then Exit;
   Node := FProjectTree.Selected;
@@ -3360,6 +3427,8 @@ var
   CFlags, CppFlags, LinkFlags: string;
   Snapshot: TFileSnapshot;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@ProjectOptionsClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   if FProjectPath = '' then
   begin
@@ -3509,7 +3578,8 @@ begin
   Doc.PreferredColumn := 0;
   ApplyEditorTheme(Doc.Editor, Doc.Syntax, Doc.Syntax.BracketAttri,
     Doc.Syntax.CharacterAttri,
-    FEditorThemeName, Doc.ThemeColors);
+    FEditorThemeName, Doc.ThemeColors, Doc.Syntax.FloatAttri,
+    Doc.Syntax.HexAttri, Doc.Syntax.OctalAttri);
 end;
 
 procedure TMainForm.ApplyAllEditorSettings;
@@ -3551,6 +3621,8 @@ end;
 
 procedure TMainForm.CompilerOptionsClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@CompilerOptionsClick); Exit; end;
   if FCompileActive then Exit;
   if not EditCompilerProfiles(Self, FCompilerProfiles) then Exit;
   ActivateCompilerProfile(FCompilerProfiles.ActiveIndex, False);
@@ -3560,6 +3632,8 @@ end;
 
 procedure TMainForm.EditorOptionsClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@EditorOptionsClick); Exit; end;
   if not EditEditorSettings(Self, FEditorThemeName, FEditorFontName,
     FEditorFontSize, FEditorTabWidth) then Exit;
   ApplyAllEditorSettings;
@@ -3656,6 +3730,8 @@ end;
 procedure TMainForm.OpenClick(Sender: TObject);
 var Dialog: TOpenDialog;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@OpenClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Dialog := TOpenDialog.Create(Self);
   try
@@ -3804,12 +3880,16 @@ end;
 
 procedure TMainForm.SaveClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@SaveClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   SaveDoc(CurrentDoc);
 end;
 
 procedure TMainForm.SaveAsClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@SaveAsClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   SaveDocument(CurrentDoc, True);
 end;
@@ -3994,6 +4074,8 @@ end;
 
 procedure TMainForm.SaveAllClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@SaveAllClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   SaveAllDocs;
 end;
@@ -4039,6 +4121,8 @@ end;
 procedure TMainForm.CloseClick(Sender: TObject);
 var Doc: TDocument;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@CloseClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Doc := CurrentDoc;
   if (Doc = nil) or not MayClose(Doc) then Exit;
@@ -4066,7 +4150,11 @@ begin
 end;
 
 procedure TMainForm.ExitClick(Sender: TObject);
-begin Close; end;
+begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@ExitClick); Exit; end;
+  Close;
+end;
 
 procedure TMainForm.UndoClick(Sender: TObject);
 begin
@@ -4108,6 +4196,8 @@ begin ShowCompletion(CurrentDoc, False); end;
 procedure TMainForm.FindClick(Sender: TObject);
 var Query: string; Doc: TDocument;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@FindClick); Exit; end;
   Query := FFindText;
   Doc := CurrentDoc;
   if Doc = nil then Exit;
@@ -4124,6 +4214,8 @@ var
   Pass, Row, Column, StartRow, StartCol, LastRow, FirstByte, LastByte,
     MatchBytes: Integer;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@FindNextClick); Exit; end;
   Doc := CurrentDoc;
   if (Doc = nil) or (FFindText = '') or (Doc.Editor.Lines.Count = 0) then Exit;
   StartRow := Max(1, Min(Doc.Editor.CaretY, Doc.Editor.Lines.Count));
@@ -4162,6 +4254,8 @@ var
   Entry: TListItem;
   DocIndex, Row, FoundAt, Offset, MatchBytes: Integer;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@FindAllClick); Exit; end;
   if FCompileActive then Exit;
   Query := FFindText;
   Doc := CurrentDoc;
@@ -4210,6 +4304,8 @@ var
   SourceLine: string;
   Pass, Row, Column, StartRow, StartCol, FirstByte, LastByte, MatchBytes: Integer;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@FindPreviousClick); Exit; end;
   Doc := CurrentDoc;
   if (Doc = nil) or (FFindText = '') or (Doc.Editor.Lines.Count = 0) then Exit;
   StartRow := Max(1, Min(Doc.Editor.CaretY, Doc.Editor.Lines.Count));
@@ -4269,6 +4365,8 @@ var
       (FindTextMatchLengthAt(Doc.Editor.SelText, Query, 1) = SelectedBytes);
   end;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@ReplaceClick); Exit; end;
   Doc := CurrentDoc;
   if (Doc = nil) or FCompileActive or Doc.Editor.ReadOnly then Exit;
   Query := FFindText;
@@ -4329,12 +4427,16 @@ end;
 
 procedure TMainForm.ReplaceAllClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@ReplaceAllClick); Exit; end;
   ReplaceClick(nil);
 end;
 
 procedure TMainForm.GotoClick(Sender: TObject);
 var Doc: TDocument; LineInput: string; Row: Integer;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@GotoClick); Exit; end;
   Doc := CurrentDoc;
   if Doc = nil then Exit;
   LineInput := IntToStr(Doc.Editor.CaretY);
@@ -4363,6 +4465,8 @@ end;
 procedure TMainForm.CloseAllClick(Sender: TObject);
 var I: Integer;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@CloseAllClick); Exit; end;
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Inc(FDocumentDialogs);
   try
@@ -4725,6 +4829,8 @@ var
   ProjectIni: TMemIniFile;
   ProjectSnapshot: TFileSnapshot;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@ExecuteParametersClick); Exit; end;
   if FCompileActive or (Application.ModalLevel > 0) then Exit;
   Doc := CurrentDoc;
   ProjectFile := '';
@@ -4855,16 +4961,30 @@ begin
 end;
 
 procedure TMainForm.CompileClick(Sender: TObject);
-begin CompileCurrent(False, False); end;
+begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@CompileClick); Exit; end;
+  CompileCurrent(False, False);
+end;
 procedure TMainForm.AbortCompileClick(Sender: TObject);
 begin if FCompileActive then FCompileCancelRequested := True; end;
 procedure TMainForm.SyntaxClick(Sender: TObject);
-begin CompileCurrent(True, False); end;
+begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@SyntaxClick); Exit; end;
+  CompileCurrent(True, False);
+end;
 procedure TMainForm.CompileRunClick(Sender: TObject);
-begin CompileCurrent(False, True); end;
+begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@CompileRunClick); Exit; end;
+  CompileCurrent(False, True);
+end;
 procedure TMainForm.RunClick(Sender: TObject);
 var Doc: TDocument; FileName, ProjectFile: string;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@RunClick); Exit; end;
   if FCompileActive or (Application.ModalLevel > 0) then Exit;
   Doc := CurrentDoc;
   ProjectFile := '';
@@ -4955,6 +5075,8 @@ procedure TMainForm.DebugStartClick(Sender: TObject);
 var Doc: TDocument; ProjectFile, Arguments, WorkDirectory, ErrorText: string;
   Args: TStringList;
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@DebugStartClick); Exit; end;
   if FCompileActive or DebuggerActive or (Application.ModalLevel > 0) then Exit;
   InitializeDebugger;
   Doc := CurrentDoc; ProjectFile := '';
@@ -5082,6 +5204,8 @@ end;
 
 procedure TMainForm.AboutClick(Sender: TObject);
 begin
+  if Sender is TMenuItem then
+  begin QueueMenuDialog(@AboutClick); Exit; end;
   ShowAboutDialog(Self);
 end;
 

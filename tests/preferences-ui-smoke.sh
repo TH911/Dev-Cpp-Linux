@@ -191,6 +191,26 @@ expect_config Editor Theme Obsidian
 expect_background 293134 obsidian-existing
 echo 'PASS: theme menu updates existing and newly created documents.'
 
+# Original 5.11 preset backgrounds in menu order; check real rendered pixels,
+# saved names, and inheritance by a newly-created document for every preset.
+theme_names=('Classic Plus' 'Twilight' 'Visual Studio' 'Obsidian' 'Classic'
+             'Ocean' 'Borland' 'Matrix' 'GSS Hacker' 'Oblivion' 'PlasticCodeWrap')
+theme_rgb=(ffffff 000000 ffffff 293134 ffffff 00ffff 000080 000000 171717 1e1e1e 0b161d)
+for index in "${!theme_names[@]}"; do
+  keys=(alt+t Home Down Down Right Home)
+  for ((step=0; step<index; step++)); do keys+=(Down); done
+  keys+=(Return)
+  press "${keys[@]}"
+  expect_config Editor Theme "${theme_names[index]}"
+  expect_background "${theme_rgb[index]}" "theme-$index-existing"
+  press ctrl+n
+  expect_background "${theme_rgb[index]}" "theme-$index-new"
+  press ctrl+w
+done
+press alt+t Home Down Down Right Home Down Down Down Return
+expect_config Editor Theme Obsidian
+echo 'PASS: all eleven original theme presets render, persist and apply to new documents.'
+
 press ctrl+alt+o
 wait_dialog 'Compiler Options'
 # The profile list is first in tab order; New is next. New focuses its name.

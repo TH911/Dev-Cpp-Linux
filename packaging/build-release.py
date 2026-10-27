@@ -20,7 +20,7 @@ SOURCE = ROOT / "linux-noi-lazarus"
 # and compiler output out of release archives. Extend it for new runtime assets.
 SOURCE_SUFFIXES = {
     ".pas", ".pp", ".inc", ".lpr", ".lpi", ".lfm", ".lrs", ".sh",
-    ".md", ".txt", ".ico", ".bmp", ".png", ".svg", ".xpm", ".po",
+    ".md", ".txt", ".lng", ".ico", ".bmp", ".png", ".svg", ".xpm", ".po",
     ".mo", ".json", ".xml", ".sample", ".example", ".ini", ".cfg",
     ".conf", ".theme", ".toml", ".yaml", ".yml",
 }
@@ -102,7 +102,7 @@ def build_deb(version, output, binary, epoch):
         copy_file(binary, app / "devcpp-noi", 0o755)
         for name in RUNTIME_FILES:
             copy_file(SOURCE / name, app / name, 0o755 if name.endswith(".sh") else 0o644)
-        for directory in ("icons", "profiles"):
+        for directory in ("icons", "profiles", "languages"):
             location = SOURCE / directory
             if location.is_dir():
                 for source in sorted(location.rglob("*")):

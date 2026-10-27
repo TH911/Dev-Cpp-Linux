@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="11"/>
+    <General>
+      <MainUnit Value="0"/>
+    </General>
+    <Units Count="1">
+      <Unit0>
+        <Filename Value="command-state-test.lpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit0>
+    </Units>
+    <RequiredPackages Count="2">
+      <Item1><PackageName Value="SynEdit"/></Item1>
+      <Item2><PackageName Value="LCL"/></Item2>
+    </RequiredPackages>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <Target>
+      <Filename Value="../linux-noi-lazarus/lib/command-state-test"/>
+    </Target>
+    <SearchPaths>
+      <OtherUnitFiles Value="../linux-noi-lazarus"/>
+      <UnitOutputDirectory Value="../linux-noi-lazarus/lib/command-state-test-units"/>
+    </SearchPaths>
+  </CompilerOptions>
+</CONFIG>

@@ -148,6 +148,8 @@ cmp /usr/share/pixmaps/devcpp-noi.ico /usr/lib/devcpp-noi/devcpp.ico
 test -r /usr/share/applications/devcpp-noi-installed.desktop
 test -r /usr/share/icons/hicolor/48x48/apps/devcpp-noi.png
 test -r /usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml
+test -r /usr/lib/devcpp-noi/languages/English.lng
+test -r /usr/lib/devcpp-noi/languages/Chinese_TC.lng
 appstreamcli validate --no-net /usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml
 test -x /usr/lib/devcpp-noi/migrate-launchers.py
 test -r /etc/xdg/autostart/devcpp-noi-migrate.desktop

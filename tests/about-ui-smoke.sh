@@ -101,6 +101,27 @@ for i in {1..100}; do
   alive; sleep 0.1
 done
 [[ -n $window ]] || fail 'Main window missing'
+for attempt in {1..10}; do
+  xdotool windowfocus "$window"
+  click_text Help
+  started=$(date +%s%3N)
+  click_text 'About Dev-Cpp'
+  dialog=''
+  for poll in {1..40}; do
+    dialog=$(xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-Cpp$' 2>/dev/null | head -1) || true
+    [[ -z $dialog ]] || break
+    alive; sleep 0.02
+  done
+  [[ -n $dialog ]] || fail 'single About menu click did not open a window'
+  elapsed=$(( $(date +%s%3N) - started ))
+  [[ $elapsed -lt 2000 ]] || fail "About click took ${elapsed}ms"
+  echo "About single mouse click $attempt: ${elapsed}ms"
+  xdotool windowfocus "$dialog" key --clearmodifiers Escape
+  sleep 0.15
+  if xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-Cpp$' >/dev/null 2>&1; then
+    fail 'About remained open after Escape or a duplicate request opened another window'
+  fi
+done
 xdotool windowfocus "$window" key --clearmodifiers --delay 80 alt+h a
 wait_text 'About Dev-Cpp'
 version=$(tr -d '\r\n' < "$source_root/VERSION")

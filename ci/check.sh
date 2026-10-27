@@ -40,7 +40,7 @@ fpc -Fulinux-noi-lazarus -FU"$test_dir/profiles" -FE"$test_dir/profiles" \
 "$test_dir/profiles/compiler-profiles-test"
 bash tests/runtime-support-smoke.sh
 timeout 60s bash tests/gdb-session-smoke.sh
-for name in editor-actions editor-themes; do
+for name in editor-actions editor-themes ui-language command-state; do
   lazbuild --widgetset=gtk2 "tests/$name-test.lpi" > "$test_dir/$name-build.log" 2>&1 || {
     cat "$test_dir/$name-build.log" >&2; exit 1;
   }

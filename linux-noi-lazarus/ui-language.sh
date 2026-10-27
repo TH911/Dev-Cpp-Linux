@@ -15,7 +15,7 @@ if [[ -r "$devcpp_language_file" ]]; then
       value=$0; sub(/^[^=]*=/, "", value); gsub(/[[:space:]]/, "", value)
       print tolower(value); exit
     }' "$devcpp_language_file")
-  if [[ "$devcpp_saved_language" == en || "$devcpp_saved_language" == english ]]; then
+  if [[ "$devcpp_saved_language" != zh && "$devcpp_saved_language" != zh_cn && "$devcpp_saved_language" != chinese && -n "$devcpp_saved_language" ]]; then
     devcpp_ui_language=en
   fi
 fi

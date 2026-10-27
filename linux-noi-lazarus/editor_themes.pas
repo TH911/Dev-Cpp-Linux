@@ -7,7 +7,7 @@ interface
 uses Classes, SysUtils, Graphics, Forms, SynEdit, SynEditHighlighter,
   SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, SynGutter;
 
-const EditorThemeCount = 4;
+const EditorThemeCount = 11;
 
 type
   TEditorThemeColors = record
@@ -21,113 +21,13 @@ function DefaultEditorFontName: string;
 function ResolveEditorFontName(const RequestedName: string): string;
 procedure ApplyEditorTheme(Editor: TSynEdit; Syntax: TSynCppSyn;
   BracketAttr, CharacterAttr: TSynHighlighterAttributes; const ThemeName: string;
-  out Colors: TEditorThemeColors);
+  out Colors: TEditorThemeColors; FloatAttr: TSynHighlighterAttributes = nil;
+  HexAttr: TSynHighlighterAttributes = nil; OctalAttr: TSynHighlighterAttributes = nil);
 
 implementation
 
 const
-  { Original Orwell 5.11 Source/DefaultFiles.rc attribute tables (1..22).
-    Keep Win32 system colors stable when GTK uses a different desktop palette. }
-  ThemeNames: array[0..EditorThemeCount - 1] of string =
-    ('Classic Plus', 'Twilight', 'Visual Studio', 'Obsidian');
-  ThemeData: array[0..EditorThemeCount - 1, 1..22] of string = (
-    (
-      'clBlue, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clHighlight, clNone, 0, 1, 0',
-      'clPurple, clNone, 0, 0, 0',
-      'clPurple, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clPurple, clNone, 0, 0, 0',
-      'clPurple, clNone, 0, 0, 0',
-      'clGreen, clNone, 0, 0, 0',
-      'clBlack, clNone, 1, 0, 0',
-      'clBlack, clWhite, 0, 0, 0',
-      'clBlue, clNone, 1, 0, 0',
-      'clRed, clNone, 1, 0, 0',
-      'clHighlight, clWhite, 0, 0, 0',
-      'clWhite, clMaroon, 0, 0, 0',
-      'clWhite, clRed',
-      'clWhite, clMaroon',
-      'clWhite, clBlue',
-      'clBlack, clBtnFace',
-      'clWhite, clNavy',
-      'clBlack, clBtnFace'
-    ),
-    (
-      'clLime, clNone, 0, 0, 0',
-      'clYellow, clNone, 0, 0, 0',
-      'clSilver, clNone, 0, 1, 0',
-      'clFuchsia, clNone, 0, 0, 0',
-      'clFuchsia, clNone, 0, 0, 0',
-      'clWhite, clNone, 0, 0, 0',
-      'clYellow, clMaroon, 0, 0, 0',
-      'clFuchsia, clNone, 0, 0, 0',
-      'clFuchsia, clNone, 0, 0, 0',
-      'clGreen, clNone, 0, 0, 0',
-      'clAqua, clNone, 0, 0, 0',
-      'clWhite, clBlack, 0, 0, 0',
-      'clYellow, clNone, 0, 0, 0',
-      'clAqua, clNone, 0, 0, 0',
-      'clWhite, clRed, 0, 0, 0',
-      'clWhite, clMaroon, 0, 0, 0',
-      'clWhite, clRed',
-      'clWhite, clMaroon',
-      'clWhite, clBlue',
-      'clWhite, clBlack',
-      'clWhite, clNavy',
-      'clWhite, clBtnFace'
-    ),
-    (
-      'clBlack, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clGreen, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clRed, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clBlue, clNone, 0, 0, 0',
-      'clBlue, clNone, 0, 0, 0',
-      'clNone, clWhite, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clBlack, clNone, 0, 0, 0',
-      'clGreen, clNone, 0, 0, 0',
-      'clRed, clNone, 0, 0, 0',
-      'clWhite, clRed',
-      'clRed, clNone',
-      'clWhite, clBlue',
-      'clNone, clWhite',
-      'clWhite, clNavy',
-      'clNone, clBtnFace'
-    ),
-    (
-      '$0063c793, clNone, 0, 0, 0',
-      '$000984ff, clNone, 0, 0, 0',
-      '$007b7466, clNone, 0, 1, 0',
-      '$0022cdff, clNone, 0, 0, 0',
-      '$0022cdff, clNone, 0, 0, 0',
-      '$00e4e2e0, clNone, 0, 0, 0',
-      '$000000fb, clNone, 0, 0, 0',
-      '$0022cdff, clNone, 0, 0, 0',
-      '$0022cdff, clNone, 0, 0, 0',
-      '$00bd82a0, clNone, 0, 0, 0',
-      '$00b18c67, clNone, 0, 0, 0',
-      'clNone, $02343129, 0, 0, 0',
-      '$000076ec, clNone, 0, 0, 0',
-      '$00b7e2e8, clNone, 0, 0, 0',
-      'clHighlight, clWhite, 0, 0, 0',
-      'clWhite, clMaroon, 0, 0, 0',
-      '16777215, $0000cc99',
-      '16777215, $001212d5',
-      '16777215, $00ffcc00',
-      '$0088806a, $003c382f',
-      '16777215, $00514e40',
-      '$000000c0, $00514e40'
-    )
-  );
+  {$I editor_theme_data.inc}
 
 function EditorThemeName(Index: Integer): string;
 begin
@@ -140,6 +40,8 @@ var I: Integer;
 begin
   for I := 0 to EditorThemeCount - 1 do
     if SameText(ThemeNames[I], Name) then Exit(I);
+  if SameText(Name, 'Obisidian') then Exit(3);
+  if SameText(Name, 'Obvilion') then Exit(9);
   Result := 0;
 end;
 
@@ -179,7 +81,7 @@ end;
 
 procedure ApplyEditorTheme(Editor: TSynEdit; Syntax: TSynCppSyn;
   BracketAttr, CharacterAttr: TSynHighlighterAttributes; const ThemeName: string;
-  out Colors: TEditorThemeColors);
+  out Colors: TEditorThemeColors; FloatAttr, HexAttr, OctalAttr: TSynHighlighterAttributes);
 var
   Theme, I: Integer;
   Parts: TStringList;
@@ -214,12 +116,12 @@ begin
     Attr[1] := Syntax.AsmAttri;
     Attr[2] := CharacterAttr;
     Attr[3] := Syntax.CommentAttri;
-    Attr[4] := nil;
-    Attr[5] := nil;
+    Attr[4] := FloatAttr;
+    Attr[5] := HexAttr;
     Attr[6] := Syntax.IdentifierAttri;
     Attr[7] := Syntax.InvalidAttri;
     Attr[8] := Syntax.NumberAttri;
-    Attr[9] := nil;
+    Attr[9] := OctalAttr;
     Attr[10] := Syntax.DirecAttri;
     Attr[11] := Syntax.KeyAttri;
     Attr[12] := Syntax.SpaceAttri;
@@ -247,7 +149,9 @@ begin
     Editor.BracketMatchColor.Style := [];
     Editor.BracketMatchColor.StyleMask := [fsBold, fsItalic, fsUnderline];
     Editor.LineHighlightColor.Foreground := clNone;
-    if Theme in [1, 3] then Editor.LineHighlightColor.Background := $00423E36
+    if ((Editor.Color and $FF) + ((Editor.Color shr 8) and $FF) +
+      ((Editor.Color shr 16) and $FF)) < 384 then
+      Editor.LineHighlightColor.Background := $00423E36
     else Editor.LineHighlightColor.Background := $00FFFFCC;
     Editor.LineHighlightColor.Style := [];
     Editor.LineHighlightColor.StyleMask := [];
@@ -264,7 +168,10 @@ begin
         MarkupInfo.Background := Editor.Gutter.Color;
       end;
     if Editor.Gutter.CodeFoldPart <> nil then
+    begin
+      Editor.Gutter.CodeFoldPart.MarkupInfo.Foreground := Foreground[22];
       Editor.Gutter.CodeFoldPart.MarkupInfo.Background := Editor.Gutter.Color;
+    end;
     if Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0] = nil then
       TSynGutterLineNumber.Create(Editor.Gutter.Parts);
     Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0].MarkupInfo.Foreground := Foreground[20];

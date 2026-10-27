@@ -9,7 +9,11 @@ uses
   Classes, SysUtils, Dialogs;
 
 type
-  TUiLanguage = (ulChinese, ulEnglish);
+  TUiLanguage = string;
+
+const
+  ulChinese = 'zh';
+  ulEnglish = 'en';
 
 procedure InitUiLanguage(const ConfigFileName: string);
 function CurrentUiLanguage: TUiLanguage;
@@ -27,9 +31,13 @@ implementation
 
 uses
   TypInfo, IniFiles, Contnrs, ComCtrls, Forms, Controls, StdCtrls,
-  LCLType, Math, translation_catalog, app_version;
+  LCLType, Math, translation_catalog, language_catalog, app_version;
 
 type
+  TPhrase = class
+    English: string;
+  end;
+
   TOriginalText = class
     Target: TComponent;
     PropertyName: string;
@@ -56,13 +64,42 @@ var
   SelectedLanguage: TUiLanguage = ulChinese;
   LanguageConfigFile: string = '';
   LanguageManager: TLanguageManager = nil;
+  ReversePhrases: TStringList = nil;
 
 function UiText(const EnglishText: string): string;
+var I: Integer; Phrase: TPhrase;
 begin
-  if SelectedLanguage = ulChinese then
-    Result := TranslateChinese(EnglishText)
-  else
-    Result := EnglishText;
+  Result := EnglishText;
+  if SelectedLanguage = ulChinese then Result := TranslateChinese(EnglishText);
+  if (Result = EnglishText) and (SelectedLanguage <> ulEnglish) then
+    Result := UpstreamUiText(SelectedLanguage, EnglishText);
+  if Result <> EnglishText then
+  begin
+    if ReversePhrases = nil then
+    begin
+      ReversePhrases := TStringList.Create;
+      ReversePhrases.Sorted := True;
+      ReversePhrases.CaseSensitive := True;
+    end;
+    I := ReversePhrases.IndexOf(Result);
+    if I < 0 then
+    begin
+      Phrase := TPhrase.Create;
+      Phrase.English := EnglishText;
+      ReversePhrases.AddObject(Result, Phrase);
+    end;
+  end;
+end;
+
+function CanonicalUiText(const Text: string): string;
+var I: Integer;
+begin
+  Result := TranslateEnglish(Text);
+  if (Result = Text) and (ReversePhrases <> nil) then
+  begin
+    I := ReversePhrases.IndexOf(Text);
+    if I >= 0 then Result := TPhrase(ReversePhrases.Objects[I]).English;
+  end;
 end;
 
 function UiFormat(const EnglishFormat: string; const Args: array of const): string;
@@ -238,8 +275,7 @@ begin
   Ini := TIniFile.Create(ConfigFileName);
   try
     LanguageName := LowerCase(Ini.ReadString('Interface', 'Language', 'zh'));
-    if (LanguageName = 'en') or (LanguageName = 'english') then
-      SelectedLanguage := ulEnglish;
+    SelectedLanguage := ResolveUiLanguage(LanguageName);
   finally
     Ini.Free;
   end;
@@ -256,13 +292,12 @@ var
   ConfigDirectory: string;
   LanguageName: string;
 begin
-  SelectedLanguage := ALanguage;
+  SelectedLanguage := ResolveUiLanguage(ALanguage);
   if LanguageConfigFile = '' then Exit;
   ConfigDirectory := ExtractFileDir(LanguageConfigFile);
   if (ConfigDirectory <> '') and not DirectoryExists(ConfigDirectory) then
     if not ForceDirectories(ConfigDirectory) then Exit;
-  if ALanguage = ulEnglish then LanguageName := 'en'
-  else LanguageName := 'zh';
+  LanguageName := SelectedLanguage;
   Ini := TIniFile.Create(LanguageConfigFile);
   try
     Ini.WriteString('Interface', 'Language', LanguageName);
@@ -334,19 +369,20 @@ begin
   if Entry = nil then
   begin
     { Only cache known interface phrases, never filenames or editor contents. }
-    if TranslateChinese(TranslateEnglish(CurrentText)) =
-      TranslateEnglish(CurrentText) then Exit;
+    if TranslateChinese(CanonicalUiText(CurrentText)) =
+      CanonicalUiText(CurrentText) then
+      if not HasUpstreamUiText(CanonicalUiText(CurrentText)) then Exit;
     Entry := TOriginalText.Create;
     Entry.Target := Target;
     Entry.PropertyName := PropertyName;
     Entry.ColumnIndex := ColumnIndex;
-    Entry.Original := TranslateEnglish(CurrentText);
+    Entry.Original := CanonicalUiText(CurrentText);
     Entry.LastApplied := CurrentText;
     FEntries.Add(Entry);
     Target.FreeNotification(Self);
   end
   else if CurrentText <> Entry.LastApplied then
-    Entry.Original := TranslateEnglish(CurrentText);
+    Entry.Original := CanonicalUiText(CurrentText);
 
   TranslatedText := UiText(Entry.Original);
   if ColumnIndex >= 0 then
@@ -376,7 +412,16 @@ begin
   LanguageManager.Apply(Root);
 end;
 
+procedure FreeReversePhrases;
+var I: Integer;
+begin
+  if ReversePhrases = nil then Exit;
+  for I := 0 to ReversePhrases.Count - 1 do ReversePhrases.Objects[I].Free;
+  FreeAndNil(ReversePhrases);
+end;
+
 finalization
   FreeAndNil(LanguageManager);
+  FreeReversePhrases;
 
 end.

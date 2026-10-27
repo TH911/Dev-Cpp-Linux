@@ -86,7 +86,7 @@ sudo apt install gdebi
 | `/usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml` | 应用名称、贡献者、GPL 许可证、仓库和帮助链接 |
 | `/usr/share/doc/devcpp-noi/` | 说明和许可证 |
 
-安装版入口不会运行开发目录的 `launch.sh`、`run.sh` 或 `build.sh`，不会尝试在 `/usr` 编译、写锁或注册用户桌面项。所有目录可供普通用户遍历，程序和资源可读。设置仍由程序保存到 `~/.config/devcpp-noi.ini`，卸载脚本不删除用户设置或缓存。菜单仅声明支持的文件类型，不执行 `xdg-mime default`，不修改 `mimeapps.list`；如需默认打开应用，请通过桌面“打开方式”自行选择。
+安装版入口不会运行开发目录的 `launch.sh`、`run.sh` 或 `build.sh`，不会尝试在 `/usr` 编译、写锁或注册用户桌面项。所有目录可供普通用户遍历，程序和资源可读。`/usr/lib/devcpp-noi/languages/` 包含原版的 33 份 UTF-8 语言文件，源码归档也包含相同资源。设置仍由程序保存到 `~/.config/devcpp-noi.ini`，卸载脚本不删除用户设置或缓存。菜单仅声明支持的文件类型，不执行 `xdg-mime default`，不修改 `mimeapps.list`；如需默认打开应用，请通过桌面“打开方式”自行选择。
 
 包的 `Homepage` 指向 GitHub 仓库，简介使用 Dev-Cpp 名称并注明许可证。内部包名继续为
 `devcpp-noi`，保证 APT 能正常升级旧版。AppStream 元数据遵循 freedesktop 标准，

@@ -29,6 +29,11 @@ def check_sources(tar_path, zip_path):
         assert path.name not in ("devcpp-noi", "devcpp-noi.build", "devcpp-noi.instance-api", "devcpp-noi.ini"), name
         assert not data.startswith(b"\x7fELF"), name
     assert any(n.startswith("linux-noi-lazarus/icons/") for n in tar_files), "Missing UI icons"
+    languages = [data for name, data in tar_files.items()
+                 if name.startswith("linux-noi-lazarus/languages/") and name.endswith(".lng")]
+    assert len(languages) == 33, "Missing original language resources in source archives"
+    for data in languages:
+        assert "\ufffd" not in data.decode("utf-8"), "Invalid UTF-8 language resource"
     print("PASS: equivalent source archives without build outputs or local state")
 
 
@@ -78,6 +83,11 @@ def check_deb(deb_path, version):
         subprocess.run(["appstreamcli", "validate", "--no-net", str(metadata)], check=True)
         assert (root / "usr/share/doc/devcpp-noi/NOI-LINUX-SOFTWARE-INSTALL.md").is_file()
         assert list((app / "icons").glob("*.bmp")), "Missing toolbar icons"
+        catalogs = sorted((app / "languages").glob("*.lng"))
+        assert len(catalogs) == 33, "Missing installed language resources"
+        for catalog in catalogs:
+            source = original_icon.parent / "languages" / catalog.name
+            assert catalog.read_bytes() == source.read_bytes(), "Installed catalog differs: " + catalog.name
         for path in root.rglob("*"):
             if path.is_dir():
                 assert path.stat().st_mode & 0o005 == 0o005, str(path)
