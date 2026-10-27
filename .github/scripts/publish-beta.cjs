@@ -18,7 +18,10 @@ module.exports = async function publishBeta({github, context, core, root = proce
     `devcpp-noi_${version}_amd64.deb`
   ];
   // Read every asset before creating a public tag or a draft release.
-  const files = names.map(name => ({name, data: fs.readFileSync(path.join(root, 'dist', name))}));
+  // GitHub rewrites '~' in uploaded asset names. Choose a stable public name
+  // explicitly, retaining the Debian version inside each package/archive.
+  const files = names.map(name => ({name: name.replace(/~/g, '-'),
+    data: fs.readFileSync(path.join(root, 'dist', name))}));
   if (files.some(file => file.data.length === 0)) throw new Error('A required beta asset is empty.');
   const {owner, repo} = context.repo;
   let ref;

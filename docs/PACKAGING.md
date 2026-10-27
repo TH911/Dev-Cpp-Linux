@@ -30,7 +30,7 @@ Debian 打包需要 `dpkg-deb`，并拒绝非 amd64 ELF 输入。**发布的程�
 
 常规 [兼容性工作流](../.github/workflows/noi-linux.yml) 在 push、PR 和手动触发时执行检查并保存打包产物。推送到 `beta` 或在该分支手动运行工作流时，只有完整构建、GTK2 回归和安装检查均通过，后续发布任务才会使用同一次构建的产物创建 **Pre-release**。发布标签固定到通过检查的提交；三个附件先上传到草稿，全部成功后再公开，并保留最新稳定 Release。
 
-beta 版本使用 `1.1.3~beta1` 格式，Git 标签将 `~` 转成 `-`，对应 `v1.1.3-beta1`。附件名称仍保留 Debian 版本号，例如 `devcpp-noi_1.1.3~beta1_amd64.deb`。发布新测试内容时递增 beta 编号，并同步 `VERSION`、应用版本、`PORT_REVISION` 和相关说明；已发布的版本不能用于另一提交。重跑同一提交不会覆盖已有附件，未完成的草稿可继续上传。
+beta 版本使用 `1.1.3~beta2` 格式，Git 标签将 `~` 转成 `-`，对应 `v1.1.3-beta2`。GitHub 会改写附件名中的 `~`，因此上传时明确使用连字符，例如 `devcpp-noi_1.1.3-beta2_amd64.deb`；安装包内部版本仍为 `1.1.3~beta2`，本地构建和 Actions 产物文件名也保留 `~`。发布新测试内容时递增 beta 编号，并同步 `VERSION`、应用版本、`PORT_REVISION` 和相关说明；已发布的版本不能用于另一提交。重跑同一提交不会覆盖已有附件，未完成的草稿可继续上传。
 
 正式 [发布工作流](../.github/workflows/release.yml) 在 Release 发布后签出该标签，使用同样的 Ubuntu 20.04 工具链重新构建和检查，然后上传 ZIP、tar.gz 和 `.deb`；也可指定已经公开的 Release 标签手动触发（按标签查询接口不提供草稿）。正式版标签去掉 `v` 后与 `VERSION` 一致，例如 `VERSION=1.2.3` 对应 `v1.2.3`；手动构建 beta 标签时同样使用上述 `~` → `-` 映射。
 

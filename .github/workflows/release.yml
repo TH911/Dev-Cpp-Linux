@@ -70,12 +70,13 @@ jobs:
             const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
               owner, repo, release_id: release.id, per_page: 100
             });
-            for (const name of names) {
-              if (assets.some(asset => asset.name === name)) {
+            for (const localName of names) {
+              const name = localName.replace(/~/g, '-');
+              if (assets.some(asset => asset.name === name || asset.name === localName.replace(/~/g, '.'))) {
                 core.info(`Keeping existing asset: ${name}`);
                 continue;
               }
-              const data = fs.readFileSync(path.join('dist', name));
+              const data = fs.readFileSync(path.join('dist', localName));
               await github.rest.repos.uploadReleaseAsset({
                 owner, repo, release_id: release.id, name, data,
                 headers: { 'content-type': 'application/octet-stream', 'content-length': data.length }

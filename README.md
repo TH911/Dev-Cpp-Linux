@@ -1,8 +1,8 @@
 # Dev-Cpp-Linux
 
-基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。最近稳定版本为 **[v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)**，本分支测试版本为 **1.1.3~beta1**。
+基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。最近稳定版本为 **[v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)**，本分支测试版本为 **1.1.3~beta2**。
 
-开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。beta 通过完整检查后自动发布为 **Pre-release**，当前测试包见 [v1.1.3-beta1](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta1)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。beta 已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
+开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。beta 通过完整检查后自动发布为 **Pre-release**，当前测试包见 [v1.1.3-beta2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta2)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。beta 已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
 
 本次 beta 同时修复科学计数法高亮，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
 

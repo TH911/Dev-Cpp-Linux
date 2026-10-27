@@ -66,7 +66,8 @@ test('publishes exactly three assets before making the beta public; reruns prese
   assert.equal(creation.draft, true);
   assert.equal(creation.prerelease, true);
   assert.equal(creation.make_latest, 'false');
-  assert.deepEqual(f.calls.filter(call => call[0] === 'upload').map(call => call[1].name), f.names);
+  assert.deepEqual(f.calls.filter(call => call[0] === 'upload').map(call => call[1].name),
+    f.names.map(name => name.replace(/~/g, '-')));
   const publication = f.calls.at(-1)[1];
   assert.equal(publication.draft, false);
   assert.equal(publication.prerelease, true);
@@ -105,8 +106,8 @@ test('a stable release is never converted into a Pre-release', async t => {
 test('an interrupted draft resumes uploads without replacing complete assets', async t => {
   const f = fixture(t, {ref: {object: {type: 'commit', sha: 'a'.repeat(40)}},
     release: {id: 1, tag_name: 'v1.1.3-beta1', target_commitish: 'a'.repeat(40), draft: true, prerelease: true},
-    assets: [{id: 10, name: 'linux-noi-lazarus-1.1.3~beta1-src.tar.gz', state: 'uploaded', size: 16},
-      {id: 11, name: 'linux-noi-lazarus-1.1.3~beta1-src.zip', state: 'starter', size: 0}]});
+    assets: [{id: 10, name: 'linux-noi-lazarus-1.1.3-beta1-src.tar.gz', state: 'uploaded', size: 16},
+      {id: 11, name: 'linux-noi-lazarus-1.1.3-beta1-src.zip', state: 'starter', size: 0}]});
   await publish(f.options);
   assert.deepEqual(f.calls.map(call => call[0]), ['getRef', 'delete', 'upload', 'upload', 'publish']);
   assert.equal(f.calls[1][1].asset_id, 11);
