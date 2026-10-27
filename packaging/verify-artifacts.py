@@ -6,6 +6,8 @@ import subprocess
 import tarfile
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
+from original_icon import icon_pixels
 
 
 def check_sources(tar_path, zip_path):
@@ -35,6 +37,9 @@ def check_deb(deb_path, version):
         return subprocess.check_output(["dpkg-deb", "-f", str(deb_path), name], text=True).strip()
     assert field("Package") == "devcpp-noi"
     assert field("Architecture") == "amd64"
+    assert field("Homepage") == "https://github.com/TH911/Dev-Cpp-Linux"
+    assert field("Description").startswith("Dev-Cpp - C/C++ IDE for NOI Linux")
+    assert "GPL-2.0-or-later" in field("Description")
     if version:
         assert field("Version") == version.lstrip("v")
     depends = field("Depends")
@@ -51,6 +56,27 @@ def check_deb(deb_path, version):
         original_icon = Path(__file__).resolve().parent.parent / "linux-noi-lazarus/devcpp.ico"
         assert (root / "usr/share/pixmaps/devcpp-noi.ico").read_bytes() == (app / "devcpp.ico").read_bytes() == original_icon.read_bytes()
         assert not (root / "usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg").exists(), "Unexpected replacement icon"
+        png = root / "usr/share/icons/hicolor/48x48/apps/devcpp-noi.png"
+        assert png.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        pixels = icon_pixels(png)
+        assert pixels[:2] == (48, 48), "Unexpected theme icon dimensions"
+        assert pixels == icon_pixels(original_icon), "Theme PNG changes original icon pixels"
+        metadata = root / "usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml"
+        component = ET.parse(metadata).getroot()
+        assert component.tag == "component" and component.get("type") == "desktop-application"
+        for tag, expected in {"id": "io.github.TH911.DevCpp", "name": "Dev-Cpp",
+                              "pkgname": "devcpp-noi", "metadata_license": "CC0-1.0",
+                              "project_license": "GPL-2.0-or-later"}.items():
+            assert component.findtext(tag) == expected, tag
+        desktop_id = component.find("launchable[@type='desktop-id']").text
+        assert desktop_id == "devcpp-noi-installed.desktop"
+        assert (root / "usr/share/applications" / desktop_id).is_file()
+        assert component.findtext("developer_name"), "Missing developer attribution"
+        assert component.findtext("icon[@type='stock']") == "devcpp-noi"
+        assert component.findtext("url[@type='homepage']") == field("Homepage")
+        # Validate using the actual NOI Linux-era AppStream implementation in CI.
+        subprocess.run(["appstreamcli", "validate", "--no-net", str(metadata)], check=True)
+        assert (root / "usr/share/doc/devcpp-noi/NOI-LINUX-SOFTWARE-INSTALL.md").is_file()
         assert list((app / "icons").glob("*.bmp")), "Missing toolbar icons"
         for path in root.rglob("*"):
             if path.is_dir():

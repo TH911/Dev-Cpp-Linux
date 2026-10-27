@@ -11,6 +11,7 @@ import tarfile
 import tempfile
 import time
 import zipfile
+from original_icon import export_original_icon
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = ROOT / "packaging" / "templates"
@@ -117,11 +118,17 @@ def build_deb(version, output, binary, epoch):
         copy_file(TEMPLATES / "migrate-launchers.py", app / "migrate-launchers.py", 0o755)
         copy_file(TEMPLATES / "devcpp-noi-migrate.desktop", package / "etc/xdg/autostart/devcpp-noi-migrate.desktop")
         copy_file(SOURCE / "devcpp.ico", package / "usr/share/pixmaps/devcpp-noi.ico")
+        # PNG makes the unchanged artwork available to AppStream/theme consumers.
+        # The application and existing desktop entries keep their original ICO.
+        export_original_icon(SOURCE / "devcpp.ico", package / "usr/share/icons/hicolor/48x48/apps/devcpp-noi.png")
+        copy_file(TEMPLATES / "io.github.TH911.DevCpp.metainfo.xml",
+                  package / "usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml")
         docs = package / "usr/share/doc/devcpp-noi"
         copy_file(SOURCE / "COPYING.txt", docs / "copyright")
         copy_file(SOURCE / "README.md", docs / "README.md")
         copy_file(SOURCE / "FONTS.md", docs / "FONTS.md")
         copy_file(ROOT / "docs/PACKAGING.md", docs / "PACKAGING.md")
+        copy_file(ROOT / "docs/NOI-LINUX-SOFTWARE-INSTALL.md", docs / "NOI-LINUX-SOFTWARE-INSTALL.md")
         (package / "DEBIAN").mkdir()
         size = sum(p.stat().st_size for p in package.rglob("*") if p.is_file())
         control = (TEMPLATES / "control").read_text().replace("@VERSION@", version).replace("@INSTALLED_SIZE@", str((size + 1023) // 1024))

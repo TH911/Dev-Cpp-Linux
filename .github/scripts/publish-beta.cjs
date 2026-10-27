@@ -56,7 +56,9 @@ module.exports = async function publishBeta({github, context, core, root = proce
         `源码提交：${context.sha}\n\n` +
         `已通过 Ubuntu 20.04 / NOI Linux 2.0 工具链的构建、GTK2 回归与安装检查：` +
         `https://github.com/${owner}/${repo}/actions/runs/${context.runId}\n\n` +
-        '附件包含 amd64 .deb，以及仅包含 linux-noi-lazarus/ 的 ZIP 和 tar.gz 源码归档。测试版不会替代最新稳定版。'
+        '附件包含 amd64 .deb，以及仅包含 linux-noi-lazarus/ 的 ZIP 和 tar.gz 源码归档。测试版不会替代最新稳定版。\n\n' +
+        `[打包与安装说明](https://github.com/${owner}/${repo}/blob/${tag}/docs/PACKAGING.md) · ` +
+        `[NOI Linux 软件安装修复指南](https://github.com/${owner}/${repo}/blob/${tag}/docs/NOI-LINUX-SOFTWARE-INSTALL.md)`
     }));
   }
   const assets = await github.paginate(github.rest.repos.listReleaseAssets, {

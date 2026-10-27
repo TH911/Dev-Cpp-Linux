@@ -10,7 +10,7 @@ source /etc/os-release
 export DEBIAN_FRONTEND=noninteractive
 apt-get -o Acquire::Retries=3 update
 apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-  git ca-certificates make binutils python3 dpkg-dev \
+  git ca-certificates make binutils python3 dpkg-dev appstream desktop-file-utils \
   lcl-utils-2.0 lcl-gtk2-2.0 lcl-units-2.0 lazarus-src-2.0 \
   fp-compiler fp-utils fp-units-fcl fp-units-gfx fp-units-misc \
   libgtk2.0-dev libx11-dev gcc g++ \

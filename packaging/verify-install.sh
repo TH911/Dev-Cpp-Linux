@@ -8,7 +8,7 @@ if [[ $EUID != 0 ]]; then
 fi
 deb=$(realpath -- "${1:?Usage: verify-install.sh /path/to/devcpp-noi_VERSION_amd64.deb}")
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-for tool in dpkg runuser xvfb-run xdotool timeout sha256sum fpc python3; do
+for tool in dpkg runuser xvfb-run xdotool timeout sha256sum fpc python3 appstreamcli; do
   command -v "$tool" >/dev/null || { echo "Missing test tool: $tool" >&2; exit 1; }
 done
 if dpkg-query -W -f='${Status}' devcpp-noi 2>/dev/null | grep -q ' installed$'; then
@@ -146,6 +146,9 @@ test -x /usr/bin/devcpp-noi
 test ! -e /usr/share/icons/hicolor/scalable/apps/devcpp-noi.svg
 cmp /usr/share/pixmaps/devcpp-noi.ico /usr/lib/devcpp-noi/devcpp.ico
 test -r /usr/share/applications/devcpp-noi-installed.desktop
+test -r /usr/share/icons/hicolor/48x48/apps/devcpp-noi.png
+test -r /usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml
+appstreamcli validate --no-net /usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml
 test -x /usr/lib/devcpp-noi/migrate-launchers.py
 test -r /etc/xdg/autostart/devcpp-noi-migrate.desktop
 if command -v desktop-file-validate >/dev/null 2>&1; then
@@ -387,6 +390,8 @@ cp "$test_dir/home/.config/devcpp-noi.ini" "$test_dir/config.expected"
 dpkg -r devcpp-noi
 test ! -e /usr/bin/devcpp-noi
 test ! -e /usr/lib/devcpp-noi/devcpp-noi
+test ! -e /usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml
+test ! -e /usr/share/icons/hicolor/48x48/apps/devcpp-noi.png
 cmp "$test_dir/config.expected" "$test_dir/home/.config/devcpp-noi.ini"
 cmp "$test_dir/mimeapps.expected" "$test_dir/home/.config/mimeapps.list"
 dpkg --purge devcpp-noi

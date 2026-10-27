@@ -1,8 +1,8 @@
 # Dev-Cpp-Linux
 
-基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。最近稳定版本为 **[v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)**，本分支测试版本为 **1.1.3~beta2**。
+基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。最近稳定版本为 **[v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)**，本分支测试版本为 **1.1.3~beta3**。
 
-开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。beta 通过完整检查后自动发布为 **Pre-release**，当前测试包见 [v1.1.3-beta2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta2)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。beta 已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
+开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。beta 通过完整检查后自动发布为 **Pre-release**，当前测试包见 [v1.1.3-beta3](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta3)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。beta 已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
 
 本次 beta 同时修复科学计数法高亮，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
 
@@ -31,6 +31,8 @@ bash run.sh /path/to/project.dev
 1.1.2 保留原版已有的按钮，并整理调试面板，使布局更接近 Orwell Dev-C++ 5.11：底部左侧放调试操作与表达式结果，右侧放程序输出/GDB 日志，左侧 Debug 页列出断点。源码行号或标记区支持单击切换断点，红点和黄色箭头分别标识断点与当前执行行。关于窗口显示版本、可点击 GitHub 链接、许可证及安装和构建信息，详情可用 Ctrl+A/C 复制。调试、行号交互和关于窗口已通过真实 GTK2 回归，界面按原版结构整理，并非像素复刻。
 
 程序名称统一为 **Dev-Cpp**，安装版与源码版使用同一份原版图标。源码启动提示读取实际程序版本，不再显示旧的 v1.0.0。
+
+beta3 补充 AppStream 应用名称、贡献者、许可证及仓库链接，并将原版图标原样导出为 PNG 供软件中心使用。NOI Linux 上双击 `.deb` 无反应、升级 Snap Store 遇到报错时，请阅读 [“软件安装”修复指南](docs/NOI-LINUX-SOFTWARE-INSTALL.md)。不同安装器对本地包元数据的支持不同，应用中心仍可能显示内部包名或默认图标。
 
 安装版启动器已修复：使用独立的“Dev-Cpp”系统菜单入口与窗口标识，识别并备份旧版自动生成的源码启动入口，防止安装 `.deb` 后仍启动旧目录中的程序。安装、旧入口迁移和确认实际运行版本的步骤见 [打包与安装说明](docs/PACKAGING.md)。已有 Home/Shift+Home、编辑撤销、保存冲突、编译取消、GDB、主题与命名编译器配置等功能的范围见 [移植版说明](linux-noi-lazarus/README.md) 和 [原版 5.11 对齐清单](docs/DEVCPP-5.11-PARITY.md)。
 
