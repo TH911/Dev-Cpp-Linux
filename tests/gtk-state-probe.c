@@ -82,7 +82,9 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
             fprintf(out, ",\"selected\":%s", selected && start != end ? "true" : "false");
         }
     }
-    fputc('}', out);
+    fprintf(out, ",\"mapped\":%s,\"viewable\":%s}",
+        gtk_widget_get_mapped(widget) ? "true" : "false",
+        gtk_widget_get_window(widget) && gdk_window_is_viewable(gtk_widget_get_window(widget)) ? "true" : "false");
     g_free(owned_text);
     if (GTK_IS_CONTAINER(widget)) gtk_container_forall(GTK_CONTAINER(widget), inspect_widget, out);
 }

@@ -82,7 +82,7 @@ test('branch, event, version and missing artifacts are rejected before any GitHu
   for (const options of [{context: {ref: 'refs/heads/main'}},
     {context: {eventName: 'workflow_dispatch', payload: {}}},
     {context: {eventName: 'workflow_dispatch', payload: {inputs: {publish_beta: 'false'}}}},
-    {context: {eventName: 'pull_request'}}, {version: '1.1.3'}]) {
+    {context: {eventName: 'pull_request'}}, {version: '1.3.0-invalid'}]) {
     const f = fixture(t, options);
     await assert.rejects(publish(f.options));
     assert.equal(f.calls.length, 0);
@@ -123,4 +123,15 @@ test('an interrupted draft resumes uploads without replacing complete assets', a
   await publish(f.options);
   assert.deepEqual(f.calls.map(call => call[0]), ['getRef', 'delete', 'upload', 'upload', 'publish']);
   assert.equal(f.calls[1][1].asset_id, 11);
+});
+
+// A user-requested numeric version on beta is still a Pre-release, never latest.
+test('numeric beta version publishes v1.3.0 as a Pre-release', async t => {
+  const f = fixture(t, {version: '1.3.0'});
+  await publish(f.options);
+  const release = f.calls.find(call => call[0] === 'createRelease')[1];
+  assert.equal(release.tag_name, 'v1.3.0');
+  assert.equal(release.prerelease, true);
+  assert.equal(release.make_latest, 'false');
+  assert.equal(f.calls.at(-1)[1].prerelease, true);
 });

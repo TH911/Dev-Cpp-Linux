@@ -3,7 +3,7 @@ program editor_themes_test;
 {$mode objfpc}{$H+}
 
 uses Interfaces, Forms, Classes, SysUtils, Graphics, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, SynGutterLineNumber, editor_themes, mainform;
+  noi_syn_cpp, SynGutterLineNumber, editor_themes, mainform;
 
 procedure Check(Condition: Boolean; const MessageText: string);
 begin
@@ -65,7 +65,7 @@ begin
       Check(not (fsBold in Editor.BracketMatchColor.Style), 'matched brackets must not acquire bold style');
       Check(Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0].MarkupInfo.Foreground <>
         Editor.Gutter.Color, 'line numbers must remain visible');
-      Check(Editor.Gutter.SeparatorPart.Width >= 21,
+      Check(Editor.Gutter.SeparatorPart.Width + Editor.Gutter.CodeFoldPart.Width = 21,
         'leave the original Dev-Cpp gap between line numbers and source');
       Check(Editor.Gutter.SeparatorPart.MarkupInfo.Background = Editor.Gutter.Color,
         'gutter spacing follows the selected theme');

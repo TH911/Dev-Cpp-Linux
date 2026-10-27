@@ -4,9 +4,9 @@
 
 ## 中文
 
-基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**。
+基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**，本 beta 分支版本为 **1.3.0**（[Pre-release](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.0)）。
 
-开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。当前正式安装包见 [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
+开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。本分支测试安装包见 [v1.3.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.0)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
 
 正式版同时包含科学计数法高亮修复，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
 
@@ -52,6 +52,16 @@ Release 除 GitHub 默认的整库源码外，由 [发布工作流](.github/work
 
 打包与卸载说明见 [PACKAGING.md](docs/PACKAGING.md)。源码仓库不提交可执行文件和安装包；既有发布标签保持不变。Release 的安装包和源码归档由发布工作流验证后上传；未发布的构建也可从 [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml) 下载。
 
+### v1.3.0 原版界面布局
+
+按原版截图恢复双排工具栏、带图标菜单、较窄的项目/类侧栏、完整宽度的底部输出页和七栏状态信息。标题显示当前文件路径，修改后的标签使用 `[*]`；正常编辑为白底，选择代码时使用原版深蓝底白字。新配置默认编辑字号为 14，已有字体和字号设置保留。
+
+第二排作用域/函数框及类树可导航当前缓冲区的简单类和函数；这是轻量索引，不是完整 C++ 语义解析器。C++ 花括号折叠和缩进虚线支持实际折叠/展开，普通字符串和注释中的花括号不构成折叠。编译日志含错误数、警告数、输出文件、大小和耗时；支持中止编译、缩短路径、关闭及重新打开输出区，搜索结果不再覆盖编译诊断。
+
+文件菜单提供基本打印、HTML/RTF/TeX 文本导出；打印需系统已配置打印机。AStyle 菜单调用可选的 `astyle` 软件包，可选风格，修改可一次撤销；安装包推荐安装该软件包，纯源码版可通过系统包管理器补装。导入菜单目前提供向 `.dev` 项目添加源文件，尚未实现 Windows 工程格式转换。高级性能分析工具仍未移植。
+
+本次按要求使用 `v1.3.0` 标签，但在 beta 分支发布为 **Pre-release**，不会替代最新稳定版 v1.2.0。CI 的 `devcpp-classic-ui-previews` 附件包含实际 GTK2 截图；Linux 窗口边框、滚动条和字体渲染由系统控制。
+
 ### 主题和界面语言
 
 v1.2.0 修复编译器选项、编辑器选项、运行参数及调试等输入框的灰色文字：普通文字使用黑字白底，选中文字保留 GTK 原生高亮配色，禁用控件仍使用禁用状态的颜色。
@@ -68,20 +78,20 @@ v1.2.0 修复编译器选项、编辑器选项、运行参数及调试等输入�
 
 从 [Releases](https://github.com/TH911/Dev-Cpp-Linux/releases) 下载新的 amd64 `.deb`；测试版标记为 **Pre-release**。先保存代码，并正常关闭所有 Dev-Cpp 窗口。
 
-在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `devcpp-noi_1.2.0_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
+在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `devcpp-noi_1.3.0_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
 
 #### 2. 确认下载包的版本
 
 ```bash
-dpkg-deb -f ./devcpp-noi_1.2.0_amd64.deb Version
+dpkg-deb -f ./devcpp-noi_1.3.0_amd64.deb Version
 ```
 
-这个示例应输出 `1.2.0`。若这里仍显示旧版本，请先确认下载的是新版文件。
+这个示例应输出 `1.3.0`。若这里仍显示旧版本，请先确认下载的是新版文件。
 
 #### 3. 覆盖安装新版
 
 ```bash
-sudo apt install --reinstall ./devcpp-noi_1.2.0_amd64.deb
+sudo apt install --reinstall ./devcpp-noi_1.3.0_amd64.deb
 ```
 
 `./` 表示使用当前文件夹中的安装包，不能漏掉。APT 会处理依赖；`--reinstall` 也允许重新安装相同版本，适合修复安装文件。输入管理员密码时，终端不显示字符是正常的。若命令报错，请先保留完整输出、处理错误，再继续核对版本。
@@ -93,7 +103,7 @@ dpkg-query -W -f='${Version}\n' devcpp-noi
 /usr/bin/devcpp-noi --version
 ```
 
-这个示例中，第一条应输出 `1.2.0`，第二条应包含 `Dev-Cpp 1.2.0` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
+这个示例中，第一条应输出 `1.3.0`，第二条应包含 `Dev-Cpp 1.3.0` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
 
 确认版本正确后，直接启动安装版的新窗口：
 
@@ -126,7 +136,7 @@ dpkg-query -W -f='${Version}\n' devcpp-noi
 
 ## English
 
-Dev-Cpp is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The stable release is **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
+Dev-Cpp is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The beta is **[v1.3.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.0)**; the latest stable release remains **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
 
 Development goes to the [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta) branch. Successful compatibility, GUI and installation checks automatically publish a GitHub **Pre-release** with an amd64 `.deb` and source ZIP/tar.gz archives containing `linux-noi-lazarus/`. Existing release tags and assets are preserved. `main` is reserved for stable releases. [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) also retains build artifacts.
 
@@ -158,6 +168,16 @@ Installed [Consolas](linux-noi-lazarus/FONTS.md) is detected, with an explicit m
 
 See the [port README](linux-noi-lazarus/README.md) and [5.11 parity audit](docs/DEVCPP-5.11-PARITY.md) for tested behavior and remaining limits, including advanced debugging, project management, searches and completion.
 
+### v1.3.0 classic interface layout
+
+The beta restores two toolbar rows, menu icons, the narrow project/class sidebar, full-width output pages and seven live status fields. The title includes the active path and modified tabs use `[*]`. Normal editing remains white; selected code uses the original navy/white colors. New configurations default to editor size 14; existing font preferences are retained.
+
+Scope/function selectors and the class tree navigate simple declarations in the active buffer. This is a lightweight index, not a full C++ semantic parser. Lexer-aware curly-brace folding and dotted guides support actual fold/unfold operations; ordinary strings and comments do not create folds. Build logs report errors, warnings, output path/size and elapsed time. Abort, shorten paths, close/reopen reports and separate search results are functional.
+
+File offers basic printing and HTML/RTF/TeX text exports. Printing requires a configured system printer. AStyle uses the optional `astyle` package, supports style selection and formats as one undoable edit; the Debian package recommends it. Source builds can install it through the system package manager. Import currently adds source files to `.dev` projects; Windows project conversion and advanced profiling remain pending.
+
+As requested, the beta tag is `v1.3.0` and remains a **Pre-release**; v1.2.0 stays the latest stable release. CI's `devcpp-classic-ui-previews` artifact contains actual GTK2 screenshots. Window decorations, scrollbars and font rendering remain native to Linux.
+
 ### Themes and interface languages
 
 Version 1.2.0 fixes gray text in compiler options, editor options, runtime parameters and debugger inputs. Normal input text uses black on white, selection retains native GTK highlight colors, and disabled controls retain their insensitive appearance.
@@ -182,15 +202,15 @@ For graphical installation, use your system's package installer or GDebi. If “
 2. Check the version inside that file:
 
 ```bash
-dpkg-deb -f ./devcpp-noi_1.2.0_amd64.deb Version
+dpkg-deb -f ./devcpp-noi_1.3.0_amd64.deb Version
 ```
 
-The example should report `1.2.0`.
+The example should report `1.3.0`.
 
 3. Install or reinstall the downloaded package:
 
 ```bash
-sudo apt install --reinstall ./devcpp-noi_1.2.0_amd64.deb
+sudo apt install --reinstall ./devcpp-noi_1.3.0_amd64.deb
 ```
 
 Keep the leading `./`. APT handles dependencies; `--reinstall` also permits repairing an installation of the same version. Password input is not echoed. If this command fails, retain its full output and resolve the error before proceeding.
@@ -202,7 +222,7 @@ dpkg-query -W -f='${Version}\n' devcpp-noi
 /usr/bin/devcpp-noi --version
 ```
 
-Expect `1.2.0` and `Dev-Cpp 1.2.0` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
+Expect `1.3.0` and `Dev-Cpp 1.3.0` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
 
 5. Start the installed program explicitly:
 

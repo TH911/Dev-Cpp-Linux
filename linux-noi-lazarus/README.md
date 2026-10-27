@@ -4,7 +4,7 @@
 
 ## 中文
 
-这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前正式版本为 **1.2.0**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)。
+这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.0**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.0)。
 
 在此目录打开终端，运行：
 
@@ -27,7 +27,7 @@ bash run.sh /path/to/project.dev
 `.deb` 安装版无需 Lazarus/FPC。更新时先保存代码并关闭旧窗口，然后在安装包所在目录运行（替换为实际文件名）：
 
 ```bash
-sudo apt install --reinstall ./devcpp-noi_1.2.0_amd64.deb
+sudo apt install --reinstall ./devcpp-noi_1.3.0_amd64.deb
 /usr/bin/devcpp-noi --version
 /usr/bin/devcpp-noi --new-window
 ```
@@ -35,6 +35,8 @@ sudo apt install --reinstall ./devcpp-noi_1.2.0_amd64.deb
 更新无需先卸载，用户设置会保留。源码版与安装版使用不同启动入口和实例标识；如果旧图标仍打开旧版，可运行 `/usr/bin/devcpp-noi --repair-launchers` 迁移可识别的历史自动生成入口。自定义入口保持不变。完整的中英双语更新步骤见 [仓库 README](https://github.com/TH911/Dev-Cpp-Linux/blob/main/README.md#使用命令行更新已安装的-dev-cpp)。
 
 当前仍有移植范围限制，包括完整模板向导、增量项目构建、完整 C++ 语义解析、第二编辑视图及高级调试功能。完整检查使用 Ubuntu 20.04 对应工具链、Xvfb 和 XTerm；NOI Linux 原版 GNOME 桌面上的焦点、缩放和终端行为仍需实机验收。代码与原始资源按 GPL-2.0-or-later 提供，见 `COPYING.txt`。
+
+v1.3.0 恢复双排工具栏、函数导航、折叠和全宽输出页；提供基础打印、文本导出和可选 AStyle 格式化。已有字体设置保留。
 
 输入框使用清晰的黑字白底，选中文字保留原生高亮配色；禁用状态仍由 GTK 主题控制。
 
@@ -44,12 +46,17 @@ This is the **Lazarus/LCL native port in progress**. It uses only software
 listed in the official NOI Linux 2.0 environment: Lazarus 2.0.6, FPC 3.0.4,
 GCC/G++ 9.3 and GDB 9.1. This program follows Orwell Dev-C++ 5.11's main window
 structure, menu names, F9/F10/F11 actions, and `.dev` project format.
+The interface restores the original two-row toolbar, function selectors, folding
+and full-width report tabs; printing and HTML/RTF/TeX text export are available.
+AStyle formatting uses an optional system astyle package. The symbol navigator
+is a lightweight index, not full C++ semantic analysis. Existing font settings
+are retained; new editor configurations use size 14.
 The application supports installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This stable release is **1.2.0**. Future development pushes to `beta` publish a
+This beta build is **1.3.0** (published as Pre-release `v1.3.0`). Future development pushes to `beta` publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0).
+and directory source archives. See [v1.3.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.0).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0).
 
@@ -220,7 +227,7 @@ The compact Sans 9 interface and panel structure move toward the original
 are restored after Stop or normal exit. See [the debugger guide](../docs/DEBUGGING.md).
 Persistent watches, conditional breakpoints, call-stack browsing, attach and
 other advanced debugger features remain pending. Project resource builds,
-printing/export, full C++ signature resolution, a second editor view and
+full C++ signature resolution, a second editor view and
 full-file formatting are also pending. F9 currently recompiles all project
 sources, so F12 has the same compilation scope until an incremental builder
 exists. Ctrl+Shift+S is Save As in

@@ -60,7 +60,7 @@ def wait(predicate, message):
     raise AssertionError(message)
 def window(title=None):
     return next(w for w in snapshot() if w['type']=='GtkWindow' and w['visible']
-                and (w['text']==title if title else w['text'].startswith('Dev-Cpp ')))
+                and (w['text']==title if title else 'Dev-Cpp ' in w['text']))
 def keys(*values):
     subprocess.run(['xdotool','key','--clearmodifiers','--delay','70',*values],check=True)
     time.sleep(.2)
@@ -95,7 +95,7 @@ def inputs(title, minimum):
         for state in ('selected','active'):
             assert contrast(x[state+'_text'],x[state+'_base'])>=4.5,(title,state,x)
     return rows
-wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text'].startswith('Dev-Cpp ') for x in xs),'main window missing')
+wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'Dev-Cpp ' in x['text'] for x in xs),'main window missing')
 main=window(); focus(main)
 keys('ctrl+alt+o')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Compiler Options' for x in xs),'compiler options missing')
@@ -114,7 +114,7 @@ focus(main); keys('alt+t','Home','Down','Return')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Editor Options' for x in xs),'editor options missing')
 inputs('Editor Options',3)  # editable font combo and both spin edits
 keys('Escape')
-focus(main); keys('alt+x','End','Return')
+focus(main); keys('alt+x','End','Up','Return')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Execute Parameters' for x in xs),'parameters missing')
 inputs('Execute Parameters',1)
 keys('Escape')

@@ -5,7 +5,7 @@ unit editor_themes;
 interface
 
 uses Classes, SysUtils, Graphics, Forms, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, SynGutter;
+  noi_syn_cpp, SynGutterLineNumber, SynGutterChanges, SynGutterMarks, SynGutter;
 
 const EditorThemeCount = 11;
 
@@ -156,19 +156,29 @@ begin
     Editor.LineHighlightColor.Style := [];
     Editor.LineHighlightColor.StyleMask := [];
     Editor.Gutter.Color := Background[20];
-    { Orwell 5.11 devCFG.pas: LeftOffset=4, RightOffset=21,
+    { Orwell 5.11: 21 pixels split between folding (14) and trailing space (7),
       BorderStyle=gbsNone. Lazarus splits the gutter into independent parts. }
     Editor.Gutter.LeftOffset := 4;
+    Editor.BookMarkOptions.LeftMargin := 0;
+    if Editor.Gutter.Parts.ByClass[TSynGutterMarks, 0] <> nil then
+    begin
+      Editor.Gutter.Parts.ByClass[TSynGutterMarks, 0].AutoSize := False;
+      Editor.Gutter.Parts.ByClass[TSynGutterMarks, 0].Width := 16;
+    end;
+    TSynGutterLineNumber(Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0]).DigitCount := 1;
     if Editor.Gutter.SeparatorPart <> nil then
       with Editor.Gutter.SeparatorPart do
       begin
         AutoSize := False;
-        Width := 21;
+        Width := 7;
         LineWidth := 0;
         MarkupInfo.Background := Editor.Gutter.Color;
       end;
     if Editor.Gutter.CodeFoldPart <> nil then
     begin
+      Editor.Gutter.CodeFoldPart.Visible := True;
+      Editor.Gutter.CodeFoldPart.AutoSize := False;
+      Editor.Gutter.CodeFoldPart.Width := 14;
       Editor.Gutter.CodeFoldPart.MarkupInfo.Foreground := Foreground[22];
       Editor.Gutter.CodeFoldPart.MarkupInfo.Background := Editor.Gutter.Color;
     end;

@@ -10,8 +10,8 @@ module.exports = async function publishBeta({github, context, core, root = proce
     throw new Error('Pre-releases require a beta push or an explicit manual publish_beta run.');
   }
   const version = fs.readFileSync(path.join(root, 'VERSION'), 'utf8').trim();
-  if (!/^\d+\.\d+\.\d+~beta[1-9]\d*$/.test(version)) {
-    throw new Error('A beta requires a VERSION such as 1.1.3~beta1.');
+  if (!/^\d+\.\d+\.\d+(?:~beta[1-9]\d*)?$/.test(version)) {
+    throw new Error('Pre-release VERSION must be x.y.z or x.y.z~betaN.');
   }
   const tag = `v${version.replace('~', '-')}`;
   const names = [

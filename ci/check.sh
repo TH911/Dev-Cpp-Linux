@@ -40,7 +40,7 @@ fpc -Fulinux-noi-lazarus -FU"$test_dir/profiles" -FE"$test_dir/profiles" \
 "$test_dir/profiles/compiler-profiles-test"
 bash tests/runtime-support-smoke.sh
 timeout 60s bash tests/gdb-session-smoke.sh
-for name in editor-actions editor-themes ui-language command-state; do
+for name in editor-actions editor-themes ui-language command-state classic-layout; do
   lazbuild --widgetset=gtk2 "tests/$name-test.lpi" > "$test_dir/$name-build.log" 2>&1 || {
     cat "$test_dir/$name-build.log" >&2; exit 1;
   }
@@ -49,3 +49,5 @@ done
 for name in noi-linux ui-interaction runtime-ui gdb-ui preferences-ui input-colors-ui about-ui project-ui; do
   timeout 180s xvfb-run -a bash "tests/$name-smoke.sh"
 done
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 90s xvfb-run -a -s "-screen 0 1920x1080x24" bash tests/classic-ui-smoke.sh

@@ -130,3 +130,5 @@ bash packaging/verify-install.sh dist/devcpp-noi_1.2.0_amd64.deb
 ```
 
 验证包括：`dpkg -i`、普通用户启动并打开含空格的中文相对路径、IPC 转发到当前安装实例、GIO 实际执行软件面板入口、旧实例隔离、旧入口备份、删除源码后重新打开、通信句柄不被终端继承、无 DISPLAY 版本查询、F11 实际编译运行 C++ 程序、`/usr/lib` 无变化和锁文件、文件类型默认关联保持不变、卸载和 purge 后设置保留。脚本需要能够创建 Xvfb 显示的容器，且结束后删除自己的临时 HOME。
+
+本次用户指定 beta 标签 `v1.3.0`，包内版本为 `1.3.0`，仍标记 GitHub Pre-release，不替换 v1.2.0 稳定版。可选 AStyle 使用系统 `astyle` 包（Recommends），打印使用系统已配置的打印机。

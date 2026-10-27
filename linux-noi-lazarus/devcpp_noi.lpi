@@ -88,13 +88,14 @@
         <IsPartOfProject Value="True"/>
       </Unit18>
     </Units>
-    <RequiredPackages Count="2">
+    <RequiredPackages Count="3">
       <Item1>
         <PackageName Value="SynEdit"/>
       </Item1>
       <Item2>
         <PackageName Value="LCL"/>
       </Item2>
+      <Item3><PackageName Value="Printer4Lazarus"/></Item3>
     </RequiredPackages>
   </ProjectOptions>
   <CompilerOptions>

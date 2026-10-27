@@ -1,0 +1,23 @@
+unit classic_chrome;
+{$mode objfpc}{$H+}
+interface
+procedure ConfigureClassicChrome;
+implementation
+{$IFDEF LCLgtk2}
+uses Gtk2;
+var Configured: Boolean = False;
+{$ENDIF}
+procedure ConfigureClassicChrome;
+begin
+  {$IFDEF LCLgtk2}
+  if Configured then Exit;
+  Configured := True;
+  { Application-local chrome. Keep native selection/disabled states and entry
+    base colors; the editor's syntax palettes are independent of this style. }
+  gtk_rc_parse_string('style "devcpp-classic-chrome" {' +
+    ' font_name = "Sans 9" bg[NORMAL] = "#f0f0f0" fg[NORMAL] = "#000000" ' +
+    ' xthickness = 1 ythickness = 1 } ' +
+    'class "GtkWidget" style "devcpp-classic-chrome"');
+  {$ENDIF}
+end;
+end.

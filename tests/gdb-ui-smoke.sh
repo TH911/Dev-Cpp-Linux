@@ -179,12 +179,12 @@ expect_gutter_marker() {
   fail "line $1 breakpoint marker did not become $2 (red pixels: $red)"
 }
 evaluate() {
-  press alt+d e ctrl+a
+  press alt+x End Right e ctrl+a
   type_text "$1"
   press Return
   wait_text "$1 = $2"
 }
-continue_debug() { press alt+d c; }
+continue_debug() { press alt+x End Right c; }
 source_line() {
   # Escape does not move the caret. Its KeyUp refreshes the normal editor
   # status, allowing observation of the actual caret set by DebugLocation.
