@@ -46,7 +46,7 @@ jobs:
           from pathlib import Path
           tag = os.environ['RELEASE_TAG']
           version = Path('VERSION').read_text().strip()
-          if (tag[1:] if tag.startswith('v') else tag) != (version[1:] if version.startswith('v') else version):
+          if (tag[1:] if tag.startswith('v') else tag) != (version[1:] if version.startswith('v') else version).replace('~', '-'):
               raise SystemExit('Release tag must match VERSION in the checked-out source')
           PY
       - name: Build, run regressions as an ordinary user, and verify installation
