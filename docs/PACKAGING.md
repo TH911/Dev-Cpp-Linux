@@ -26,9 +26,9 @@ python3 packaging/verify-artifacts.py --version v1.1.2 --output dist
 
 Debian 打包需要 `dpkg-deb`，并拒绝非 amd64 ELF 输入。**发布的程序必须在 Ubuntu 20.04 amd64 中预先构建并验证**，不能把较新发行版生成的程序标为兼容 20.04。此工具不会替代目标系统上的兼容性测试。所有产物请写入未跟踪的构建目录，不要把程序或安装包提交到 Git。
 
-## 检查与按需发布
+## 检查与自动发布
 
-常规 [兼容性工作流](../.github/workflows/noi-linux.yml) 在 push、PR 和手动触发时执行检查并保存打包产物。推送到 `beta` 和普通手动运行均只检查和保存构建产物，不创建 **Pre-release**。只有用户明确要求发行后，才在 `beta` 分支手动运行并启用 `publish_beta`；完整构建、GTK2 回归和安装检查均通过后，发布任务才使用同一次构建的产物创建 **Pre-release**。发布标签固定到通过检查的提交；三个附件先上传到草稿，全部成功后再公开，并保留最新稳定 Release。
+常规 [兼容性工作流](../.github/workflows/noi-linux.yml) 在 push、PR 和手动触发时执行检查并保存打包产物。推送到 `beta` 后，完整构建、GTK2 回归和安装检查均通过，发布任务就会使用同一次构建的产物自动创建 **Pre-release**，并附带 `.deb`、源码 ZIP 和 tar.gz。普通手动检查默认只保存构建产物；手动运行时启用 `publish_beta` 也会在检查通过后发行。发布标签固定到通过检查的提交；三个附件先上传到草稿，全部成功后再公开，并保留最新稳定 Release。
 
 beta 版本使用 `1.1.3~beta3` 格式，Git 标签将 `~` 转成 `-`，对应 `v1.1.3-beta3`。GitHub 会改写附件名中的 `~`，因此上传时明确使用连字符，例如 `devcpp-noi_1.1.3-beta3_amd64.deb`；安装包内部版本仍为 `1.1.3~beta3`，本地构建和 Actions 产物文件名也保留 `~`。发布新测试内容时递增 beta 编号，并同步 `VERSION`、应用版本、`PORT_REVISION` 和相关说明；已发布的版本不能用于另一提交。重跑同一提交不会覆盖已有附件，未完成的草稿可继续上传。
 

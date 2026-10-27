@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_beta:
-        description: 'Explicitly publish a beta Pre-release after checks (only when requested)'
+        description: 'Publish after this manual check (beta pushes publish automatically)'
         type: boolean
         default: false
 
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Reject publishing without an explicit manual request
+      - name: Verify automatic and manual beta publishing rules
         run: node --test tests/publish-beta-test.cjs
 
   build-and-run:
@@ -54,7 +54,7 @@ jobs:
 
   publish-beta:
     needs: [build-and-run, publishing-rules]
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'workflow_dispatch' && inputs.publish_beta == true
+    if: github.ref == 'refs/heads/beta' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_beta == true))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

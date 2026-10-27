@@ -4,9 +4,10 @@ const path = require('node:path');
 // Called only after this run's ordinary-user regressions and installation test
 // succeed. Downloaded artifacts belong to the same workflow run and commit.
 module.exports = async function publishBeta({github, context, core, root = process.cwd()}) {
-  if (context.ref !== 'refs/heads/beta' || context.eventName !== 'workflow_dispatch' ||
-      context.payload?.inputs?.publish_beta !== 'true') {
-    throw new Error('Pre-releases require an explicit manual publish_beta request on the beta branch.');
+  const publishEvent = context.eventName === 'push' ||
+    (context.eventName === 'workflow_dispatch' && context.payload?.inputs?.publish_beta === 'true');
+  if (context.ref !== 'refs/heads/beta' || !publishEvent) {
+    throw new Error('Pre-releases require a beta push or an explicit manual publish_beta run.');
   }
   const version = fs.readFileSync(path.join(root, 'VERSION'), 'utf8').trim();
   if (!/^\d+\.\d+\.\d+~beta[1-9]\d*$/.test(version)) {
