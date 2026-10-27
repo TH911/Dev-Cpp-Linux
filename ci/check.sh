@@ -46,6 +46,6 @@ for name in editor-actions editor-themes; do
   }
   timeout 60s xvfb-run -a "linux-noi-lazarus/lib/$name-test"
 done
-for name in noi-linux ui-interaction runtime-ui gdb-ui preferences-ui about-ui; do
+for name in noi-linux ui-interaction runtime-ui gdb-ui preferences-ui about-ui project-ui; do
   timeout 180s xvfb-run -a bash "tests/$name-smoke.sh"
 done

@@ -7,9 +7,9 @@ structure, menu names, F9/F10/F11 actions, and `.dev` project format.
 The beta branch adds installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.1.3~beta3**. After all checks pass, beta builds are
-published as GitHub Pre-releases with the amd64 Debian package and directory
-source archives. See [v1.1.3-beta3](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta3).
+This development build is **1.1.3~beta4 (unreleased)**. Pushes run checks and
+save Actions artifacts only. Pre-releases require an explicit release request
+and a manual run with `publish_beta` enabled. The last published beta is [v1.1.3-beta3](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta3).
 The stable release is [v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2).
 
 On a stock NOI Linux 2.0 desktop, open a terminal in this directory and run:

@@ -18,7 +18,10 @@ type
   end;
 
 const
-  Translations: array[0..273] of TTranslationEntry = (
+  Translations: array[0..276] of TTranslationEntry = (
+    (EnglishText: 'New Project'; ChineseText: '新建项目'),
+    (EnglishText: '&Project...'; ChineseText: '项目(&P)...'),
+    (EnglishText: '&Source File'; ChineseText: '源代码(&S)'),
     (EnglishText: '&File'; ChineseText: '文件(&F)'),
     (EnglishText: '&Edit'; ChineseText: '编辑(&E)'),
     (EnglishText: '&Search'; ChineseText: '搜索(&S)'),

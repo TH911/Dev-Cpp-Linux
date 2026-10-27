@@ -62,6 +62,10 @@ begin
       Check(not (fsBold in Editor.BracketMatchColor.Style), 'matched brackets must not acquire bold style');
       Check(Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0].MarkupInfo.Foreground <>
         Editor.Gutter.Color, 'line numbers must remain visible');
+      Check(Editor.Gutter.SeparatorPart.Width >= 21,
+        'leave the original Dev-Cpp gap between line numbers and source');
+      Check(Editor.Gutter.SeparatorPart.MarkupInfo.Background = Editor.Gutter.Color,
+        'gutter spacing follows the selected theme');
     end;
     ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Classic Plus', Colors);
     Check(Syntax.NumberAttri.Foreground = clPurple, 'Classic Plus numbers retain original purple');

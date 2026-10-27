@@ -760,7 +760,7 @@ var
   Bar: TMainMenu;
   FileMenu, EditMenu, SearchMenu, ViewMenu, ProjectMenu,
     ExecuteMenu, ToolsMenu, HelpMenu, LanguageMenu, DebugMenu, BookmarkMenu,
-    ToggleBookmarksMenu, GotoBookmarksMenu, BookmarkItem: TMenuItem;
+    ToggleBookmarksMenu, GotoBookmarksMenu, BookmarkItem, NewMenu: TMenuItem;
   MainPanel, CenterPanel, BottomPanel: TPanel;
   Toolbar: TToolBar;
   ToolImages: TImageList;
@@ -856,7 +856,9 @@ begin
   Bar := TMainMenu.Create(Self);
   Menu := Bar;
   FileMenu := TMenuItem.Create(Self); FileMenu.Caption := Tr('&File'); Bar.Items.Add(FileMenu);
-  AddMenu(FileMenu, '&New Source File', @NewClick, ShortCut(Ord('N'), [ssCtrl]));
+  NewMenu := AddMenu(FileMenu, '&New', nil);
+  AddMenu(NewMenu, '&Project...', @NewProjectClick);
+  AddMenu(NewMenu, '&Source File', @NewClick, ShortCut(Ord('N'), [ssCtrl]));
   AddMenu(FileMenu, '&Open project or file...', @OpenClick, ShortCut(Ord('O'), [ssCtrl]));
   AddMenu(FileMenu, '-', nil);
   AddMenu(FileMenu, '&Save', @SaveClick, ShortCut(Ord('S'), [ssCtrl]));
@@ -3162,7 +3164,7 @@ begin
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   Dialog := TSaveDialog.Create(Self);
   try
-    Dialog.Title := Tr('Save');
+    Dialog.Title := Tr('New Project');
     Dialog.DefaultExt := 'dev';
     Dialog.Filter := Tr('Dev-C++ project|*.dev');
     Dialog.FileName := 'Project1.dev';
@@ -3227,6 +3229,7 @@ begin
     try
     Dialog.Title := Tr('Open');
     Dialog.Filter := Tr('C/C++ files|*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*');
+    Dialog.InitialDir := ExtractFilePath(FProjectPath);
     Dialog.Options := Dialog.Options + [ofAllowMultiSelect, ofFileMustExist];
     if not Dialog.Execute then Exit;
     Snapshot := CaptureFileSnapshot(FProjectPath);

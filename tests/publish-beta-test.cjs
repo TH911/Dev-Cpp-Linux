@@ -14,7 +14,8 @@ function fixture(t, options = {}) {
   const names = [`linux-noi-lazarus-${version}-src.tar.gz`,
     `linux-noi-lazarus-${version}-src.zip`, `devcpp-noi_${version}_amd64.deb`];
   for (const name of names) fs.writeFileSync(path.join(root, 'dist', name), 'verified fixture');
-  const context = {ref: 'refs/heads/beta', eventName: 'push', sha: 'a'.repeat(40),
+  const context = {ref: 'refs/heads/beta', eventName: 'workflow_dispatch',
+    payload: {inputs: {publish_beta: 'true'}}, sha: 'a'.repeat(40),
     repo: {owner: 'example', repo: 'devcpp'}, runId: 42, ...options.context};
   const calls = [];
   let ref = options.ref;
@@ -79,6 +80,8 @@ test('publishes exactly three assets before making the beta public; reruns prese
 
 test('branch, event, version and missing artifacts are rejected before any GitHub mutation', async t => {
   for (const options of [{context: {ref: 'refs/heads/main'}},
+    {context: {eventName: 'push'}}, {context: {payload: {}}},
+    {context: {payload: {inputs: {publish_beta: 'false'}}}},
     {context: {eventName: 'pull_request'}}, {version: '1.1.3'}]) {
     const f = fixture(t, options);
     await assert.rejects(publish(f.options));

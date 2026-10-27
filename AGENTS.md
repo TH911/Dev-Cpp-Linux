@@ -1,6 +1,6 @@
 # 开发约定
 
-常规开发和测试改动推送到 `beta` 分支，通过完整检查后自动发布为 GitHub Pre-release，并附带源码 ZIP、tar.gz 和 amd64 `.deb`。`main` 用于用户明确要求的稳定发布。
+常规开发和测试改动推送到 `beta` 分支，只运行检查并保存 Actions 构建产物，**不得自动发布 Pre-release**。只有用户明确要求发行时，才手动运行工作流并启用 `publish_beta`，通过完整检查后发布源码 ZIP、tar.gz 和 amd64 `.deb`。普通手动检查也不发行。`main` 用于用户明确要求的稳定发布。
 
 发布新的 beta 内容时，先递增测试版本（例如 `1.1.3~beta1` → `1.1.3~beta2`），同步更新 `VERSION`、`linux-noi-lazarus/app_version.pas`、`PORT_REVISION` 和对应说明。Git 标签及 GitHub 附件文件名将 `~` 转为 `-`，例如 `v1.1.3-beta2`；安装包内部版本保留 Debian 的 `~beta2`。既有发布标签和附件不覆盖，Pre-release 不替换最新稳定 Release。
 

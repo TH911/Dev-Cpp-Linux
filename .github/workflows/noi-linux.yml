@@ -4,11 +4,25 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish_beta:
+        description: 'Explicitly publish a beta Pre-release after checks (only when requested)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  publishing-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reject publishing without an explicit manual request
+        run: node --test tests/publish-beta-test.cjs
+
   build-and-run:
     runs-on: ubuntu-latest
     container: ubuntu:20.04
@@ -39,8 +53,8 @@ jobs:
           if-no-files-found: error
 
   publish-beta:
-    needs: build-and-run
-    if: github.ref == 'refs/heads/beta' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [build-and-run, publishing-rules]
+    if: github.ref == 'refs/heads/beta' && github.event_name == 'workflow_dispatch' && inputs.publish_beta == true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -52,8 +66,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Verify Pre-release publishing rules
-        run: node --test tests/publish-beta-test.cjs
       - uses: actions/download-artifact@v4
         with:
           name: devcpp-noi-linux-2.0-amd64

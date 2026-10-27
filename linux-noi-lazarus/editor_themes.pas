@@ -5,7 +5,7 @@ unit editor_themes;
 interface
 
 uses Classes, SysUtils, Graphics, Forms, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges;
+  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, SynGutter;
 
 const EditorThemeCount = 4;
 
@@ -252,6 +252,19 @@ begin
     Editor.LineHighlightColor.Style := [];
     Editor.LineHighlightColor.StyleMask := [];
     Editor.Gutter.Color := Background[20];
+    { Orwell 5.11 devCFG.pas: LeftOffset=4, RightOffset=21,
+      BorderStyle=gbsNone. Lazarus splits the gutter into independent parts. }
+    Editor.Gutter.LeftOffset := 4;
+    if Editor.Gutter.SeparatorPart <> nil then
+      with Editor.Gutter.SeparatorPart do
+      begin
+        AutoSize := False;
+        Width := 21;
+        LineWidth := 0;
+        MarkupInfo.Background := Editor.Gutter.Color;
+      end;
+    if Editor.Gutter.CodeFoldPart <> nil then
+      Editor.Gutter.CodeFoldPart.MarkupInfo.Background := Editor.Gutter.Color;
     if Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0] = nil then
       TSynGutterLineNumber.Create(Editor.Gutter.Parts);
     Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0].MarkupInfo.Foreground := Foreground[20];
