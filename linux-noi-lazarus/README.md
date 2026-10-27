@@ -7,9 +7,9 @@ structure, menu names, F9/F10/F11 actions, and `.dev` project format.
 The beta branch adds installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.1.3~beta4**. Pushes to `beta` automatically publish a
+This beta build is **1.1.3~beta5**. Pushes to `beta` automatically publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.1.3-beta4](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta4).
+and directory source archives. See [v1.1.3-beta5](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta5).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2).
 

@@ -38,6 +38,8 @@ beta 版本使用 `1.1.3~beta3` 格式，Git 标签将 `~` 转成 `-`，对应 `
 
 ## 安装与卸载
 
+已经安装的用户可直接覆盖更新，完整步骤见 [README：使用命令行更新已安装的 Dev-Cpp](../README.md#使用命令行更新已安装的-dev-cpp)。
+
 ```bash
 sudo apt install ./devcpp-noi_1.1.2_amd64.deb
 /usr/bin/devcpp-noi --version

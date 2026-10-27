@@ -1,8 +1,8 @@
 # Dev-Cpp-Linux
 
-基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。最近稳定版本为 **[v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)**，本分支测试版本为 **1.1.3~beta4**。
+基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。最近稳定版本为 **[v1.1.2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.2)**，本分支测试版本为 **1.1.3~beta5**。
 
-开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。当前测试包见 [v1.1.3-beta4](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta4)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。beta 已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
+开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。当前测试包见 [v1.1.3-beta5](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.1.3-beta5)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。beta 已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
 
 本次 beta 同时修复科学计数法高亮，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
 
@@ -47,5 +47,66 @@ Release 除 GitHub 默认的整库源码外，由 [发布工作流](.github/work
 - `devcpp-noi_版本_amd64.deb`：预编译程序、桌面入口和运行资源。用 `sudo apt install ./devcpp-noi_版本_amd64.deb` 安装，APT 会处理编译器、GDB、GTK2 和终端依赖；安装版无需 Lazarus/FPC。
 
 打包与卸载说明见 [PACKAGING.md](docs/PACKAGING.md)。源码仓库不提交可执行文件和安装包；既有发布标签保持不变。Release 的安装包和源码归档由发布工作流验证后上传；未发布的构建也可从 [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml) 下载。
+
+## 使用命令行更新已安装的 Dev-Cpp
+
+更新时可直接覆盖安装，**不需要先卸载旧版**，用户设置会保留。应用中心显示“已安装”，不代表已经更新到下载包中的版本。
+
+### 1. 下载新版，关闭旧窗口
+
+从 [Releases](https://github.com/TH911/Dev-Cpp-Linux/releases) 下载新的 amd64 `.deb`；测试版标记为 **Pre-release**。先保存代码，并正常关闭所有 Dev-Cpp 窗口。
+
+在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `devcpp-noi_1.1.3-beta5_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
+
+### 2. 确认下载包的版本
+
+```bash
+dpkg-deb -f ./devcpp-noi_1.1.3-beta5_amd64.deb Version
+```
+
+这个示例应输出 `1.1.3~beta5`。文件名里的 `-beta5` 和包内版本的 `~beta5` 是正常的表示差异。若这里仍显示旧版本，请先确认下载的是新版文件。
+
+### 3. 覆盖安装新版
+
+```bash
+sudo apt install --reinstall ./devcpp-noi_1.1.3-beta5_amd64.deb
+```
+
+`./` 表示使用当前文件夹中的安装包，不能漏掉。APT 会处理依赖；`--reinstall` 也允许重新安装相同版本，适合修复安装文件。输入管理员密码时，终端不显示字符是正常的。若命令报错，请先保留完整输出、处理错误，再继续核对版本。
+
+### 4. 核对系统记录和实际程序
+
+```bash
+dpkg-query -W -f='${Version}\n' devcpp-noi
+/usr/bin/devcpp-noi --version
+```
+
+这个示例中，第一条应输出 `1.1.3~beta5`，第二条应包含 `Dev-Cpp 1.1.3~beta5` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
+
+确认版本正确后，直接启动安装版的新窗口：
+
+```bash
+/usr/bin/devcpp-noi --new-window
+```
+
+也可以在“帮助 → 关于”中查看实际版本和程序路径；安装版程序应位于 `/usr/lib/devcpp-noi/devcpp-noi`。
+
+### 如果点击旧图标仍打开旧版
+
+如果上面的直接启动已经是新版，旧图标却仍打开旧版，请先确认旧窗口已经全部退出，并从应用列表重新打开 **Dev-Cpp**。这类情况需要区分旧进程、源码版和旧快捷方式。
+
+对本程序历史脚本自动生成的快捷方式，可以尝试迁移到安装版，命令无需 `sudo`：
+
+```bash
+/usr/bin/devcpp-noi --repair-launchers
+```
+
+迁移只处理能识别的历史自动生成入口。自定义快捷方式需自行调整；若固定的图标仍指向源码版，可取消固定旧图标，再固定正确的安装版。不要通过删除源码目录或用户设置来尝试更新。
+
+如果下载包是新版，但安装后的版本检查仍显示旧版，请提供安装命令和版本检查的完整输出，以便进一步定位。
+
+本项目目前没有提供 APT 软件源，`apt upgrade` 不会自动从 GitHub 下载新版 Dev-Cpp。以后更新时，重新下载新版 `.deb`，按上述步骤覆盖安装即可。更多说明见 [打包与安装说明](docs/PACKAGING.md)；“软件安装”完全打不开时，参见 [Snap Store 修复指南](docs/NOI-LINUX-SOFTWARE-INSTALL.md)。
+
+## 兼容性检查
 
 兼容性检查使用 Ubuntu 20.04 amd64 容器，固定 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3.0 和 GDB 9.1；[检查入口](ci/check.sh) 包含文件保存、编辑、运行参数、调试和真实 GTK2 交互回归；[打包检查](ci/build-and-package.sh) 另验证压缩包及 `.deb` 安装/卸载。容器使用 Xvfb 和 XTerm，NOI Linux 2.0 原版 GNOME 桌面的显示、焦点及 GNOME Terminal 行为仍需实机验收。
