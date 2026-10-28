@@ -66,7 +66,7 @@ begin
       Check(Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0].MarkupInfo.Foreground <>
         Editor.Gutter.Color, 'line numbers must remain visible');
       Check(Editor.Gutter.SeparatorPart.Width + Editor.Gutter.CodeFoldPart.Width = 21,
-        'leave the original Dev-Cpp gap between line numbers and source');
+        'leave the original dev-cpp-linux gap between line numbers and source');
       Check(Editor.Gutter.SeparatorPart.MarkupInfo.Background = Editor.Gutter.Color,
         'gutter spacing follows the selected theme');
     end;

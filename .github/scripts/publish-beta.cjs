@@ -17,7 +17,7 @@ module.exports = async function publishBeta({github, context, core, root = proce
   const names = [
     `linux-noi-lazarus-${version}-src.tar.gz`,
     `linux-noi-lazarus-${version}-src.zip`,
-    `devcpp-noi_${version}_amd64.deb`
+    `dev-cpp-linux_${version}_amd64.deb`
   ];
   // Read every asset before creating a public tag or a draft release.
   // GitHub rewrites '~' in uploaded asset names. Choose a stable public name
@@ -53,7 +53,7 @@ module.exports = async function publishBeta({github, context, core, root = proce
   if (!release) {
     ({data: release} = await github.rest.repos.createRelease({
       owner, repo, tag_name: tag, target_commitish: context.sha,
-      name: `Dev-Cpp ${tag}`, draft: true, prerelease: true, make_latest: 'false',
+      name: `dev-cpp-linux ${tag}`, draft: true, prerelease: true, make_latest: 'false',
       body: `beta 分支测试版，版本 ${version}。\n\n` +
         `源码提交：${context.sha}\n\n` +
         `已通过 Ubuntu 20.04 / NOI Linux 2.0 工具链的构建、GTK2 回归与安装检查：` +

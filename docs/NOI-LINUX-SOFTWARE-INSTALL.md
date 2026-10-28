@@ -5,7 +5,7 @@
 启动时因 GTK / ATK 库不匹配而退出。更新商店时，又先后遇到了 snapd 太旧和
 用户服务功能未启用的问题。
 
-**只有出现相同故障时才需要按本文处理。安装 Dev-Cpp 本身不要求升级 Snap。**
+**只有出现相同故障时才需要按本文处理。安装 dev-cpp-linux 本身不要求升级 Snap。**
 命令需要在你自己的 NOI Linux 终端中执行。一次执行一行，看到成功结果再继续；
 不要把报错信息当成下一条命令复制。`sudo` 会询问当前管理员密码，输入时不显示字符是正常的。
 
@@ -13,10 +13,10 @@
 
 | 名称 | 含义 |
 | --- | --- |
-| `.deb` | Debian / Ubuntu 的安装包，Dev-Cpp 的预编译安装包使用此格式 |
+| `.deb` | Debian / Ubuntu 的安装包，dev-cpp-linux 的预编译安装包使用此格式 |
 | “软件安装” | 文件管理器调用的图形安装入口，NOI Linux 中可能指向 Snap Store |
 | `snap-store` | 软件商店；更新后窗口也可能叫“应用中心” |
-| `snapd` | 支持 Snap 应用运行的后台服务，与 Dev-Cpp 程序是两回事 |
+| `snapd` | 支持 Snap 应用运行的后台服务，与 dev-cpp-linux 程序是两回事 |
 | `core24` | 某些新版 Snap 应用需要的隔离运行环境；不代表要把 NOI Linux 升级成 Ubuntu 24.04 |
 
 ## 第一步：确认打开 deb 的到底是什么
@@ -52,7 +52,7 @@ symbol lookup error: .../libgtk-3.so.0: undefined symbol: atk_plug_set_child
 ```
 
 这是商店自己的运行库冲突，发生在读取安装包之前。给 `.deb` 添加执行权限、
-重新编译 Dev-Cpp，都不能解决这个启动错误。该冲突曾由 Snap 维护者确认，
+重新编译 dev-cpp-linux，都不能解决这个启动错误。该冲突曾由 Snap 维护者确认，
 处理方向是更新商店，而不是手动替换 GTK 库。
 
 ## 第二步：定向更新 snapd
@@ -71,7 +71,7 @@ sudo apt install --only-upgrade snapd
 
 这里不需要执行整套 `apt upgrade`，也不需要升级操作系统。
 若 APT 提示找不到 `snapd`，先停下并确认系统是否原本使用 Snap；
-不要为了安装 Dev-Cpp，盲目新增整套 Snap 环境。
+不要为了安装 dev-cpp-linux，盲目新增整套 Snap 环境。
 
 完成后检查：
 
@@ -139,7 +139,7 @@ sudo snap refresh snap-store
 在文件管理器中右键 `.deb`，选择“用『软件安装』打开”。也可以在文件所在目录执行：
 
 ```bash
-xdg-open './devcpp-noi_1.1.3-beta2_amd64.deb'
+xdg-open './dev-cpp-linux_1.3.1-beta1_amd64.deb'
 ```
 
 请替换成实际文件名。更新后的商店入口可能与旧版不同，因此无需继续使用
@@ -149,22 +149,22 @@ xdg-open './devcpp-noi_1.1.3-beta2_amd64.deb'
 安装完成后，可在终端确认：
 
 ```bash
-/usr/bin/devcpp-noi --version
+/usr/bin/dev-cpp-linux --version
 ```
 
-请注意路径是 `/usr/bin/`，不是 `/user/bin/`。软件面板和窗口中的应用名称应为 **Dev-Cpp**。
+请注意路径是 `/usr/bin/`，不是 `/user/bin/`。软件面板和窗口中的应用名称应为 **dev-cpp-linux**。
 
 ## 能打开以后，这些提示是什么意思？
 
 - **“有潜在危险”**：应用中心对本地第三方安装包的来源提示，不等于检测到病毒。
   请从本仓库的 [Releases](https://github.com/TH911/Dev-Cpp-Linux/releases) 下载。
-- **灰色图标、包名 `devcpp-noi`、未知发布者或许可证 `unknown`**：
+- **灰色图标、包名 `dev-cpp-linux`、未知发布者或许可证 `unknown`**：
   新版应用中心的本地 deb 页面会使用 PackageKit 信息和默认图标，未必读取包内 AppStream。
   本项目已提供 AppStream 名称、贡献者、GPL-2.0-or-later 许可证、仓库地址及原版图标的 PNG，
-  但不能保证每个安装器都展示这些字段。`devcpp-noi` 是保持升级兼容的内部包名。
+  但不能保证每个安装器都展示这些字段。`dev-cpp-linux` 是保持升级兼容的内部包名。
   本地页面显示 `unknown` 不会改变软件的实际许可证。
 - **638 个软件包可以升级**：APT 提供的信息，不代表必须全部升级。
-- **Typora 软件源连接失败**：与 Dev-Cpp 和 Snap Store 是不同问题。
+- **Typora 软件源连接失败**：与 dev-cpp-linux 和 Snap Store 是不同问题。
   若 Ubuntu 软件源也失败，需要先解决网络或源问题；不能仅凭一条警告认定全部索引已更新。
 - **升级时出现服务警告**：以最终命令状态和 `snap version` 为准。
   本次虽有 `snapd.mounts-pre.target` 的重启提示，但新版后台实际已经运行；
@@ -175,7 +175,7 @@ xdg-open './devcpp-noi_1.1.3-beta2_amd64.deb'
 在安装包所在目录执行：
 
 ```bash
-sudo apt install ./devcpp-noi_1.1.3-beta2_amd64.deb
+sudo apt install ./dev-cpp-linux_1.3.1-beta1_amd64.deb
 ```
 
 APT 会处理依赖。文件名前面的 `./` 不能漏，文件名请按实际版本替换。

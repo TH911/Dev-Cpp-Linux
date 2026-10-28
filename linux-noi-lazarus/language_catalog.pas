@@ -16,9 +16,24 @@ function HasUpstreamUiText(const EnglishText: string): Boolean;
 
 implementation
 
-uses IniFiles;
+uses IniFiles, fgl;
 
 type
+  TTextMapData = specialize TFPGMap<string, string>;
+  TTextMap = class
+  private
+    FData: TTextMapData;
+    function GetValue(const Key: string): string;
+    procedure SetValue(const Key, Value: string);
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Clear;
+    procedure Load(Pairs: TStrings);
+    procedure Assign(Source: TTextMap);
+    property Values[const Key: string]: string read GetValue write SetValue;
+  end;
+
   TLanguageInfo = record
     Code, Name, FileName: string;
   end;
@@ -27,10 +42,53 @@ const
   {$I language_data.inc}
 
 var
-  EnglishIds: TStringList = nil;
-  EnglishExactIds: TStringList = nil;
-  ActiveValues: TStringList = nil;
+  EnglishIds: TTextMap = nil;
+  EnglishExactIds: TTextMap = nil;
+  ActiveValues: TTextMap = nil;
   ActiveCode: string = '';
+
+constructor TTextMap.Create;
+begin
+  inherited Create;
+  FData := TTextMapData.Create;
+  FData.Sorted := True;
+end;
+destructor TTextMap.Destroy;
+begin
+  FData.Free;
+  inherited Destroy;
+end;
+function TTextMap.GetValue(const Key: string): string;
+var I: Integer;
+begin
+  I := FData.IndexOf(Key);
+  if I < 0 then Result := '' else Result := FData.Data[I];
+end;
+procedure TTextMap.SetValue(const Key, Value: string);
+var I: Integer;
+begin
+  I := FData.IndexOf(Key);
+  if I < 0 then FData.Add(Key, Value) else FData.Data[I] := Value;
+end;
+procedure TTextMap.Clear;
+begin
+  FData.Clear;
+end;
+procedure TTextMap.Load(Pairs: TStrings);
+var I: Integer;
+begin
+  Clear;
+  for I := 0 to Pairs.Count - 1 do
+    if GetValue(Pairs.Names[I]) = '' then
+      SetValue(Pairs.Names[I], Pairs.ValueFromIndex[I]);
+end;
+procedure TTextMap.Assign(Source: TTextMap);
+var I: Integer;
+begin
+  Clear;
+  for I := 0 to Source.FData.Count - 1 do
+    SetValue(Source.FData.Keys[I], Source.FData.Data[I]);
+end;
 
 function UiLanguageCode(Index: Integer): string;
 begin
@@ -89,12 +147,8 @@ var Ini: TMemIniFile; Values: TStringList; I, Code: Integer; Key: string;
 
 begin
   if EnglishIds <> nil then Exit;
-  EnglishIds := TStringList.Create;
-  EnglishIds.CaseSensitive := True;
-  EnglishIds.NameValueSeparator := #1;
-  EnglishExactIds := TStringList.Create;
-  EnglishExactIds.NameValueSeparator := #1;
-  EnglishExactIds.CaseSensitive := True;
+  EnglishIds := TTextMap.Create;
+  EnglishExactIds := TTextMap.Create;
   Values := TStringList.Create;
   Ini := TMemIniFile.Create(CatalogPath('English.lng'));
   try
@@ -139,7 +193,7 @@ begin
     Alias('Tab width (1-16)', 79008);
     Alias('Program arguments', 71002);
     Alias('Execute Parameters', 67001);
-    Alias('About Dev-Cpp', 9001);
+    Alias('About dev-cpp-linux', 9001);
   finally
     Ini.Free;
     Values.Free;
@@ -171,11 +225,11 @@ begin
 end;
 
 procedure RemapLegacyCatalog(const FileName: string);
-var Mapping, Converted: TStringList; Ini: TMemIniFile; I: Integer; Value: string;
+var Mapping: TStringList; Converted: TTextMap; Ini: TMemIniFile; I: Integer; Value: string;
 begin
   if ActiveValues.Values['1'] <> '' then Exit;
   Mapping := TStringList.Create;
-  Converted := TStringList.Create;
+  Converted := TTextMap.Create;
   Ini := TMemIniFile.Create(CatalogPath('legacy_ids.ini'));
   try
     Ini.ReadSectionValues(FileName, Mapping);
@@ -193,7 +247,7 @@ begin
 end;
 
 function UpstreamUiText(const Code, EnglishText: string): string;
-var I: Integer; Id, Value, Selected: string; Ini: TMemIniFile;
+var I: Integer; Id, Value, Selected: string; Ini: TMemIniFile; Pairs: TStringList;
 begin
   Result := EnglishText;
   Selected := ResolveUiLanguage(Code);
@@ -204,13 +258,17 @@ begin
   if Id = '' then Exit;
   if ActiveCode <> Selected then
   begin
-    if ActiveValues = nil then ActiveValues := TStringList.Create;
+    if ActiveValues = nil then ActiveValues := TTextMap.Create;
     ActiveValues.Clear;
     for I := 0 to UiLanguageCount - 1 do
       if Languages[I].Code = Selected then
       begin
         Ini := TMemIniFile.Create(CatalogPath(Languages[I].FileName));
-        try Ini.ReadSectionValues('lang', ActiveValues); finally Ini.Free; end;
+        Pairs := TStringList.Create;
+        try
+          Ini.ReadSectionValues('lang', Pairs);
+          ActiveValues.Load(Pairs);
+        finally Pairs.Free; Ini.Free; end;
         RemapLegacyCatalog(Languages[I].FileName);
         Break;
       end;
@@ -220,6 +278,10 @@ begin
   { Never feed a stale Windows translation's incompatible placeholders to Format. }
   if (Value <> '') and (FormatSignature(Value) = FormatSignature(EnglishText)) then
     Result := StringReplace(Value, '<CR>', LineEnding, [rfReplaceAll]);
+  if Pos('About dev-cpp-linux', StringReplace(EnglishText, '&', '', [rfReplaceAll])) > 0 then begin
+    Result := StringReplace(Result, 'Dev-C++', 'dev-cpp-linux', [rfReplaceAll]);
+    Result := StringReplace(Result, 'Dev-Cpp', 'dev-cpp-linux', [rfReplaceAll]);
+  end;
 end;
 
 finalization

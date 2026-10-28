@@ -101,7 +101,7 @@
   <CompilerOptions>
     <Version Value="11"/>
     <Target>
-      <Filename Value="devcpp-noi.build"/>
+      <Filename Value="dev-cpp-linux.build"/>
     </Target>
     <SearchPaths>
       <OtherUnitFiles Value="."/>

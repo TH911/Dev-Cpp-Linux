@@ -18,7 +18,26 @@ type
   end;
 
 const
-  Translations: array[0..301] of TTranslationEntry = (
+  Translations: array[0..320] of TTranslationEntry = (
+    (EnglishText: '&Compiler Options...'; ChineseText: '编译选项(&C)...'),
+    (EnglishText: '&Environment Options...'; ChineseText: '环境选项(&V)...'),
+    (EnglishText: '&Shortcut Options...'; ChineseText: '快捷键选项(&Y)...'),
+    (EnglishText: 'Configure &Tools...'; ChineseText: '配置工具(&T)...'),
+    (EnglishText: 'Package Manager'; ChineseText: 'Package Manager'),
+    (EnglishText: 'Environment Options'; ChineseText: '环境选项'),
+    (EnglishText: 'Shortcut Options'; ChineseText: '快捷键选项'),
+    (EnglishText: 'Configure Tools'; ChineseText: '配置工具'),
+    (EnglishText: 'Detect external file changes'; ChineseText: '检测文件的外部修改'),
+    (EnglishText: 'Show report window'; ChineseText: '显示输出窗口'),
+    (EnglishText: 'Command'; ChineseText: '命令'),
+    (EnglishText: 'Value'; ChineseText: '设置值'),
+    (EnglishText: 'Executable'; ChineseText: '可执行程序'),
+    (EnglishText: 'Arguments'; ChineseText: '参数'),
+    (EnglishText: 'Working directory'; ChineseText: '工作目录'),
+    (EnglishText: 'External tool'; ChineseText: '外部工具'),
+    (EnglishText: 'Use unique Ctrl/Alt or function-key shortcuts; leave a value empty to disable it.'; ChineseText: '请使用不重复的 Ctrl/Alt 组合键或功能键；留空可禁用快捷键。'),
+    (EnglishText: 'Open a Debian package with the system installer'; ChineseText: '使用系统安装器打开 Debian 安装包'),
+    (EnglishText: 'Could not open the system package installer.'; ChineseText: '无法打开系统软件安装器。'),
     (EnglishText: 'Compilation results...'; ChineseText: '编译结果...'),
     (EnglishText: 'Errors'; ChineseText: '错误'),
     (EnglishText: 'Warnings'; ChineseText: '警告'),
@@ -101,8 +120,8 @@ const
     (EnglishText: '&Syntax Check'; ChineseText: '语法检查(&S)'),
     (EnglishText: 'Compiler &Parameters...'; ChineseText: '编译参数(&P)...'),
     (EnglishText: '&Compiler Options / Parameters...'; ChineseText: '编译器选项 / 参数(&C)...'),
-    (EnglishText: 'E&ditor Options...'; ChineseText: '编辑器选项(&D)...'),
-    (EnglishText: '&About Dev-C++'; ChineseText: '关于 Dev-C++(&A)'),
+    (EnglishText: 'E&ditor Options...'; ChineseText: '编辑器选项(&E)...'),
+    (EnglishText: '&About dev-cpp-linux'; ChineseText: '关于 dev-cpp-linux(&A)'),
     (EnglishText: 'New Source File'; ChineseText: '新建源代码'),
     (EnglishText: 'Open'; ChineseText: '打开'),
     (EnglishText: 'Save'; ChineseText: '保存'),
@@ -122,7 +141,7 @@ const
     (EnglishText: 'Compile log'; ChineseText: '编译日志'),
     (EnglishText: 'Line'; ChineseText: '行'),
     (EnglishText: 'Col'; ChineseText: '列'),
-    (EnglishText: 'Unit'; ChineseText: '文件'),
+    (EnglishText: 'Unit'; ChineseText: '单元'),
     (EnglishText: 'Message'; ChineseText: '信息'),
     (EnglishText: 'Ready'; ChineseText: '就绪'),
     (EnglishText: 'Find results'; ChineseText: '查找结果'),
@@ -169,9 +188,9 @@ const
     (EnglishText: 'Compilation successful.'; ChineseText: '编译成功。'),
     (EnglishText: 'Compilation failed'; ChineseText: '编译失败'),
     (EnglishText: 'The --stack linker option is for Windows. Remove it in Execute > Compiler Parameters.'; ChineseText: '--stack 链接参数用于 Windows。请在“运行 > 编译参数”中移除。'),
-    (EnglishText: 'Dev-C++ project|*.dev'; ChineseText: 'Dev-C++ 项目|*.dev'),
+    (EnglishText: 'dev-cpp-linux project|*.dev'; ChineseText: 'dev-cpp-linux 项目|*.dev'),
     (EnglishText: 'C/C++ files|*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*'; ChineseText: 'C/C++ 文件|*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|所有文件|*'),
-    (EnglishText: 'Dev-C++ project or C/C++ file|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*'; ChineseText: 'Dev-C++ 项目或 C/C++ 文件|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|所有文件|*'),
+    (EnglishText: 'dev-cpp-linux project or C/C++ file|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*'; ChineseText: 'dev-cpp-linux 项目或 C/C++ 文件|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|所有文件|*'),
     (EnglishText: 'C/C++ source|*.cpp;*.c;*.h;*.hpp|All files|*'; ChineseText: 'C/C++ 源文件|*.cpp;*.c;*.h;*.hpp|所有文件|*'),
     (EnglishText: 'File not found: %s'; ChineseText: '找不到文件：%s'),
     (EnglishText: 'Project not found: %s'; ChineseText: '找不到项目：%s'),
@@ -183,7 +202,7 @@ const
     (EnglishText: 'Compile failed: %s'; ChineseText: '编译失败：%s'),
     (EnglishText: 'Run failed: %s'; ChineseText: '运行失败：%s'),
     (EnglishText: 'Compilation failed (exit %d).'; ChineseText: '编译失败（退出码 %d）。'),
-    (EnglishText: 'Dev-C++ 5.11 - NOI Linux native prototype'; ChineseText: 'Dev-C++ 5.11 - NOI Linux 原生移植版'),
+    (EnglishText: 'dev-cpp-linux 5.11 - NOI Linux native prototype'; ChineseText: 'dev-cpp-linux 5.11 - NOI Linux 原生移植版'),
     (EnglishText: 'Based on Orwell Dev-C++ 5.11. GPL-2.0-or-later.'; ChineseText: '基于 Orwell Dev-C++ 5.11，采用 GPL-2.0-or-later 许可证。'),
     (EnglishText: 'Abort'; ChineseText: '中止'),
     (EnglishText: 'Retry'; ChineseText: '重试'),
@@ -230,9 +249,9 @@ const
     (EnglishText: 'A source file cannot overwrite the active project file.'; ChineseText: '源文件不能覆盖当前项目文件。'),
     (EnglishText: 'The file %s is already open in another tab. Close that tab before saving here.'; ChineseText: '文件 %s 已在另一个标签中打开，请先关闭该标签再保存到此处。'),
     (EnglishText: 'The project entry changed. Reload the project before renaming this file.'; ChineseText: '项目记录已更改，请重新加载项目后再重命名此文件。'),
-    (EnglishText: 'The selected file is not a Dev-C++ project.'; ChineseText: '所选文件不是 Dev-C++ 项目。'),
-    (EnglishText: '%s was modified outside Dev-C++.' + LineEnding + 'Reload it from disk? Unsaved changes will be lost.'; ChineseText: '%s 已在 Dev-C++ 外部被修改。' + LineEnding + '是否重新加载磁盘文件？尚未保存的修改会丢失。'),
-    (EnglishText: 'File %s was changed or removed outside Dev-C++.' + LineEnding + 'Overwrite the disk version with the editor contents?'; ChineseText: '文件 %s 已在 Dev-C++ 外部被修改或删除。' + LineEnding + '是否使用编辑器中的内容覆盖磁盘版本？'),
+    (EnglishText: 'The selected file is not a dev-cpp-linux project.'; ChineseText: '所选文件不是 dev-cpp-linux 项目。'),
+    (EnglishText: '%s was modified outside dev-cpp-linux.' + LineEnding + 'Reload it from disk? Unsaved changes will be lost.'; ChineseText: '%s 已在 dev-cpp-linux 外部被修改。' + LineEnding + '是否重新加载磁盘文件？尚未保存的修改会丢失。'),
+    (EnglishText: 'File %s was changed or removed outside dev-cpp-linux.' + LineEnding + 'Overwrite the disk version with the editor contents?'; ChineseText: '文件 %s 已在 dev-cpp-linux 外部被修改或删除。' + LineEnding + '是否使用编辑器中的内容覆盖磁盘版本？'),
     (EnglishText: 'The source was saved to %s, but the project could not be updated: %s' + LineEnding + 'The editor still refers to %s.'; ChineseText: '源码已保存到 %s，但无法更新项目：%s' + LineEnding + '编辑器仍指向 %s。'),
     (EnglishText: 'Bookmark &1'; ChineseText: '书签(&1)'),
     (EnglishText: 'Bookmark &2'; ChineseText: '书签(&2)'),
@@ -296,7 +315,7 @@ const
     (EnglishText: 'Evaluated expressions'; ChineseText: '已求值的表达式'),
     (EnglishText: 'Breakpoints'; ChineseText: '断点'),
     (EnglishText: 'Evaluated expressions are snapshots of the selected stack frame.'; ChineseText: '此处显示所选栈帧中手动求值的结果快照。'),
-    (EnglishText: 'About Dev-C++'; ChineseText: '关于 Dev-C++'),
+    (EnglishText: 'About dev-cpp-linux'; ChineseText: '关于 dev-cpp-linux'),
     (EnglishText: 'NOI Linux edition'; ChineseText: 'NOI Linux 版'),
     (EnglishText: 'Version'; ChineseText: '版本'),
     (EnglishText: 'About'; ChineseText: '关于'),
@@ -316,16 +335,16 @@ const
     (EnglishText: 'Could not open the project repository.'; ChineseText: '无法打开项目仓库地址。'),
     (EnglishText: 'Details copied.'; ChineseText: '详细信息已复制。'),
     (EnglishText: 'Could not copy details: '; ChineseText: '无法复制详细信息：'),
-    (EnglishText: '&About Dev-Cpp'; ChineseText: '关于 Dev-Cpp(&A)'),
+    (EnglishText: '&About dev-cpp-linux'; ChineseText: '关于 dev-cpp-linux(&A)'),
     (EnglishText: 'Evaluate:'; ChineseText: '求值：'),
     (EnglishText: 'Press Enter to evaluate the expression in the current stack frame.'; ChineseText: '输入表达式后按 Enter，在当前栈帧中求值。'),
     (EnglishText: 'Press Enter to send input to the program.'; ChineseText: '按 Enter 向程序发送输入。'),
     (EnglishText: 'Consolas requires an installed font file. If unavailable, a monospace font is used.'; ChineseText: '使用 Consolas 需先安装字体文件；未安装时使用其他等宽字体。')
   );
 
-  DeletedEnglish: string = '%s was deleted outside Dev-C++.' + LineEnding +
+  DeletedEnglish: string = '%s was deleted outside dev-cpp-linux.' + LineEnding +
     'Keep the file in the editor?';
-  DeletedChinese: string = '%s 已在 Dev-C++ 外部被删除。' + LineEnding +
+  DeletedChinese: string = '%s 已在 dev-cpp-linux 外部被删除。' + LineEnding +
     '是否在编辑器中保留文件？';
   ReplaceEnglish: string = 'Replace all occurrences?' + LineEnding +
     'Yes: replace all    No: replace next';

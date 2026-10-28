@@ -91,7 +91,7 @@ begin
   FSession.OnEvaluation := @EvaluationText;
   FSession.OnState := @StateChange;
 
-  { Dev-C++ 5.11 keeps debugger commands and evaluation on the left of its
+  { dev-cpp-linux 5.11 keeps debugger commands and evaluation on the left of its
     bottom Debugging sheet, with debugger output to the right. Keep that
     structure while giving the native program terminal a separate page. }
   FControls := TPanel.Create(Self);

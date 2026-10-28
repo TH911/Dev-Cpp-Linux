@@ -92,7 +92,7 @@ F11 编译运行、关闭和重新打开项目，以及 Ctrl+N 新建源码；�
 
 对照 `main.dfm` 的 `tbCompile`、`DebugStartPanel` 和 `AboutFrm.dfm`，移除顶部新增的 Continue、Step over、Step into、Toggle Breakpoint，以及 Evaluate、Send input、Copy details 按钮。原版已有的 Debug/Stop、底部继续/步进/停止与编译器选择保留；求值和程序输入用 Enter，关于详情用 Ctrl+A/C。
 
-源码与安装版的桌面名称、主标题统一为 Dev-Cpp，图标使用原版 ICO 原字节；Debug/Stop 使用原版 newlook BMP 原字节。源码运行脚本在构建后读取实际程序版本，兼容版本标记也纳入一致性检查，避免再次显示旧的 v1.0.0。
+源码与安装版的桌面名称、主标题统一为 dev-cpp-linux，图标使用原版 ICO 原字节；Debug/Stop 使用原版 newlook BMP 原字节。源码运行脚本在构建后读取实际程序版本，兼容版本标记也纳入一致性检查，避免再次显示旧的 v1.0.0。
 
 ## 有意保留的差异
 

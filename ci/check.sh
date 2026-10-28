@@ -19,9 +19,9 @@ PY
 lazbuild --version | grep '^2\.0\.6'
 gdb --version | sed -n '1p' | grep '9\.1'
 bash linux-noi-lazarus/build.sh
-env -u DISPLAY linux-noi-lazarus/devcpp-noi --version | grep -F "$(cat VERSION)"
+env -u DISPLAY linux-noi-lazarus/dev-cpp-linux --version | grep -F "$(cat VERSION)"
 env -u DISPLAY bash linux-noi-lazarus/run.sh --version > "$test_dir/source-version.log" 2>&1
-grep -Fx "Dev-Cpp $(cat VERSION)" "$test_dir/source-version.log"
+grep -Fx "dev-cpp-linux $(cat VERSION)" "$test_dir/source-version.log"
 if grep -F 'v1.0.0' "$test_dir/source-version.log"; then
   echo 'Source launcher printed an obsolete release version.' >&2
   exit 1
@@ -51,3 +51,7 @@ for name in noi-linux ui-interaction runtime-ui gdb-ui preferences-ui input-colo
 done
 
 CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 90s xvfb-run -a -s "-screen 0 1920x1080x24" bash tests/classic-ui-smoke.sh
+
+timeout 60s xvfb-run -a python3 tests/startup-smoke.py
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 90s xvfb-run -a -s "-screen 0 1920x1080x24" bash tests/tools-ui-smoke.sh

@@ -11,7 +11,7 @@ procedure ShowAboutDialog(AOwner: TComponent);
 implementation
 
 uses SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Graphics,
-  Dialogs, LCLIntf, LCLType, ui_language, app_version, input_appearance;
+  Dialogs, LCLIntf, LCLType, ui_language, app_version, input_appearance, app_paths;
 
 type
   TAboutDialog = class(TForm)
@@ -22,15 +22,6 @@ type
   public
     constructor Create(AOwner: TComponent); override;
   end;
-
-function ConfigurationPath: string;
-var DirectoryName: string;
-begin
-  DirectoryName := GetEnvironmentVariable('HOME');
-  if DirectoryName = '' then DirectoryName := ExtractFilePath(ParamStr(0))
-  else DirectoryName := IncludeTrailingPathDelimiter(DirectoryName) + '.config';
-  Result := IncludeTrailingPathDelimiter(DirectoryName) + 'devcpp-noi.ini';
-end;
 
 constructor TAboutDialog.Create(AOwner: TComponent);
 var
@@ -110,13 +101,13 @@ begin
     14, 154, 520, 42);
 
   ExecutablePath := ExpandFileName(ParamStr(0));
-  if ExtractFileDir(ExecutablePath) = '/usr/lib/devcpp-noi' then
+  if ExtractFileDir(ExecutablePath) = '/usr/lib/dev-cpp-linux' then
     Distribution := Tr('Debian package')
   else Distribution := Tr('Directory build');
   FDetails := AppName + ' ' + AppVersion + LineEnding +
     Tr('Installation:') + ' ' + Distribution + LineEnding +
     Tr('Executable:') + ' ' + ExecutablePath + LineEnding +
-    Tr('Configuration:') + ' ' + ConfigurationPath + LineEnding +
+    Tr('Configuration:') + ' ' + ApplicationConfigFile + LineEnding +
     Tr('Compiler:') + ' Free Pascal ' + {$I %FPCVERSION%} + LineEnding +
     Tr('Platform:') + ' ' + {$I %FPCTARGETCPU%} + '-' +
       LowerCase({$I %FPCTARGETOS%}) + ' / GTK2' + LineEnding +

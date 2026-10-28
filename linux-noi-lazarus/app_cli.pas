@@ -6,7 +6,7 @@ interface
 
 implementation
 
-uses app_version;
+uses app_version, startup_trace;
 
 initialization
   { This unit must initialize before Interfaces: GTK2 otherwise opens DISPLAY
@@ -14,6 +14,16 @@ initialization
   if (ParamCount = 1) and (ParamStr(1) = '--version') then
   begin
     WriteLn(AppName, ' ', AppVersion);
+    WriteLn(AppRepositoryUrl);
+    Halt(0);
+  end;
+
+  if (ParamCount = 1) and (ParamStr(1) = '--help') then
+  begin
+    WriteLn(AppName, ' ', AppVersion);
+    WriteLn('Usage: dev-cpp-linux [--new-window | --forward-only] [FILE ...]');
+    WriteLn('       dev-cpp-linux --version');
+    WriteLn('       dev-cpp-linux --help');
     WriteLn(AppRepositoryUrl);
     Halt(0);
   end;

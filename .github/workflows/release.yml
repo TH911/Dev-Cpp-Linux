@@ -61,7 +61,7 @@ jobs:
             const names = [
               `linux-noi-lazarus-${version}-src.tar.gz`,
               `linux-noi-lazarus-${version}-src.zip`,
-              `devcpp-noi_${version}_amd64.deb`
+              `dev-cpp-linux_${version}_amd64.deb`
             ];
             const { owner, repo } = context.repo;
             const { data: release } = await github.rest.repos.getReleaseByTag({

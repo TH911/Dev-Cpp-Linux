@@ -43,20 +43,20 @@ try:
         shown = bool(gio.g_app_info_should_show(app))
         if shown and name:
             visible_names.append(name.decode())
-        if desktop_id == b'devcpp-noi-installed.desktop':
+        if desktop_id == b'dev-cpp-linux-installed.desktop':
             assert shown, 'The installed application is hidden from application menus'
-            assert name == b'Dev-Cpp', name
+            assert name == b'dev-cpp-linux', name
             icon = gio.g_app_info_get_icon(app)
             assert icon, 'The installed application has no icon'
             icon_text = gio.g_icon_to_string(icon)
             try:
-                assert ctypes.string_at(icon_text) == b'/usr/share/pixmaps/devcpp-noi.ico'
+                assert ctypes.string_at(icon_text) == b'/usr/share/pixmaps/dev-cpp-linux.ico'
             finally:
                 glib.g_free(icon_text)
             found = True
         node = node.contents.next
     assert found, 'The application is absent from GIO application discovery'
-    assert visible_names.count('Dev-Cpp') == 1, 'Ambiguous duplicate Dev-Cpp menu entries'
+    assert visible_names.count('dev-cpp-linux') == 1, 'Ambiguous duplicate dev-cpp-linux menu entries'
 finally:
     node = apps
     while node:
@@ -64,10 +64,10 @@ finally:
         node = node.contents.next
     glib.g_list_free(apps)
 
-icon_path = Path('/usr/share/pixmaps/devcpp-noi.ico')
-assert icon_path.read_bytes() == Path('/usr/lib/devcpp-noi/devcpp.ico').read_bytes(), \
+icon_path = Path('/usr/share/pixmaps/dev-cpp-linux.ico')
+assert icon_path.read_bytes() == Path('/usr/lib/dev-cpp-linux/devcpp.ico').read_bytes(), \
     'Desktop and program icons differ'
 image = pixbuf.gdk_pixbuf_new_from_file(bytes(icon_path), None)
 assert image, 'The original icon cannot be loaded by the desktop image loader'
 gobject.g_object_unref(image)
-print('PASS: GIO discovers one visible Dev-Cpp application with the unchanged, loadable original icon')
+print('PASS: GIO discovers one visible dev-cpp-linux application with the unchanged, loadable original icon')

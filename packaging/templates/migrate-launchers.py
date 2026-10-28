@@ -107,7 +107,7 @@ def generated_source_desktop(path):
             if set(entry) - {'NoDisplay'} != expected or len(args) != 3:
                 return None
             if (entry.get('Name'), entry.get('Name[zh_CN]')) not in (
-                    ('Dev-C++ (Source)', 'Dev-C++（源码构建）'), ('Dev-Cpp', 'Dev-Cpp')):
+                    ('Dev-C++ (Source)', 'Dev-C++（源码构建）'), ('Dev-Cpp', 'Dev-Cpp'), ('dev-cpp-linux', 'dev-cpp-linux')):
                 return None
             if (entry.get('Comment') != 'Dev-C++ for NOI Linux' or
                     entry.get('Comment[zh_CN]') != '适用于 NOI Linux 的 Dev-C++' or
@@ -125,7 +125,7 @@ def generated_source_desktop(path):
                     entry.get('NoDisplay') != 'true' or len(args) != 4 or
                     (entry.get('Name'), entry.get('Name[zh_CN]')) not in (
                         ('Dev-C++ Source (Open in New Window)', 'Dev-C++ 源码构建（在新窗口打开）'),
-                        ('Dev-Cpp', 'Dev-Cpp'))):
+                        ('Dev-Cpp', 'Dev-Cpp'), ('dev-cpp-linux', 'dev-cpp-linux'))):
                 return None
         if entry.get('NoDisplay', 'false') not in ('true', 'false'):
             return None
@@ -139,10 +139,10 @@ def hide_source_entry(path, backup_dir):
     if ini is None:
         return False
     entry = ini['Desktop Entry']
-    if entry.get('NoDisplay') == 'true' and entry.get('Name') == 'Dev-Cpp':
+    if entry.get('NoDisplay') == 'true' and entry.get('Name') == 'dev-cpp-linux':
         return False
     backup(path, backup_dir)
-    entry['Name'] = entry['Name[zh_CN]'] = 'Dev-Cpp'
+    entry['Name'] = entry['Name[zh_CN]'] = 'dev-cpp-linux'
     entry['NoDisplay'] = 'true'
     descriptor, temporary = tempfile.mkstemp(prefix='.devcpp-migrate-', dir=str(path.parent))
     try:
@@ -177,7 +177,8 @@ def main():
     for name in ('devcpp-noi-source.desktop', 'devcpp-noi-source-new-window.desktop'):
         changed = hide_source_entry(applications / name, backup_dir) or changed
     scripts = data / 'nautilus/scripts'
-    for name in ('Open in New Window (Dev-C++)', '在新窗口打开 (Dev-C++)'):
+    for name in ('Open in New Window (Dev-C++)', '在新窗口打开 (Dev-C++)',
+                 'Open in New Window (Dev-Cpp)', '在新窗口打开 (Dev-Cpp)'):
         path = scripts / name
         if not owned_regular(path):
             continue
@@ -189,23 +190,33 @@ def main():
                 '  mapfile -t selected_files < <(printf \'%s\' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS")',
                 '  exec /bin/bash "$app_launch" --new-window "${selected_files[@]}"',
                 'fi', 'exec /bin/bash "$app_launch" --new-window "$@"']
-            if (len(lines) != 8 or lines[0] != '#!/usr/bin/env bash' or
-                    not lines[1].startswith('app_launch=') or lines[2:] != expected_tail):
+            source_script = (len(lines) == 8 and lines[0] == '#!/usr/bin/env bash' and
+                             lines[1].startswith('app_launch=') and lines[2:] == expected_tail)
+            installed_tail = [line.replace('/bin/bash "$app_launch"', '/usr/bin/devcpp-noi')
+                              for line in expected_tail]
+            installed_script = (len(lines) == 9 and lines[:2] == [
+                '#!/usr/bin/env bash', '# Dev-C++ NOI installed launcher'] and lines[2:] == installed_tail)
+            if not source_script and not installed_script:
                 continue
-            assignment = shlex.split(lines[1])
-            if len(assignment) != 1 or not assignment[0].startswith('app_launch=/') or not assignment[0].endswith('/launch.sh'):
+            if source_script:
+                assignment = shlex.split(lines[1])
+                if len(assignment) != 1 or not assignment[0].startswith('app_launch=/') or not assignment[0].endswith('/launch.sh'):
+                    continue
+            renamed = scripts / name.replace('Dev-C++', 'dev-cpp-linux').replace('Dev-Cpp', 'dev-cpp-linux')
+            if renamed.exists() or renamed.is_symlink():
                 continue
             backup(path, backup_dir)
             descriptor, temporary = tempfile.mkstemp(prefix='.devcpp-migrate-', dir=str(scripts))
             with os.fdopen(descriptor, 'w') as stream:
-                stream.write('#!/usr/bin/env bash\n# Dev-C++ NOI installed launcher\n'
+                stream.write('#!/usr/bin/env bash\n# dev-cpp-linux installed launcher\n'
                              'set -euo pipefail\n'
                              'if [[ -n ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS:-} ]]; then\n'
                              '  mapfile -t selected_files < <(printf \'%s\' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS")\n'
-                             '  exec /usr/bin/devcpp-noi --new-window "${selected_files[@]}"\n'
-                             'fi\nexec /usr/bin/devcpp-noi --new-window "$@"\n')
+                             '  exec /usr/bin/dev-cpp-linux --new-window "${selected_files[@]}"\n'
+                             'fi\nexec /usr/bin/dev-cpp-linux --new-window "$@"\n')
             os.chmod(temporary, 0o755)
-            os.replace(temporary, path)
+            os.replace(temporary, renamed)
+            path.unlink()
         except (OSError, ValueError):
             continue
     if changed:

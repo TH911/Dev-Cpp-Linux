@@ -4,33 +4,33 @@
   <id>io.github.TH911.DevCpp</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-2.0-or-later</project_license>
-  <name>Dev-Cpp</name>
-  <name xml:lang="zh_CN">Dev-Cpp</name>
+  <name>dev-cpp-linux</name>
+  <name xml:lang="zh_CN">dev-cpp-linux</name>
   <summary>C/C++ IDE for NOI Linux</summary>
   <summary xml:lang="zh_CN">适用于 NOI Linux 的 C/C++ 集成开发环境</summary>
   <description>
-    <p>Dev-Cpp is a native Linux port of Orwell Dev-C++ 5.11 using Lazarus and GTK2.
+    <p>dev-cpp-linux is a native Linux port of Orwell Dev-C++ 5.11 using Lazarus and GTK2.
     It targets NOI Linux 2.0, based on Ubuntu 20.04.</p>
     <p>Edit C/C++ source files, build programs with GCC and G++, and debug with GDB,
     including breakpoints, stepping and expression inspection.</p>
-    <p xml:lang="zh_CN">Dev-Cpp 基于 Lazarus 和 GTK2，将 Orwell Dev-C++ 5.11 移植到 Linux，
+    <p xml:lang="zh_CN">dev-cpp-linux 基于 Lazarus 和 GTK2，将 Orwell Dev-C++ 5.11 移植到 Linux，
     目标环境为基于 Ubuntu 20.04 的 NOI Linux 2.0。</p>
     <p xml:lang="zh_CN">支持编辑 C/C++ 源码、使用 GCC 和 G++ 编译程序，以及通过 GDB 设置断点、
     单步执行和查看表达式。</p>
   </description>
-  <developer_name>TH911 and Dev-Cpp Linux contributors</developer_name>
-  <developer_name xml:lang="zh_CN">TH911 及 Dev-Cpp Linux 贡献者</developer_name>
+  <developer_name>TH911 and dev-cpp-linux contributors</developer_name>
+  <developer_name xml:lang="zh_CN">TH911 及 dev-cpp-linux 贡献者</developer_name>
   <url type="homepage">https://github.com/TH911/Dev-Cpp-Linux</url>
   <url type="bugtracker">https://github.com/TH911/Dev-Cpp-Linux/issues</url>
   <url type="help">https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/PACKAGING.md</url>
-  <launchable type="desktop-id">devcpp-noi-installed.desktop</launchable>
-  <pkgname>devcpp-noi</pkgname>
-  <icon type="stock">devcpp-noi</icon>
+  <launchable type="desktop-id">dev-cpp-linux-installed.desktop</launchable>
+  <pkgname>dev-cpp-linux</pkgname>
+  <icon type="stock">dev-cpp-linux</icon>
   <categories>
     <category>Development</category>
     <category>IDE</category>
   </categories>
   <provides>
-    <binary>devcpp-noi</binary>
+    <binary>dev-cpp-linux</binary>
   </provides>
 </component>

@@ -19,7 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p "$test_dir/home/.config"
-printf '[Interface]\nLanguage=en\n' > "$test_dir/home/.config/devcpp-noi.ini"
+printf '[Interface]\nLanguage=en\n' > "$test_dir/home/.config/dev-cpp-linux.ini"
 cat > "$test_dir/theme.rc" <<'RC'
 style "low-contrast-input" {
   text[NORMAL] = "#999999"
@@ -41,7 +41,7 @@ export LANG=C.UTF-8
 env HOME="$test_dir/home" XDG_CACHE_HOME="$test_dir/home/.cache" \
   GTK2_RC_FILES="$test_dir/theme.rc" LD_PRELOAD="$test_dir/gtk-state-probe.so" \
   DEVC_GTK_STATE="$test_dir/state.json" DEVC_GTK_SCREENSHOT="$test_dir/current.png" \
-  "${INPUT_COLORS_APP:-$source_root/linux-noi-lazarus/devcpp-noi}" \
+  "${INPUT_COLORS_APP:-$source_root/linux-noi-lazarus/dev-cpp-linux}" \
   --new-window "$test_dir/sample.cpp" > "$test_dir/runtime.log" 2>&1 &
 app_pid=$!
 python3 - "$test_dir" "$app_pid" <<'PY'
@@ -60,7 +60,7 @@ def wait(predicate, message):
     raise AssertionError(message)
 def window(title=None):
     return next(w for w in snapshot() if w['type']=='GtkWindow' and w['visible']
-                and (w['text']==title if title else 'Dev-Cpp ' in w['text']))
+                and (w['text']==title if title else 'dev-cpp-linux ' in w['text']))
 def keys(*values):
     subprocess.run(['xdotool','key','--clearmodifiers','--delay','70',*values],check=True)
     time.sleep(.2)
@@ -95,7 +95,7 @@ def inputs(title, minimum):
         for state in ('selected','active'):
             assert contrast(x[state+'_text'],x[state+'_base'])>=4.5,(title,state,x)
     return rows
-wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'Dev-Cpp ' in x['text'] for x in xs),'main window missing')
+wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'dev-cpp-linux ' in x['text'] for x in xs),'main window missing')
 main=window(); focus(main)
 keys('ctrl+alt+o')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Compiler Options' for x in xs),'compiler options missing')
@@ -110,7 +110,7 @@ inputs('Compiler Options',6)
 (root/'current.png.request').touch()
 wait(lambda xs:(root/'current.png').exists(),'focused selection screenshot missing')
 keys('Escape')
-focus(main); keys('alt+t','Home','Down','Return')
+focus(main); keys('alt+t','Home','Down','Down','Return')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Editor Options' for x in xs),'editor options missing')
 inputs('Editor Options',3)  # editable font combo and both spin edits
 keys('Escape')
@@ -119,8 +119,8 @@ wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Execu
 inputs('Execute Parameters',1)
 keys('Escape')
 focus(main); keys('alt+h','Home','Return')
-wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'About Dev-Cpp' in x['text'] for x in xs),'about missing')
-about=next(x for x in snapshot() if x['type']=='GtkWindow' and x['visible'] and 'About Dev-Cpp' in x['text'])
+wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'About dev-cpp-linux' in x['text'] for x in xs),'about missing')
+about=next(x for x in snapshot() if x['type']=='GtkWindow' and x['visible'] and 'About dev-cpp-linux' in x['text'])
 inputs(about['text'],1)
 keys('Escape')
 focus(main)

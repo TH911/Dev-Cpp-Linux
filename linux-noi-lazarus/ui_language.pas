@@ -70,6 +70,8 @@ function UiText(const EnglishText: string): string;
 var I: Integer; Phrase: TPhrase;
 begin
   Result := EnglishText;
+  { Match the original Simplified Chinese Tools menu label. }
+  if (SelectedLanguage = ulChinese) and (EnglishText = 'Package Manager') then Exit;
   if SelectedLanguage = ulChinese then Result := TranslateChinese(EnglishText);
   if (Result = EnglishText) and (SelectedLanguage <> ulEnglish) then
     Result := UpstreamUiText(SelectedLanguage, EnglishText);

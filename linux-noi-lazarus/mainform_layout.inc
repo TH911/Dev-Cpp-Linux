@@ -283,6 +283,12 @@ begin
       if SameHandler(Item.OnClick, Button.OnClick) then Item.ImageIndex := Button.ImageIndex;
     end;
   IconName := '';
+  if SameHandler(Item.OnClick, @CompilerOptionsClick) then IconName := 'compopt';
+  if SameHandler(Item.OnClick, @EnvironmentOptionsClick) then IconName := 'envopt';
+  if SameHandler(Item.OnClick, @EditorOptionsClick) then IconName := 'editopt';
+  if SameHandler(Item.OnClick, @ShortcutOptionsClick) then IconName := 'screen';
+  if SameHandler(Item.OnClick, @ConfigureToolsClick) then IconName := 'tools';
+  if SameHandler(Item.OnClick, @PackageManagerClick) then IconName := 'packman';
   if SameHandler(Item.OnClick, @SaveAsClick) then IconName := 'saveas';
   if SameHandler(Item.OnClick, @ExportHtmlClick) or SameHandler(Item.OnClick, @ExportRtfClick) or
     SameHandler(Item.OnClick, @ExportTexClick) then IconName := 'export';
@@ -332,4 +338,105 @@ begin
   FScopeCombo.Width := ComboWidth;
   FFunctionCombo.Left := FScopeCombo.Left + ComboWidth;
   FFunctionCombo.Width := ComboWidth;
+end;
+
+procedure TMainForm.LoadEnvironmentSettings;
+var Ini: TIniFile;
+begin
+  Ini := TIniFile.Create(FOptionsPath);
+  try
+    FFileWatchTimer.Enabled := Ini.ReadBool('Interface', 'WatchFiles', True);
+    FBottomPanel.Visible := Ini.ReadBool('Interface', 'ShowReports', True);
+    FReportSplitter.Visible := FBottomPanel.Visible;
+    FCustomToolItem.Caption := Ini.ReadString('ExternalTool', 'Name', Tr('External tool'));
+    if Trim(FCustomToolItem.Caption) = '' then FCustomToolItem.Caption := Tr('External tool');
+    FCustomToolItem.Visible := Trim(Ini.ReadString('ExternalTool', 'Executable', '')) <> '';
+  finally Ini.Free; end;
+end;
+procedure TMainForm.EnvironmentOptionsClick(Sender: TObject);
+var Language: string; WatchFiles, Reports: Boolean; Ini: TIniFile; I: Integer;
+begin
+  if Sender is TMenuItem then begin QueueMenuDialog(@EnvironmentOptionsClick); Exit; end;
+  Language := CurrentUiLanguage; WatchFiles := FFileWatchTimer.Enabled; Reports := FBottomPanel.Visible;
+  if not EditEnvironment(Self, Language, WatchFiles, Reports) then Exit;
+  Ini := TIniFile.Create(FOptionsPath);
+  try
+    Ini.WriteBool('Interface', 'WatchFiles', WatchFiles);
+    Ini.WriteBool('Interface', 'ShowReports', Reports);
+  finally Ini.Free; end;
+  SetUiLanguage(Language); ApplyUiLanguage(Self);
+  for I := 0 to FLanguageMenu.Count - 1 do
+    FLanguageMenu.Items[I].Checked := CurrentUiLanguage = UiLanguageCode(FLanguageMenu.Items[I].Tag);
+  FFileWatchTimer.Enabled := WatchFiles; FBottomPanel.Visible := Reports; FReportSplitter.Visible := Reports;
+  if FDebugger <> nil then FDebugger.RefreshBreakpoints;
+  UpdateStatus;
+end;
+procedure TMainForm.ShortcutOptionsClick(Sender: TObject);
+begin
+  if Sender is TMenuItem then begin QueueMenuDialog(@ShortcutOptionsClick); Exit; end;
+  if FMenuShortcuts <> nil then FMenuShortcuts.Edit(Self, FOptionsPath);
+end;
+procedure TMainForm.ConfigureToolsClick(Sender: TObject);
+var Values, Args: TStringList; Ini: TIniFile; I: Integer; ErrorText: string;
+const Names: array[0..3] of string = ('Name', 'Executable', 'Arguments', 'Working directory');
+  Keys: array[0..3] of string = ('Name', 'Executable', 'Arguments', 'Directory');
+begin
+  if Sender is TMenuItem then begin QueueMenuDialog(@ConfigureToolsClick); Exit; end;
+  Values := TStringList.Create; Args := TStringList.Create; Ini := TIniFile.Create(FOptionsPath);
+  try
+    for I := 0 to 3 do Values.Add(Tr(Names[I]) + '=' + Ini.ReadString('ExternalTool', Keys[I], ''));
+    while EditSettingValues(Self, 'Configure Tools', Values) do begin
+      if not ParseRunArguments(Values.ValueFromIndex[2], Args, ErrorText) then begin
+        UiMessageDlg(Tr(ErrorText), mtError, [mbOK], 0); Continue;
+      end;
+      for I := 0 to 3 do Ini.WriteString('ExternalTool', Keys[I], Values.ValueFromIndex[I]);
+      LoadEnvironmentSettings; Break;
+    end;
+  finally Ini.Free; Args.Free; Values.Free; end;
+end;
+procedure TMainForm.RunCustomToolClick(Sender: TObject);
+var Ini: TIniFile; Args: TStringList; Proc: TProcess; ErrorText, DirectoryName: string;
+  I: Integer; Doc: TDocument; ToolName: string;
+  function ExpandArgument(const Value: string): string;
+  begin
+    Result := Value;
+    if Doc <> nil then begin
+      Result := StringReplace(Result, '%FILE%', Doc.FileName, [rfReplaceAll]);
+      Result := StringReplace(Result, '%DIR%', ExtractFileDir(Doc.FileName), [rfReplaceAll]);
+    end;
+  end;
+begin
+  Ini := TIniFile.Create(FOptionsPath); Args := TStringList.Create; Proc := TProcess.Create(nil); Doc := CurrentDoc;
+  try
+    try
+      ToolName := FindDefaultExecutablePath(Ini.ReadString('ExternalTool', 'Executable', ''));
+      if ToolName = '' then raise Exception.Create(Tr('External tool executable not found.'));
+      { FPC 3.0.4 StrNew('') truncates TProcess argv at an empty argument.
+        Prefix every tool argument and remove the prefix in an exec bridge;
+        arguments remain literal, including empty strings and shell symbols. }
+      Proc.Executable := '/usr/bin/python3';
+      Proc.Parameters.Add('-c');
+      Proc.Parameters.Add('import os,sys; os.execv(sys.argv[1], [sys.argv[1]] + [x[1:] for x in sys.argv[2:]])');
+      Proc.Parameters.Add(ToolName);
+      if not ParseRunArguments(Ini.ReadString('ExternalTool', 'Arguments', ''), Args, ErrorText) then
+        raise Exception.Create(Tr(ErrorText));
+      for I := 0 to Args.Count - 1 do Proc.Parameters.Add(':' + ExpandArgument(Args[I]));
+      DirectoryName := ExpandArgument(Ini.ReadString('ExternalTool', 'Directory', ''));
+      if DirectoryName <> '' then Proc.CurrentDirectory := DirectoryName;
+      Proc.Execute;
+    except on E: Exception do UiMessageDlg(E.Message, mtError, [mbOK], 0); end;
+  finally Proc.Free; Args.Free; Ini.Free; end;
+end;
+procedure TMainForm.PackageManagerClick(Sender: TObject);
+var Dialog: TOpenDialog;
+begin
+  if Sender is TMenuItem then begin QueueMenuDialog(@PackageManagerClick); Exit; end;
+  Dialog := TOpenDialog.Create(Self);
+  try
+    Dialog.Title := Tr('Open a Debian package with the system installer');
+    Dialog.Filter := 'Debian packages (*.deb)|*.deb';
+    Dialog.Options := [ofFileMustExist, ofEnableSizing];
+    if Dialog.Execute and not OpenDocument(Dialog.FileName) then
+      UiMessageDlg(Tr('Could not open the system package installer.'), mtError, [mbOK], 0);
+  finally Dialog.Free; end;
 end;

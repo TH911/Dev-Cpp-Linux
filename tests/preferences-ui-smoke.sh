@@ -4,7 +4,7 @@ set -euo pipefail
 app_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../linux-noi-lazarus" && pwd)
 test_dir=$(mktemp -d)
 preferences_home="$test_dir/home"
-config="$preferences_home/.config/devcpp-noi.ini"
+config="$preferences_home/.config/dev-cpp-linux.ini"
 app_pid=''
 window=''
 dialog_window=''
@@ -122,11 +122,11 @@ PY
 }
 start_app() {
   env HOME="$preferences_home" XDG_CACHE_HOME="$preferences_home/.cache" \
-    "$app_dir/devcpp-noi" --new-window "$test_dir/sample.cpp" >> "$test_dir/runtime.log" 2>&1 &
+    "$app_dir/dev-cpp-linux" --new-window "$test_dir/sample.cpp" >> "$test_dir/runtime.log" 2>&1 &
   app_pid=$!
   window=''
   for i in {1..100}; do
-    window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C' 2>/dev/null | head -1) || true
+    window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'dev-cpp-linux' 2>/dev/null | head -1) || true
     [[ -z "$window" ]] || break
     alive
     sleep 0.1
@@ -179,14 +179,14 @@ compile_expect 41
 echo 'PASS: legacy compiler settings migrate and compile with their actual flags.'
 
 # Tools -> third item, Editor Theme -> Twilight (second item).
-press alt+t Home Down Down Right Home Down Return
+press alt+v Home End Up Right Home Down Return
 expect_config Editor Theme Twilight
 expect_background 000000 twilight-existing
 press ctrl+n
 expect_background 000000 twilight-new
 press ctrl+w
 # Obsidian is the fourth original preset.
-press alt+t Home Down Down Right Home Down Down Down Return
+press alt+v Home End Up Right Home Down Down Down Return
 expect_config Editor Theme Obsidian
 expect_background 293134 obsidian-existing
 echo 'PASS: theme menu updates existing and newly created documents.'
@@ -197,7 +197,7 @@ theme_names=('Classic Plus' 'Twilight' 'Visual Studio' 'Obsidian' 'Classic'
              'Ocean' 'Borland' 'Matrix' 'GSS Hacker' 'Oblivion' 'PlasticCodeWrap')
 theme_rgb=(ffffff 000000 ffffff 293134 ffffff 00ffff 000080 000000 171717 1e1e1e 0b161d)
 for index in "${!theme_names[@]}"; do
-  keys=(alt+t Home Down Down Right Home)
+  keys=(alt+v Home End Up Right Home)
   for ((step=0; step<index; step++)); do keys+=(Down); done
   keys+=(Return)
   press "${keys[@]}"
@@ -207,7 +207,7 @@ for index in "${!theme_names[@]}"; do
   expect_background "${theme_rgb[index]}" "theme-$index-new"
   press ctrl+w
 done
-press alt+t Home Down Down Right Home Down Down Down Return
+press alt+v Home End Up Right Home Down Down Down Return
 expect_config Editor Theme Obsidian
 echo 'PASS: all eleven original theme presets render, persist and apply to new documents.'
 
@@ -248,7 +248,7 @@ echo 'PASS: switching profiles does not mix flags, and Cancel discards new profi
 
 # Accept a Consolas preference even on a system without that font. The renderer
 # must use a monospace fallback while retaining the user's requested family.
-press alt+t Home Down Return
+press alt+t Home Down Down Return
 wait_dialog 'Editor Options'
 dialog_press Tab ctrl+a
 type_text 'Consolas'
@@ -262,7 +262,7 @@ echo 'PASS: accepting Consolas and font size persists the requested settings.'
 
 # Tools -> Editor Options (second item): change font then cancel.
 config_before=$(sha256sum "$config")
-press alt+t Home Down Return
+press alt+t Home Down Down Return
 wait_dialog 'Editor Options'
 dialog_press Tab ctrl+a
 type_text 'Liberation Mono'

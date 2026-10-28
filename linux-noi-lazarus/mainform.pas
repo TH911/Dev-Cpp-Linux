@@ -6,13 +6,13 @@ interface
 
 uses
   Classes, SysUtils, StrUtils, Math, Types, Forms, Controls, StdCtrls, ComCtrls, ExtCtrls,
-  Menus, Dialogs, IniFiles, Process, Contnrs, LCLType, Graphics, ImgList,
-  LazUTF8, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditHighlighter,
+  Menus, Dialogs, IniFiles, Process, Contnrs, LCLType, LCLIntf, Graphics, ImgList,
+  LazUTF8, FileUtil, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditHighlighter,
   noi_syn_cpp, SynGutterLineNumber, SynGutterChanges, SynGutterMarks,
   SynEditMarks, SynGutter, SynEditMarkupFoldColoring, SynEditMiscClasses, editor_actions,
   cppcompletion, ui_language, app_instance, document_files, runtime_support,
-  editor_themes, compiler_profiles, options_dialogs, language_catalog, input_appearance, classic_chrome, source_navigation, source_output,
-  gdb_session, debugger_panel, debug_icons, app_version, about_dialog;
+  editor_themes, compiler_profiles, options_dialogs, language_catalog, input_appearance, app_paths, startup_trace, classic_chrome, source_navigation, source_output,
+  gdb_session, debugger_panel, debug_icons, app_version, about_dialog, classic_settings;
 
 type
   TNoiCppSyn = class(TSynCppSyn)
@@ -81,6 +81,15 @@ type
   private
     FPages: TPageControl;
     FNavigationBar: TToolBar;
+    FMenuShortcuts: TMenuShortcuts;
+    FCustomToolItem: TMenuItem;
+    procedure EnvironmentOptionsClick(Sender: TObject);
+    procedure ShortcutOptionsClick(Sender: TObject);
+    procedure ConfigureToolsClick(Sender: TObject);
+    procedure RunCustomToolClick(Sender: TObject);
+    procedure PackageManagerClick(Sender: TObject);
+    procedure LoadEnvironmentSettings;
+  private
     FMenuImages: TImageList;
     procedure AssignMenuIcons(Item: TMenuItem);
     function LoadUiIcon(const IconName: string): Integer;
@@ -892,6 +901,7 @@ var
   end;
 
 begin
+  StartupMark('form begin');
   ConfigureClassicChrome;
   inherited CreateNew(AOwner, 0);
   Color := $00F0F0F0;
@@ -930,7 +940,9 @@ begin
   FEditorTabWidth := 4;
   FProjectFiles := TStringList.Create;
   FProjectFiles.CaseSensitive := True;
+  StartupMark('basic form ready');
   LoadCompilerSettings;
+  StartupMark('settings loaded');
   LoadRecentPaths;
   InitUiLanguage(FOptionsPath);
   OnShow := @FormShown;
@@ -1077,10 +1089,20 @@ begin
   AddMenu(DebugMenu, '&Evaluate Expression', @DebugEvaluateClick);
 
   ToolsMenu := TMenuItem.Create(Self); ToolsMenu.Caption := Tr('&Tools'); Bar.Items.Add(ToolsMenu);
-  AddMenu(ToolsMenu, '&Compiler Options / Parameters...', @CompilerOptionsClick);
+  AddMenu(ToolsMenu, '&Compiler Options...', @CompilerOptionsClick);
+  AddMenu(ToolsMenu, '&Environment Options...', @EnvironmentOptionsClick);
   AddMenu(ToolsMenu, 'E&ditor Options...', @EditorOptionsClick);
-  InitializeEditorThemes(ToolsMenu);
-  LanguageMenu := AddMenu(ToolsMenu, '&Language', nil);
+  AddMenu(ToolsMenu, '-', nil);
+  AddMenu(ToolsMenu, '&Shortcut Options...', @ShortcutOptionsClick);
+  AddMenu(ToolsMenu, 'Configure &Tools...', @ConfigureToolsClick);
+  AddMenu(ToolsMenu, '-', nil);
+  AddMenu(ToolsMenu, 'Package Manager', @PackageManagerClick);
+  AddMenu(ToolsMenu, '-', nil);
+  FCustomToolItem := AddMenu(ToolsMenu, 'External tool', @RunCustomToolClick);
+  FCustomToolItem.Visible := False;
+  AddMenu(ViewMenu, '-', nil);
+  InitializeEditorThemes(ViewMenu);
+  LanguageMenu := AddMenu(ViewMenu, '&Language', nil);
   FLanguageMenu := LanguageMenu;
   for LanguageIndex := 0 to UiLanguageCount - 1 do
   begin
@@ -1094,13 +1116,14 @@ begin
   AddMenu(FormatMenu, 'Format current file', @FormatClick);
   AddMenu(FormatMenu, 'Format options...', @FormatOptionsClick);
   WindowMenu := TMenuItem.Create(Self); WindowMenu.Caption := Tr('&Window'); Bar.Items.Add(WindowMenu);
-  AddMenu(WindowMenu, '&Next Tab', @NextTabClick, ShortCut(VK_TAB, [ssCtrl]));
-  AddMenu(WindowMenu, '&Previous Tab', @PreviousTabClick, ShortCut(VK_TAB, [ssCtrl, ssShift]));
+  AddMenu(WindowMenu, '&Next Tab', @NextTabClick);
+  AddMenu(WindowMenu, '&Previous Tab', @PreviousTabClick);
   AddMenu(WindowMenu, '&Close', @CloseClick);
   AddMenu(WindowMenu, 'Close &All', @CloseAllClick);
   HelpMenu := TMenuItem.Create(Self); HelpMenu.Caption := Tr('&Help'); Bar.Items.Add(HelpMenu);
-  AddMenu(HelpMenu, '&About Dev-Cpp', @AboutClick);
+  AddMenu(HelpMenu, '&About dev-cpp-linux', @AboutClick);
 
+  StartupMark('menus constructed');
   ToolImages := TImageList.Create(Self);
   FMenuImages := ToolImages;
   Bar.Images := ToolImages;
@@ -1267,9 +1290,9 @@ begin
   FCompilerList.ReadOnly := True;
   FCompilerList.RowSelect := True;
   FCompilerList.OnDblClick := @ErrorDoubleClick;
-  Col := FCompilerList.Columns.Add; Col.Caption := Tr('Line'); Col.Width := 55;
-  Col := FCompilerList.Columns.Add; Col.Caption := Tr('Col'); Col.Width := 45;
-  Col := FCompilerList.Columns.Add; Col.Caption := Tr('Unit'); Col.Width := 220;
+  Col := FCompilerList.Columns.Add; Col.Caption := Tr('Line'); Col.Width := 40;
+  Col := FCompilerList.Columns.Add; Col.Caption := Tr('Col'); Col.Width := 40;
+  Col := FCompilerList.Columns.Add; Col.Caption := Tr('Unit'); Col.Width := 320;
   Col := FCompilerList.Columns.Add; Col.Caption := Tr('Message'); Col.Width := 650;
   FResourceTab := TTabSheet.Create(Self);
   FResourceTab.PageControl := FReportTabs;
@@ -1382,7 +1405,9 @@ begin
   FUiTimer.Interval := 100;
   FUiTimer.OnTimer := @RefreshCommandStates;
   FUiTimer.Enabled := True;
+  StartupMark('widgets constructed');
   InitializeDebugger;
+  StartupMark('debugger constructed');
   if StartupFiles <> nil then
   for ArgIndex := 0 to StartupFiles.Count - 1 do
   begin
@@ -1400,7 +1425,10 @@ begin
   FDebugTab.ImageIndex := LoadUiIcon('debug');
   FSearchTab.ImageIndex := LoadUiIcon('search');
   FCloseReportTab.ImageIndex := LoadUiIcon('close');
+  LoadEnvironmentSettings;
+  FMenuShortcuts := TMenuShortcuts.Create(Bar.Items, FOptionsPath);
   ApplyUiLanguage(Self);
+  StartupMark('translations applied');
 end;
 
 destructor TMainForm.Destroy;
@@ -1408,6 +1436,7 @@ var I: Integer; Doc: TDocument;
 begin
   { Tab destruction can raise focus/status events while other tabs are gone. }
   FRefreshingCommands := True;
+  FreeAndNil(FMenuShortcuts);
   Application.RemoveAsyncCalls(Self);
   FLoading := True;
   FreeAndNil(FSymbols);
@@ -1799,6 +1828,7 @@ end;
 
 procedure TMainForm.FormShown(Sender: TObject);
 begin
+  StartupMark('window shown');
   RebuildNavigation;
   if (CurrentDoc <> nil) and CurrentDoc.Editor.CanFocus then
     CurrentDoc.Editor.SetFocus;
@@ -2012,7 +2042,7 @@ begin
         Doc.MissingNotified := False;
         if SameFileSnapshot(CurrentSnapshot, Doc.DiskSnapshot) then Continue;
         FPages.ActivePage := Doc.Tab;
-        Answer := UiMessageDlg(Format(Tr('%s was modified outside Dev-C++.' + LineEnding +
+        Answer := UiMessageDlg(Format(Tr('%s was modified outside dev-cpp-linux.' + LineEnding +
           'Reload it from disk? Unsaved changes will be lost.'),
           [ExtractFileName(Doc.FileName)]), mtConfirmation, [mbYes, mbNo], 0);
         if Answer = mrYes then
@@ -2059,7 +2089,7 @@ begin
       end;
       if Doc.MissingNotified then Continue;
       Doc.MissingNotified := True;
-      Answer := UiMessageDlg(Format(Tr('%s was deleted outside Dev-C++.' + LineEnding +
+      Answer := UiMessageDlg(Format(Tr('%s was deleted outside dev-cpp-linux.' + LineEnding +
         'Keep the file in the editor?'), [ExtractFileName(Doc.FileName)]), mtConfirmation, [mbYes, mbNo], 0);
       if Answer <> mrNo then
       begin
@@ -2151,7 +2181,7 @@ end;
 procedure TMainForm.FormKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 var
-  Modifiers: TShiftState;
+  Modifiers: TShiftState; ShortcutItem: TMenuItem; Suppress: Boolean;
 
   procedure Dispatch(Handler: TNotifyEvent);
   begin
@@ -2178,6 +2208,14 @@ var
 
 begin
   Modifiers := Shift * [ssCtrl, ssShift, ssAlt];
+  if FMenuShortcuts <> nil then begin
+    ShortcutItem := FMenuShortcuts.Match(Key, Modifiers, Suppress);
+    if ShortcutItem <> nil then begin
+      if CommandAvailable(ShortcutItem.OnClick) then ShortcutItem.Click;
+      Key := 0; Exit;
+    end;
+    if Suppress then begin Key := 0; Exit; end;
+  end;
   if (Key >= Ord('1')) and (Key <= Ord('9')) then
   begin
     if Modifiers = [ssCtrl] then
@@ -3269,7 +3307,7 @@ begin
     Doc.DebugReadOnlyApplied := True;
     Doc.Editor.ReadOnly := True;
   end;
-  { Dev-C++ uses Ctrl+1..9 to toggle and Alt+1..9 to jump. }
+  { dev-cpp-linux uses Ctrl+1..9 to toggle and Alt+1..9 to jump. }
   Doc.Editor.BookMarkOptions.EnableKeys := False;
   Doc.Editor.BlockIndent := 0;
   Doc.Editor.BlockTabIndent := 1;
@@ -3370,7 +3408,7 @@ begin
       Ini := TIniFile.Create(SelectedPath);
       try
         if not Ini.SectionExists('Project') then
-          raise EInOutError.Create(Tr('The selected file is not a Dev-C++ project.'));
+          raise EInOutError.Create(Tr('The selected file is not a dev-cpp-linux project.'));
         Count := Ini.ReadInteger('Project', 'UnitCount', 0);
         if (Count < 0) or (Count > 100000) then
           raise EInOutError.Create(Tr('Invalid project unit count.'));
@@ -3496,7 +3534,7 @@ begin
   try
     Dialog.Title := Tr('New Project');
     Dialog.DefaultExt := 'dev';
-    Dialog.Filter := Tr('Dev-C++ project|*.dev');
+    Dialog.Filter := Tr('dev-cpp-linux project|*.dev');
     Dialog.FileName := 'Project1.dev';
     if not Dialog.Execute then Exit;
     ProjectFilePath := ExpandFileName(Dialog.FileName);
@@ -3737,10 +3775,7 @@ end;
 procedure TMainForm.LoadCompilerSettings;
 var Ini: TIniFile;
 begin
-  FOptionsPath := GetEnvironmentVariable('HOME');
-  if FOptionsPath = '' then FOptionsPath := ExtractFilePath(ParamStr(0))
-  else FOptionsPath := IncludeTrailingPathDelimiter(FOptionsPath) + '.config';
-  FOptionsPath := IncludeTrailingPathDelimiter(FOptionsPath) + 'devcpp-noi.ini';
+  FOptionsPath := ApplicationConfigFile(True);
   FCompilerProfiles := TCompilerProfiles.Create;
   FEditorFontName := DefaultEditorFontName;
   FEditorThemeName := EditorThemeName(0);
@@ -4007,7 +4042,7 @@ begin
   Dialog := TOpenDialog.Create(Self);
   try
     Dialog.Title := Tr('Open');
-    Dialog.Filter := Tr('Dev-C++ project or C/C++ file|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*');
+    Dialog.Filter := Tr('dev-cpp-linux project or C/C++ file|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*');
     if Dialog.Execute then
       if LowerCase(ExtractFileExt(Dialog.FileName)) = '.dev' then
         OpenProject(Dialog.FileName)
@@ -4071,7 +4106,7 @@ begin
       ExistingIdentity := (OldName <> '') and SameDocumentPath(OldName, SelectedPath);
       if ExistingIdentity and not SameFileSnapshot(CurrentSnapshot, Doc.DiskSnapshot) then
       begin
-        if UiMessageDlg(Format(Tr('File %s was changed or removed outside Dev-C++.' + LineEnding +
+        if UiMessageDlg(Format(Tr('File %s was changed or removed outside dev-cpp-linux.' + LineEnding +
           'Overwrite the disk version with the editor contents?'), [SelectedPath]),
           mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
       end

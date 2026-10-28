@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Run the installed binary directly; never compile or wait for desktop repair.
+set -euo pipefail
+if [[ ${1:-} == --repair-launchers ]]; then
+  exec /usr/lib/dev-cpp-linux/migrate-launchers.py
+fi
+# Historical per-user source entries are repaired once in the background.
+# Version queries remain pure, including on headless systems.
+if [[ ${1:-} != --version && ${1:-} != --help ]]; then
+  migration_cache=${XDG_CACHE_HOME:-"$HOME/.cache"}/dev-cpp-linux
+  migration_stamp="$migration_cache/launchers-@VERSION@"
+  if [[ ! -f "$migration_stamp" ]]; then
+    ( /usr/lib/dev-cpp-linux/migrate-launchers.py &&
+      mkdir -p -- "$migration_cache" && touch -- "$migration_stamp" ) >/dev/null 2>&1 &
+  fi
+fi
+exec /usr/lib/dev-cpp-linux/dev-cpp-linux "$@"

@@ -113,17 +113,23 @@ var
   CacheDirectory, Payload, Argument: string;
   ArgumentOrdinal: Integer;
   NewWindow, ForwardOnly: Boolean;
+  ExecutableInfo: Stat; ExecutableIdentity: string;
 begin
   StartupFiles := TStringList.Create;
   CacheDirectory := GetEnvironmentVariable('XDG_CACHE_HOME');
   if CacheDirectory = '' then
     CacheDirectory := GetEnvironmentVariable('HOME') + DirectorySeparator + '.cache';
-  CacheDirectory := IncludeTrailingPathDelimiter(CacheDirectory) + 'devcpp-noi';
+  CacheDirectory := IncludeTrailingPathDelimiter(CacheDirectory) + 'dev-cpp-linux';
   ForceDirectories(CacheDirectory);
+  { An atomic source rebuild with the same version must not forward into its
+    old, still-running executable. /proc/self/exe identifies the mapped inode. }
+  ExecutableIdentity := '';
+  if fpStat('/proc/self/exe', ExecutableInfo) = 0 then
+    ExecutableIdentity := IntToStr(ExecutableInfo.st_dev) + ':' + IntToStr(ExecutableInfo.st_ino);
   { Separate installed releases and source builds; never activate a stale binary. }
   InstanceAddress := ExpandFileName(CacheDirectory + DirectorySeparator +
     'instance-' + Copy(MD5Print(MD5String(AppVersion + '|' +
-      ExpandFileName(ParamStr(0)))), 1, 16) + '.pipe');
+      ExpandFileName(ParamStr(0)) + '|' + ExecutableIdentity)), 1, 16) + '.pipe');
   NewWindow := False;
   ForwardOnly := False;
   Payload := '';

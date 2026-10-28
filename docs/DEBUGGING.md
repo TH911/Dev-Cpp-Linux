@@ -16,7 +16,7 @@ editor. Breakpoints have red gutter dots; the stopped source line has a yellow
 arrow. Their line colors follow the original theme's breakpoint and active
 breakpoint entries rather than applying one fixed color to every theme.
 
-The 1.1.1 layout follows Dev-C++ 5.11's bottom debugging sheet: commands, an
+The 1.1.1 layout follows dev-cpp-linux 5.11's bottom debugging sheet: commands, an
 expression field and an expression/value table are on the left; program
 input/output and the debugger log are pages on the right. A splitter adjusts
 the two areas. The left sidebar's Debug page lists breakpoints, and the main
