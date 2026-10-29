@@ -4,9 +4,9 @@
 
 ## 中文
 
-基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**，本 beta 分支版本为 **1.3.1~beta2**（[Pre-release](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta2)）。
+基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**，本 beta 分支版本为 **1.3.1~beta3**（[Pre-release](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta3)）。
 
-开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。本分支测试安装包见 [v1.3.1-beta2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta2)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
+开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。本分支测试安装包见 [v1.3.1-beta3](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta3)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
 
 正式版同时包含科学计数法高亮修复，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
 
@@ -52,6 +52,10 @@ Release 除 GitHub 默认的整库源码外，由 [发布工作流](.github/work
 
 打包与卸载说明见 [PACKAGING.md](docs/PACKAGING.md)。源码仓库不提交可执行文件和安装包；既有发布标签保持不变。Release 的安装包和源码归档由发布工作流验证后上传；未发布的构建也可从 [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml) 下载。
 
+### v1.3.1-beta3：括号高亮与补全
+
+匹配高亮只识别 C++ 代码中的括号，忽略字符串、字符常量、注释及原始字符串。在外层右括号前输入新的左括号时，会补上对应的右括号；只有尚未配对的右括号才会被复用。相关示例见 [括号编辑说明](docs/BRACKET-EDITING.md)。
+
 ### v1.3.1-beta2：名称与原版设置界面
 
 界面名称为 **Dev-C++**，命令和包名为 `dev-cpp`；旧命令 `dev-cpp-linux` 与 `devcpp-noi` 保留兼容转发。当前版本明确标记 beta，UI 仍在移植。安装包会替换旧的 `devcpp-noi` 并迁移配置，旧设置文件保留。语言索引已优化，源码启动只在文件变化时编译。工具菜单继续按截图调整，并加入可保存的环境、快捷键及外部工具设置。[启动与升级说明](docs/STARTUP.md)。
@@ -66,7 +70,7 @@ Release 除 GitHub 默认的整库源码外，由 [发布工作流](.github/work
 
 文件菜单提供基本打印、HTML/RTF/TeX 文本导出；打印需系统已配置打印机。AStyle 菜单调用可选的 `astyle` 软件包，可选风格，修改可一次撤销；安装包推荐安装该软件包，纯源码版可通过系统包管理器补装。导入菜单目前提供向 `.dev` 项目添加源文件，尚未实现 Windows 工程格式转换。高级性能分析工具仍未移植。
 
-当前版本使用 `v1.3.1-beta2` 标签，包内版本为 `1.3.1~beta2`，在 beta 分支发布为 **Pre-release**，不会替代最新稳定版 v1.2.0。CI 的 `devcpp-classic-ui-previews` 附件包含实际 GTK2 截图；Linux 窗口边框、滚动条和字体渲染由系统控制。
+当前版本使用 `v1.3.1-beta3` 标签，包内版本为 `1.3.1~beta3`，在 beta 分支发布为 **Pre-release**，不会替代最新稳定版 v1.2.0。CI 的 `devcpp-classic-ui-previews` 附件包含实际 GTK2 截图；Linux 窗口边框、滚动条和字体渲染由系统控制。
 
 ### 主题和界面语言
 
@@ -87,20 +91,20 @@ v1.2.0 修复编译器选项、编辑器选项、运行参数及调试等输入�
 
 从 [Releases](https://github.com/TH911/Dev-Cpp-Linux/releases) 下载新的 amd64 `.deb`；测试版标记为 **Pre-release**。先保存代码，并正常关闭所有 Dev-C++ 窗口。
 
-在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `dev-cpp_1.3.1-beta2_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
+在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `dev-cpp_1.3.1-beta3_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
 
 #### 2. 确认下载包的版本
 
 ```bash
-dpkg-deb -f ./dev-cpp_1.3.1-beta2_amd64.deb Version
+dpkg-deb -f ./dev-cpp_1.3.1-beta3_amd64.deb Version
 ```
 
-这个示例应输出 `1.3.1~beta2`。若这里仍显示旧版本，请先确认下载的是新版文件。
+这个示例应输出 `1.3.1~beta3`。若这里仍显示旧版本，请先确认下载的是新版文件。
 
 #### 3. 覆盖安装新版
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta2_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta3_amd64.deb
 ```
 
 `./` 表示使用当前文件夹中的安装包，不能漏掉。APT 会处理依赖；`--reinstall` 也允许重新安装相同版本，适合修复安装文件。输入管理员密码时，终端不显示字符是正常的。若命令报错，请先保留完整输出、处理错误，再继续核对版本。
@@ -112,7 +116,7 @@ dpkg-query -W -f='${Version}\n' dev-cpp
 /usr/bin/dev-cpp --version
 ```
 
-这个示例中，第一条应输出 `1.3.1~beta2`，第二条应包含 `dev-cpp 1.3.1~beta2` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
+这个示例中，第一条应输出 `1.3.1~beta3`，第二条应包含 `dev-cpp 1.3.1~beta3` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
 
 确认版本正确后，直接启动安装版的新窗口：
 
@@ -145,7 +149,7 @@ dpkg-query -W -f='${Version}\n' dev-cpp
 
 ## English
 
-Dev-C++ is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The beta is **[v1.3.1-beta2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta2)**; the latest stable release remains **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
+Dev-C++ is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The beta is **[v1.3.1-beta3](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta3)**; the latest stable release remains **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
 
 Development goes to the [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta) branch. Successful compatibility, GUI and installation checks automatically publish a GitHub **Pre-release** with an amd64 `.deb` and source ZIP/tar.gz archives containing `linux-noi-lazarus/`. Existing release tags and assets are preserved. `main` is reserved for stable releases. [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) also retains build artifacts.
 
@@ -177,6 +181,10 @@ Installed [Consolas](linux-noi-lazarus/FONTS.md) is detected, with an explicit m
 
 See the [port README](linux-noi-lazarus/README.md) and [5.11 parity audit](docs/DEVCPP-5.11-PARITY.md) for tested behavior and remaining limits, including advanced debugging, project management, searches and completion.
 
+### v1.3.1-beta3: bracket matching and completion
+
+Matching markup ignores C++ literals and comments. Typing a new opener before a closer already owned by an outer pair inserts its own closer; only an orphan closer is reused. See [bracket editing](docs/BRACKET-EDITING.md).
+
 ### v1.3.1-beta2: naming, startup and interface
 
 The display name is **Dev-C++**; the command and package are `dev-cpp`. Both `dev-cpp-linux` and `devcpp-noi` remain compatibility commands. This is explicitly a beta with UI restoration in progress. The package replaces `dev-cpp-linux` or `devcpp-noi` and copies existing settings without deleting the old file. Language lookups are indexed and source launches rebuild only when needed. Tools follows the reference menu order, with persistent environment, shortcut and external-tool settings. See [startup and upgrade notes](docs/STARTUP.md).
@@ -189,7 +197,7 @@ Scope/function selectors and the class tree navigate simple declarations in the 
 
 File offers basic printing and HTML/RTF/TeX text exports. Printing requires a configured system printer. AStyle uses the optional `astyle` package, supports style selection and formats as one undoable edit; the Debian package recommends it. Source builds can install it through the system package manager. Import currently adds source files to `.dev` projects; Windows project conversion and advanced profiling remain pending.
 
-The beta tag is `v1.3.1-beta2`, with Debian/application version `1.3.1~beta2`, and remains a **Pre-release**; v1.2.0 stays the latest stable release. CI's `devcpp-classic-ui-previews` artifact contains actual GTK2 screenshots. Window decorations, scrollbars and font rendering remain native to Linux.
+The beta tag is `v1.3.1-beta3`, with Debian/application version `1.3.1~beta3`, and remains a **Pre-release**; v1.2.0 stays the latest stable release. CI's `devcpp-classic-ui-previews` artifact contains actual GTK2 screenshots. Window decorations, scrollbars and font rendering remain native to Linux.
 
 ### Themes and interface languages
 
@@ -215,15 +223,15 @@ For graphical installation, use your system's package installer or GDebi. If “
 2. Check the version inside that file:
 
 ```bash
-dpkg-deb -f ./dev-cpp_1.3.1-beta2_amd64.deb Version
+dpkg-deb -f ./dev-cpp_1.3.1-beta3_amd64.deb Version
 ```
 
-The example should report `1.3.1~beta2`.
+The example should report `1.3.1~beta3`.
 
 3. Install or reinstall the downloaded package:
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta2_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta3_amd64.deb
 ```
 
 Keep the leading `./`. APT handles dependencies; `--reinstall` also permits repairing an installation of the same version. Password input is not echoed. If this command fails, retain its full output and resolve the error before proceeding.
@@ -235,7 +243,7 @@ dpkg-query -W -f='${Version}\n' dev-cpp
 /usr/bin/dev-cpp --version
 ```
 
-Expect `1.3.1~beta2` and `dev-cpp 1.3.1~beta2` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
+Expect `1.3.1~beta3` and `dev-cpp 1.3.1~beta3` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
 
 5. Start the installed program explicitly:
 

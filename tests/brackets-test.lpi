@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="11"/>
+    <General>
+      <MainUnit Value="0"/>
+    </General>
+    <Units Count="1">
+      <Unit0>
+        <Filename Value="brackets-test.lpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit0>
+    </Units>
+    <RequiredPackages Count="3">
+      <Item1><PackageName Value="SynEdit"/></Item1>
+      <Item2><PackageName Value="LCL"/></Item2>
+      <Item3><PackageName Value="Printer4Lazarus"/></Item3>
+    </RequiredPackages>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <Target>
+      <Filename Value="../linux-noi-lazarus/lib/brackets-test"/>
+    </Target>
+    <SearchPaths>
+      <OtherUnitFiles Value="../linux-noi-lazarus"/>
+      <UnitOutputDirectory Value="../linux-noi-lazarus/lib/brackets-test-units"/>
+    </SearchPaths>
+  </CompilerOptions>
+</CONFIG>

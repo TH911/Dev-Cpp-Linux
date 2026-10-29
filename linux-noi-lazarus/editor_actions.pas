@@ -8,7 +8,7 @@ uses Classes, SysUtils, Types, SynEdit;
 
 type
   TCppEditContext = (cecCode, cecLineComment, cecBlockComment,
-    cecSingleQuote, cecDoubleQuote);
+    cecSingleQuote, cecDoubleQuote, cecRawString);
 
 { All search positions and lengths are bytes in the original UTF-8 text, as
   required by SynEdit.LogicalCaretXY. Case folding may change byte lengths. }
@@ -26,10 +26,11 @@ procedure MoveEditorHome(Editor: TSynEdit; SelectText: Boolean;
   var RepeatHome: Boolean);
 function CppNumericSeparatorPrefix(const Source: string; ByteColumn: Integer): Boolean;
 function CppContextAt(Editor: TSynEdit; const Caret: TPoint): TCppEditContext;
+function CppBracketMatch(Editor: TSynEdit; const Position: TPoint): TPoint;
 
 implementation
 
-uses LazUTF8;
+uses LazUTF8, Math;
 
 procedure MoveEditorHome(Editor: TSynEdit; SelectText: Boolean;
   var RepeatHome: Boolean);
@@ -370,49 +371,112 @@ begin
     Result := Source[StartByte + 1] in ['0'..'9'];
 end;
 
-function CppContextAt(Editor: TSynEdit; const Caret: TPoint): TCppEditContext;
-var Row, I, LastColumn: Integer; S: string; Escaped: Boolean;
+type
+  TCppScanState = record
+    Context: TCppEditContext;
+    Escaped: Boolean;
+    RawEnd: string;
+  end;
+
+{ A byte mask keeps matching independent of syntax colors/highlighter state.
+  Scan once per line, retaining comment/literal state across physical lines. }
+function CppCodeMask(const S: string; LastColumn: Integer;
+  NextLine: Boolean; var State: TCppScanState): string;
+var I, J, PrefixStart: Integer; RawPrefix: string;
 begin
-  Result := cecCode;
-  if (Editor = nil) or (Caret.Y < 1) then Exit;
-  for Row := 1 to Caret.Y do
-  begin
-    if Row > Editor.Lines.Count then Break;
-    S := Editor.Lines[Row - 1];
-    LastColumn := Length(S);
-    if Row = Caret.Y then LastColumn := Caret.X - 1;
-    if LastColumn > Length(S) then LastColumn := Length(S);
-    I := 1;
-    Escaped := False;
-    while I <= LastColumn do
-    begin
-      case Result of
-        cecCode:
-          if (S[I] = '/') and (I < LastColumn) and (S[I + 1] = '/') then
-          begin Result := cecLineComment; Inc(I); end
-          else if (S[I] = '/') and (I < LastColumn) and (S[I + 1] = '*') then
-          begin Result := cecBlockComment; Inc(I); end
-          else if (S[I] = '''') and not CppNumericSeparatorPrefix(S, I) then
-            Result := cecSingleQuote
-          else if S[I] = '"' then Result := cecDoubleQuote;
-        cecBlockComment:
-          if (S[I] = '*') and (I < LastColumn) and (S[I + 1] = '/') then
-          begin Result := cecCode; Inc(I); end;
-        cecSingleQuote, cecDoubleQuote:
-          if Escaped then Escaped := False
-          else if S[I] = '\' then Escaped := True
-          else if ((Result = cecSingleQuote) and (S[I] = '''')) or
-            ((Result = cecDoubleQuote) and (S[I] = '"')) then Result := cecCode;
+  LastColumn:=Min(Length(S),Max(0,LastColumn));
+  Result:=StringOfChar(#0,LastColumn);I:=1;
+  while I<=LastColumn do begin
+    case State.Context of
+      cecCode:
+        if (S[I]='/') and (I<LastColumn) and (S[I+1]='/') then begin
+          State.Context:=cecLineComment;Inc(I);
+        end else if (S[I]='/') and (I<LastColumn) and (S[I+1]='*') then begin
+          State.Context:=cecBlockComment;Inc(I);
+        end else if (S[I]='"') then begin
+          State.Context:=cecDoubleQuote;State.Escaped:=False;
+          PrefixStart:=I-1;
+          while (PrefixStart>1) and (S[PrefixStart-1] in ['A'..'Z','a'..'z','0'..'9','_']) do Dec(PrefixStart);
+          RawPrefix:=Copy(S,PrefixStart,I-PrefixStart);
+          if (RawPrefix='R') or (RawPrefix='u8R') or (RawPrefix='uR') or
+             (RawPrefix='UR') or (RawPrefix='LR') then begin
+            J:=I+1;
+            while (J<=Length(S)) and (J-I<=17) and
+              not (S[J] in [#0..#32,'(',')','\']) do Inc(J);
+            if (J<=Length(S)) and (S[J]='(') and (J-I<=17) then begin
+              State.Context:=cecRawString;
+              State.RawEnd:=')'+Copy(S,I+1,J-I-1)+'"';I:=J;
+            end;
+          end;
+        end else if (S[I]=Chr(39)) and not CppNumericSeparatorPrefix(S,I) then begin
+          State.Context:=cecSingleQuote;State.Escaped:=False;
+        end else Result[I]:=#1;
+      cecBlockComment:
+        if (S[I]='*') and (I<LastColumn) and (S[I+1]='/') then begin
+          State.Context:=cecCode;Inc(I);
+        end;
+      cecSingleQuote,cecDoubleQuote:
+        if State.Escaped then State.Escaped:=False
+        else if S[I]='\' then State.Escaped:=True
+        else if ((State.Context=cecSingleQuote) and (S[I]=Chr(39))) or
+                ((State.Context=cecDoubleQuote) and (S[I]='"')) then State.Context:=cecCode;
+      cecRawString:
+        if (I+Length(State.RawEnd)-1<=LastColumn) and
+          (Copy(S,I,Length(State.RawEnd))=State.RawEnd) then begin
+          Inc(I,Length(State.RawEnd)-1);State.Context:=cecCode;State.RawEnd:='';
+        end;
+    end;
+    Inc(I);
+  end;
+  if NextLine then begin
+    if (State.Context=cecLineComment) and ((S='') or (S[Length(S)]<>'\')) then State.Context:=cecCode;
+    if (State.Context in [cecSingleQuote,cecDoubleQuote]) and not State.Escaped then State.Context:=cecCode;
+    State.Escaped:=False;
+  end;
+end;
+
+function CppContextAt(Editor: TSynEdit; const Caret: TPoint): TCppEditContext;
+var State:TCppScanState;Row,Last:Integer;
+begin
+  State.Context:=cecCode;State.Escaped:=False;State.RawEnd:='';
+  if (Editor<>nil) and (Caret.Y>0) then
+    for Row:=1 to Min(Caret.Y,Editor.Lines.Count) do begin
+      Last:=Length(Editor.Lines[Row-1]);if Row=Caret.Y then Last:=Caret.X-1;
+      CppCodeMask(Editor.Lines[Row-1],Last,Row<Caret.Y,State);
+    end;
+  Result:=State.Context;
+end;
+
+function CppBracketMatch(Editor: TSynEdit; const Position: TPoint): TPoint;
+var State:TCppScanState;Row,I,Count:Integer;S,Mask:string;Opening,Closing,C:Char;
+  Stack:array of TPoint;Start:TPoint;
+begin
+  Result:=Point(-1,-1);
+  if (Editor=nil) or (Position.Y<1) or (Position.Y>Editor.Lines.Count) then Exit;
+  S:=Editor.Lines[Position.Y-1];if (Position.X<1) or (Position.X>Length(S)) then Exit;
+  C:=S[Position.X];
+  case C of
+    '(',')':begin Opening:='(';Closing:=')';end;
+    '[',']':begin Opening:='[';Closing:=']';end;
+    '{','}':begin Opening:='{';Closing:='}';end;
+    else Exit;
+  end;
+  State.Context:=cecCode;State.Escaped:=False;State.RawEnd:='';Count:=0;
+  SetLength(Stack,32);
+  for Row:=1 to Editor.Lines.Count do begin
+    S:=Editor.Lines[Row-1];Mask:=CppCodeMask(S,Length(S),True,State);
+    if (Row=Position.Y) and (Mask[Position.X]<>#1) then Exit;
+    for I:=1 to Length(S) do if Mask[I]=#1 then begin
+      if S[I]=Opening then begin
+        if Count=Length(Stack) then SetLength(Stack,Count*2);
+        Stack[Count]:=Point(I,Row);Inc(Count);
+      end else if (S[I]=Closing) and (Count>0) then begin
+        Dec(Count);Start:=Stack[Count];
+        if Start=Position then Exit(Point(I,Row));
+        if Point(I,Row)=Position then Exit(Start);
       end;
-      Inc(I);
     end;
-    if Row < Caret.Y then
-    begin
-      if (Result = cecLineComment) and
-        ((S = '') or (S[Length(S)] <> '\')) then Result := cecCode;
-      if (Result in [cecSingleQuote, cecDoubleQuote]) and not Escaped then
-        Result := cecCode;
-    end;
+    if (C=Closing) and (Row>=Position.Y) then Exit;
   end;
 end;
 

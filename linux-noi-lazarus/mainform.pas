@@ -488,20 +488,25 @@ end;
 function TNoiSynEdit.FindMatchingBracketLogical(LogicalStartBracket: TPoint;
   StartIncludeNeighborChars, MoveCaret, SelectBrackets,
   OnlyVisible: Boolean): TPoint;
-var
-  BracketSourceBuffer: string;
+const Offsets:array[0..2] of Integer=(0,-1,1);
+var I,Last:Integer;Candidate,First,Final:TPoint;
 begin
-  if (LogicalStartBracket.Y >= 1) and
-    (LogicalStartBracket.Y <= Lines.Count) then
-  begin
-    BracketSourceBuffer := Lines[LogicalStartBracket.Y - 1];
-    if (LogicalStartBracket.X >= 1) and
-      (LogicalStartBracket.X <= Length(BracketSourceBuffer)) and
-      (BracketSourceBuffer[LogicalStartBracket.X] in ['"', '''']) then
-      Exit(Point(-1, -1));
+  Result:=Point(-1,-1);Last:=0;if StartIncludeNeighborChars then Last:=2;
+  for I:=0 to Last do begin
+    Candidate:=Point(LogicalStartBracket.X+Offsets[I],LogicalStartBracket.Y);
+    if OnlyVisible and ((Candidate.Y<TopLine) or
+      (Candidate.Y>=ScreenRowToRow(LinesInWindow))) then Continue;
+    Result:=CppBracketMatch(Self,Candidate);
+    if (Result.Y<1) then Continue;
+    if OnlyVisible and ((Result.Y<TopLine) or
+      (Result.Y>=ScreenRowToRow(LinesInWindow))) then begin Result:=Point(-1,-1);Continue;end;
+    if SelectBrackets then begin
+      First:=Candidate;Final:=Result;
+      if (Final.Y<First.Y) or ((Final.Y=First.Y) and (Final.X<First.X)) then begin First:=Result;Final:=Candidate;end;
+      Inc(Final.X);BlockBegin:=First;BlockEnd:=Final;
+    end else if MoveCaret then LogicalCaretXY:=Result;
+    Exit;
   end;
-  Result := inherited FindMatchingBracketLogical(LogicalStartBracket,
-    StartIncludeNeighborChars, MoveCaret, SelectBrackets, OnlyVisible);
 end;
 
 function VisualLineLength(const LineText: string; TabSize: Integer): Integer;
@@ -2614,7 +2619,9 @@ begin
     if (Key = '{') and IsTypeHeader(Copy(LineText, 1, PosBefore.X - 1)) then
       ClosingText := '};';
     if (PosBefore.X <= Length(LineText)) and
-      (LineText[PosBefore.X] = Closing) then
+      (LineText[PosBefore.X] = Closing) and
+      ((Closing in [#39, '"', '>']) or
+       (CppBracketMatch(Doc.Editor,PosBefore).Y<1)) then
       Doc.Editor.SelText := string(Key)
     else
       Doc.Editor.SelText := string(Key) + ClosingText;

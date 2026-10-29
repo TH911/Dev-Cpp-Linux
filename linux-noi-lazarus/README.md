@@ -4,7 +4,7 @@
 
 ## 中文
 
-这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta2**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta2)。
+这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta3**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta3)。
 
 在此目录打开终端，运行：
 
@@ -27,7 +27,7 @@ bash run.sh /path/to/project.dev
 `.deb` 安装版无需 Lazarus/FPC。更新时先保存代码并关闭旧窗口，然后在安装包所在目录运行（替换为实际文件名）：
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta2_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta3_amd64.deb
 /usr/bin/dev-cpp --version
 /usr/bin/dev-cpp --new-window
 ```
@@ -56,9 +56,9 @@ are retained; new editor configurations use size 14.
 The application supports installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.3.1~beta2** (published as Pre-release `v1.3.1-beta2`). Future development pushes to `beta` publish a
+This beta build is **1.3.1~beta3** (published as Pre-release `v1.3.1-beta3`). Future development pushes to `beta` publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.3.1-beta2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta2).
+and directory source archives. See [v1.3.1-beta3](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta3).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0).
 

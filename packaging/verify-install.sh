@@ -107,8 +107,8 @@ fpc -FU"$test_dir" -FE"$test_dir" "$test_dir/legacy-instance.pas" > "$test_dir/l
 chown -R "$test_user:$test_group" "$test_dir"
 # Upgrade a prior package, rather than checking only a clean installation.
 # CI uses a minimal 1.1.1 layout fixture so the regression does not download a
-# mutable network dependency. Pass a real devcpp-noi or dev-cpp-linux package
-# as argument 2 for a complete historical-package upgrade check.
+# mutable network dependency. Pass an older project package as argument 2
+# for a complete historical-package upgrade check.
 legacy_deb=${2:-}
 if [[ -z "$legacy_deb" ]]; then
   mkdir -p "$test_dir/upgrade111/DEBIAN" \
@@ -136,7 +136,7 @@ OLDDESKTOP
   dpkg-deb --build --root-owner-group "$test_dir/upgrade111" "$test_dir/upgrade111.deb" >/dev/null
   legacy_deb="$test_dir/upgrade111.deb"
 fi
-[[ $(dpkg-deb -f "$legacy_deb" Package) == devcpp-noi || $(dpkg-deb -f "$legacy_deb" Package) == dev-cpp-linux ]]
+[[ $(dpkg-deb -f "$legacy_deb" Package) == devcpp-noi || $(dpkg-deb -f "$legacy_deb" Package) == dev-cpp-linux || $(dpkg-deb -f "$legacy_deb" Package) == dev-cpp ]]
 dpkg --compare-versions "$(dpkg-deb -f "$legacy_deb" Version)" lt "$(dpkg-deb -f "$deb" Version)"
 dpkg -i "$legacy_deb"
 if [[ $(dpkg-deb -f "$legacy_deb" Version) == 1.1.1 ]]; then

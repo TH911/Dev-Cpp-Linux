@@ -72,6 +72,10 @@ begin
     end;
     ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Classic Plus', Colors, Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     Check(Syntax.NumberAttri.Foreground = clPurple, 'Classic Plus numbers retain original purple');
+    CheckLiteral(Syntax, '"([]{})"', Syntax.StringAttri);
+    CheckLiteral(Syntax, '''(''', Syntax.CharacterAttri);
+    CheckLiteral(Syntax, '//([]{})', Syntax.CommentAttri);
+    CheckLiteral(Syntax, '/*([]{})*/', Syntax.CommentAttri);
     CheckLiteral(Syntax, '1e5', Syntax.FloatAttri);
     CheckLiteral(Syntax, '1E+5', Syntax.FloatAttri);
     CheckLiteral(Syntax, '1e-5', Syntax.FloatAttri);
@@ -106,6 +110,10 @@ begin
     ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Matrix', Colors,
       Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     CheckLiteral(Syntax, '123', Syntax.NumberAttri);
+    CheckLiteral(Syntax, '"([]{})"', Syntax.StringAttri);
+    CheckLiteral(Syntax, '''(''', Syntax.CharacterAttri);
+    CheckLiteral(Syntax, '//([]{})', Syntax.CommentAttri);
+    CheckLiteral(Syntax, '/*([]{})*/', Syntax.CommentAttri);
     CheckLiteral(Syntax, '1e5', Syntax.FloatAttri);
     CheckLiteral(Syntax, '0x1e5', Syntax.HexAttri);
     CheckLiteral(Syntax, '077', Syntax.OctalAttri);
