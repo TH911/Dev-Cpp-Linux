@@ -2,9 +2,9 @@
 
 ## 中文
 
-界面名称为 **Dev-C++**，主命令和 Debian 包名为 `dev-cpp`。当前测试版本为 `1.3.1~beta3`，GitHub 标签和下载文件名为 `v1.3.1-beta3`、`dev-cpp_1.3.1-beta3_amd64.deb`。界面仍在按原版 Dev-C++ 5.11 逐步移植，beta 不代表 UI 已完全还原。
+界面名称为 **Dev-C++**，主命令和 Debian 包名为 `dev-cpp`。当前测试版本为 `1.3.1~beta4`，GitHub 标签和下载文件名为 `v1.3.1-beta4`、`dev-cpp_1.3.1-beta4_amd64.deb`。界面仍在按原版 Dev-C++ 5.11 逐步移植，beta 不代表 UI 已完全还原。
 
-从旧的 `dev-cpp-linux` 或 `devcpp-noi` 安装包更新时，使用普通的 `sudo apt install ./dev-cpp_1.3.1-beta3_amd64.deb`。APT 会以新包替换旧包，无需先手工卸载。`1.3.1~beta3` 的 Debian 版本顺序高于已经发行的 `1.3.0`，避免把更新误判为降级。已发表的历史标签和附件保持不变。
+从旧的 `dev-cpp-linux` 或 `devcpp-noi` 安装包更新时，使用普通的 `sudo apt install ./dev-cpp_1.3.1-beta4_amd64.deb`。APT 会以新包替换旧包，无需先手工卸载。`1.3.1~beta4` 的 Debian 版本顺序高于已经发行的 `1.3.0`，避免把更新误判为降级。已发表的历史标签和附件保持不变。
 
 首次运行优先读取上一版 `~/.config/dev-cpp-linux.ini`，否则读取 `~/.config/devcpp-noi.ini`，并将其 复制到 `~/.config/dev-cpp.ini`；已有新配置不会被覆盖，旧文件保留。旧命令 `/usr/bin/dev-cpp-linux`、`/usr/bin/devcpp-noi`、旧桌面 ID 和 MIME 关联只作为兼容转发，均启动新版。可识别的历史自动生成入口会备份后修复，自定义入口保持不变。
 
@@ -40,9 +40,9 @@ DEV_CPP_STARTUP_TRACE=1 dev-cpp --new-window
 
 ## English
 
-The display name is **Dev-C++**; the primary command and Debian package are `dev-cpp`. The beta version is `1.3.1~beta3`; the GitHub tag and public Debian filename use `v1.3.1-beta3` and `dev-cpp_1.3.1-beta3_amd64.deb`. UI restoration remains ongoing.
+The display name is **Dev-C++**; the primary command and Debian package are `dev-cpp`. The beta version is `1.3.1~beta4`; the GitHub tag and public Debian filename use `v1.3.1-beta4` and `dev-cpp_1.3.1-beta4_amd64.deb`. UI restoration remains ongoing.
 
-Upgrade with `sudo apt install ./dev-cpp_1.3.1-beta3_amd64.deb`. APT replaces the old `dev-cpp-linux` or `devcpp-noi` package; no manual uninstall is needed. Debian orders `1.3.1~beta3` after the already published `1.3.0`. Historical tags and assets are preserved.
+Upgrade with `sudo apt install ./dev-cpp_1.3.1-beta4_amd64.deb`. APT replaces the old `dev-cpp-linux` or `devcpp-noi` package; no manual uninstall is needed. Debian orders `1.3.1~beta4` after the already published `1.3.0`. Historical tags and assets are preserved.
 
 On first launch, `~/.config/dev-cpp-linux.ini` (or the older `~/.config/devcpp-noi.ini` when absent) is copied to `~/.config/dev-cpp.ini` if the new file does not exist. The old file is retained. Old command and desktop IDs remain hidden compatibility redirects to the new application; existing MIME defaults are preserved. Recognized generated launchers are backed up and repaired; custom entries are retained.
 

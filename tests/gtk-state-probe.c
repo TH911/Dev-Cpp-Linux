@@ -42,6 +42,10 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
     fprintf(out, "{\"id\":\"%p\",\"type\":", (void *)widget);
     json_string(out, G_OBJECT_TYPE_NAME(widget));
     fputs(",\"text\":", out); json_string(out, text);
+    if (GTK_IS_FILE_CHOOSER(widget)) {
+        char *folder = gtk_file_chooser_get_current_folder(GTK_FILE_CHOOSER(widget));
+        fputs(",\"folder\":", out); json_string(out, folder); g_free(folder);
+    }
     GtkAllocation allocation;
     gint root_x = 0, root_y = 0;
     gtk_widget_get_allocation(widget, &allocation);

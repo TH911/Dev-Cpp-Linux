@@ -50,7 +50,7 @@ start_case() {
   stop_case
   case_dir="$test_dir/$1"
   mkdir -p "$case_dir/home/.config"
-  printf '[Interface]\nLanguage=en\n' > "$case_dir/home/.config/dev-cpp.ini"
+  printf '[Interface]\nLanguage=en\n[Shortcuts]\nmenu.0.3=49235\n' > "$case_dir/home/.config/dev-cpp.ini"
   printf '%s' "$2" > "$case_dir/sample.cpp"
   local -a startup_files=("$case_dir/sample.cpp")
   if [[ $# -ge 3 ]]; then
@@ -206,7 +206,8 @@ echo 'PASS: clipboard and Undo shortcuts in the read-only log do not alter sourc
 start_case save-as-cancel $'first\n'
 press ctrl+End Return
 type_text '// unsaved'
-press Escape ctrl+shift+s
+press Escape ctrl+alt+s
+# A test-only custom Save As binding also verifies default-less commands.
 dialog=$(wait_named_window '^Save$')
 xdotool windowfocus "$dialog" key --clearmodifiers Escape
 sleep 0.2
@@ -224,7 +225,8 @@ press ctrl+z
 save_expect $'first\n'
 press ctrl+End Return
 type_text '// unsaved'
-press Escape ctrl+shift+s
+press Escape ctrl+alt+s
+# A test-only custom Save As binding also verifies default-less commands.
 dialog=$(wait_named_window '^Save$')
 sleep 0.3
 xdotool windowfocus "$dialog" key --clearmodifiers alt+n

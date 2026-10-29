@@ -96,22 +96,44 @@ end;
 procedure TMenuShortcuts.Collect(Item: TMenuItem; const Path: string);
 var I: Integer;
 begin
-  if Item.ShortCut <> 0 then begin
-    FItems.Add(Item); FPaths.Add(StableShortcutPath(Item.ShortCut,Path)); FDefaults.Add(IntToStr(Item.ShortCut));
+  if (Item.ShortCut <> 0) or (Item.Name = 'CommandSaveAs') then begin
+    FItems.Add(Item);
+    { Configuration identities belong to commands, not their new default key. }
+    if Item.Name = 'CommandSaveAs' then FPaths.Add('menu.0.3')
+    else if Item.Name = 'CommandSaveAll' then FPaths.Add('menu.0.4')
+    else if Item.Name = 'CommandFormat' then FPaths.Add('command.format')
+    else FPaths.Add(StableShortcutPath(Item.ShortCut,Path));
+    FDefaults.Add(IntToStr(Item.ShortCut));
   end;
   for I := 0 to Item.Count - 1 do Collect(Item.Items[I], Path + '.' + IntToStr(I));
 end;
 constructor TMenuShortcuts.Create(Root: TMenuItem; const Config: string);
-var Ini: TIniFile; I, Value: Integer;
+var Ini: TIniFile; I, Value: Integer; ChangedDefaults: Boolean;
 begin
   inherited Create;
   FItems := TList.Create; FPaths := TStringList.Create; FDefaults := TStringList.Create;
   Collect(Root, 'menu'); Ini := TIniFile.Create(Config);
   try
+    ChangedDefaults := Ini.ReadInteger('Shortcuts', 'DefaultsVersion', 0) < 2;
+    if ChangedDefaults then begin
+      { Only known old factory values migrate; explicit remaps/disabled keys stay. }
+      if Ini.ReadInteger('Shortcuts', 'menu.0.3', -1) = 24659 then
+        Ini.WriteInteger('Shortcuts', 'menu.0.3', 0);
+      if Ini.ReadInteger('Shortcuts', 'menu.0.4', -1) = 24641 then
+        Ini.WriteInteger('Shortcuts', 'menu.0.4', 24659);
+      Ini.WriteInteger('Shortcuts', 'DefaultsVersion', 2);
+    end;
     for I := 0 to FItems.Count - 1 do begin
       Value := Ini.ReadInteger('Shortcuts', FPaths[I], TMenuItem(FItems[I]).ShortCut);
       if (Value >= 0) and (Value <= High(TShortCut)) then TMenuItem(FItems[I]).ShortCut := Value;
     end;
+    for I := 0 to FItems.Count - 1 do
+      if (TMenuItem(FItems[I]).Name = 'CommandFormat') and
+        not Ini.ValueExists('Shortcuts', FPaths[I]) then begin
+        for Value := 0 to FItems.Count - 1 do
+          if (Value <> I) and (TMenuItem(FItems[Value]).ShortCut = 24641) then
+            TMenuItem(FItems[I]).ShortCut := 0;
+      end;
   finally Ini.Free; end;
 end;
 destructor TMenuShortcuts.Destroy;

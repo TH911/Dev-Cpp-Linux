@@ -138,6 +138,7 @@ type
     FCompileDirectory: string;
     FInvalidExecutables: TStringList;
     FOptionsPath: string;
+    FLastDirectory: string;
     FCCompiler: string;
     FCppCompiler: string;
     FCFlags: string;
@@ -231,6 +232,7 @@ type
     procedure SaveRecentPaths;
     procedure RebuildRecentMenu;
     procedure RememberRecentPath(const FileName: string);
+    function FileDialogDirectory(const ExistingFile: string = ''): string;
     procedure RecentFileClick(Sender: TObject);
     procedure ClearRecentClick(Sender: TObject);
     procedure ToggleBookmarkClick(Sender: TObject);
@@ -821,8 +823,8 @@ begin
   AddMenu(NewMenu, '&Source File', @NewClick, ShortCut(Ord('N'), [ssCtrl]));
   AddMenu(FileMenu, '&Open project or file...', @OpenClick, ShortCut(Ord('O'), [ssCtrl]));
   AddMenu(FileMenu, '&Save', @SaveClick, ShortCut(Ord('S'), [ssCtrl]));
-  AddMenu(FileMenu, 'Save &As...', @SaveAsClick, ShortCut(Ord('S'), [ssCtrl, ssShift]));
-  AddMenu(FileMenu, 'Save A&ll', @SaveAllClick, ShortCut(Ord('A'), [ssCtrl, ssShift]));
+  AddMenu(FileMenu, 'Save &As...', @SaveAsClick).Name := 'CommandSaveAs';
+  AddMenu(FileMenu, 'Save A&ll', @SaveAllClick, ShortCut(Ord('S'), [ssCtrl, ssShift])).Name := 'CommandSaveAll';
   AddMenu(FileMenu, '-', nil);
   AddMenu(FileMenu, '&Close', @CloseClick, ShortCut(Ord('W'), [ssCtrl]));
   AddMenu(FileMenu, '&Close Project', @CloseProjectClick);
@@ -844,7 +846,7 @@ begin
   FRecentMenu := AddMenu(FileMenu, 'Recent &Files / Projects', nil);
   RebuildRecentMenu;
   AddMenu(FileMenu, '-', nil);
-  AddMenu(FileMenu, 'E&xit', @ExitClick);
+  AddMenu(FileMenu, 'E&xit', @ExitClick, ShortCut(VK_F4, [ssAlt]));
 
   EditMenu := TMenuItem.Create(Self); EditMenu.Caption := Tr('&Edit'); Bar.Items.Add(EditMenu);
   AddMenu(EditMenu, '&Undo', @UndoClick, ShortCut(Ord('Z'), [ssCtrl]));
@@ -934,7 +936,7 @@ begin
   AddMenu(ExecuteMenu, '&Run', @RunClick, ShortCut(VK_F10, []));
   AddMenu(ExecuteMenu, 'Compile && Run', @CompileRunClick, ShortCut(VK_F11, []));
   AddMenu(ExecuteMenu, 'R&ebuild All', @CompileClick, ShortCut(VK_F12, []));
-  AddMenu(ExecuteMenu, '&Abort Compilation', @AbortCompileClick);
+  AddMenu(ExecuteMenu, '&Abort Compilation', @AbortCompileClick, ShortCut(VK_F2, []));
   AddMenu(ExecuteMenu, '-', nil);
   AddMenu(ExecuteMenu, '&Syntax Check', @SyntaxClick,
     ShortCut(VK_F9, [ssCtrl]));
@@ -978,7 +980,8 @@ begin
     BookmarkItem.Checked := CurrentUiLanguage = UiLanguageCode(LanguageIndex);
   end;
   FormatMenu := TMenuItem.Create(Self); FormatMenu.Caption := 'AStyle'; Bar.Items.Add(FormatMenu);
-  AddMenu(FormatMenu, 'Format current file', @FormatClick);
+  AddMenu(FormatMenu, 'Format current file', @FormatClick,
+    ShortCut(Ord('A'), [ssCtrl, ssShift])).Name := 'CommandFormat';
   AddMenu(FormatMenu, 'Format options...', @FormatOptionsClick);
   WindowMenu := TMenuItem.Create(Self); WindowMenu.Caption := Tr('&Window'); Bar.Items.Add(WindowMenu);
   AddMenu(WindowMenu, '&Next Tab', @NextTabClick);
@@ -1552,6 +1555,7 @@ var Ini: TIniFile; I: Integer; FileName: string;
 begin
   Ini := TIniFile.Create(FOptionsPath);
   try
+    FLastDirectory := DecodeHistoryPath(Ini.ReadString('History', 'LastDirectory', ''));
     for I := 0 to 9 do
     begin
       FileName := DecodeHistoryPath(Ini.ReadString('History', 'File' + IntToStr(I), ''));
@@ -1568,6 +1572,7 @@ begin
     Ini := TIniFile.Create(FOptionsPath);
     try
       Ini.EraseSection('History');
+      Ini.WriteString('History', 'LastDirectory', EncodeHistoryPath(FLastDirectory));
       for I := 0 to FRecentFiles.Count - 1 do
         Ini.WriteString('History', 'File' + IntToStr(I), EncodeHistoryPath(FRecentFiles[I]));
     finally Ini.Free; end;
@@ -1596,13 +1601,26 @@ begin
   Item.Enabled := FRecentFiles.Count > 0;
 end;
 
+function TMainForm.FileDialogDirectory(const ExistingFile: string): string;
+begin
+  if ExistingFile <> '' then begin
+    Result := ExtractFileDir(ExpandFileName(ExistingFile));
+    if DirectoryExists(Result) then Exit;
+  end;
+  Result := FLastDirectory;
+  if DirectoryExists(Result) then Exit;
+  Result := GetUserDir;
+  if not DirectoryExists(Result) then Result := GetCurrentDir;
+end;
+
 procedure TMainForm.RememberRecentPath(const FileName: string);
 var FullName: string; Index: Integer;
 begin
   if FileName = '' then Exit;
   FullName := ExpandFileName(FileName);
+  FLastDirectory := ExtractFileDir(FullName);
   Index := FRecentFiles.IndexOf(FullName);
-  if Index = 0 then Exit;
+  if Index = 0 then begin SaveRecentPaths; Exit; end;
   if Index >= 0 then FRecentFiles.Delete(Index);
   FRecentFiles.Insert(0, FullName);
   while FRecentFiles.Count > 10 do FRecentFiles.Delete(FRecentFiles.Count - 1);
@@ -2089,6 +2107,12 @@ begin
     end;
     if Suppress then begin Key := 0; Exit; end;
   end;
+  { Reserve unported 5.11 actions instead of invoking unrelated SynEdit defaults. }
+  if EditorHasFocus and (Modifiers = [ssCtrl]) and
+    (Key in [Ord('I'), Ord('M'), Ord('T')]) then begin
+    SetStatusMessage(Tr('This Dev-C++ 5.11 shortcut is not available in this beta.'));
+    Key := 0; Exit;
+  end;
   if (Key >= Ord('1')) and (Key <= Ord('9')) then
   begin
     if Modifiers = [ssCtrl] then
@@ -2120,20 +2144,19 @@ begin
       VK_F9: Dispatch(@SyntaxClick);
       VK_F11: Dispatch(@FullScreenClick);
       VK_SPACE: Dispatch(@CompletionClick);
-      47, 191: Dispatch(@ToggleCommentClick);
-      59, 186: Dispatch(@InlineCommentClick);
-      44, 188: Dispatch(@UncommentClick);
-      46, 190: Dispatch(@CommentClick);
+      191: Dispatch(@ToggleCommentClick);
+      186: Dispatch(@InlineCommentClick);
+      188: Dispatch(@UncommentClick);
+      190: Dispatch(@CommentClick);
       VK_TAB: Dispatch(@NextTabClick);
     end;
   end
   else if Modifiers = [ssCtrl, ssShift] then
   begin
     case Key of
-      Ord('S'): Dispatch(@SaveAsClick);
+      Ord('S'): Dispatch(@SaveAllClick);
       Ord('W'): Dispatch(@CloseAllClick);
-      Ord('A'): Dispatch(@SaveAllClick);
-      Ord('X'): Dispatch(@SyntaxClick);
+      Ord('A'): Dispatch(@FormatClick);
       Ord('R'): Dispatch(@ReplaceAllClick);
       Ord('F'): Dispatch(@FindAllClick);
       VK_TAB: Dispatch(@PreviousTabClick);
@@ -2144,6 +2167,7 @@ begin
   else if Modifiers = [] then
   begin
     case Key of
+      VK_F2: Dispatch(@AbortCompileClick);
       VK_F4: Dispatch(@DebugToggleBreakpointClick);
       VK_F5: Dispatch(@DebugStartClick);
       VK_F6: Dispatch(@DebugStopClick);
@@ -3443,6 +3467,7 @@ begin
   Dialog := TSaveDialog.Create(Self);
   try
     Dialog.Title := Tr('New Project');
+    Dialog.InitialDir := FileDialogDirectory;
     Dialog.DefaultExt := 'dev';
     Dialog.Filter := Tr('Dev-C++ project|*.dev');
     Dialog.FileName := 'Project1.dev';
@@ -3968,6 +3993,7 @@ begin
   Dialog := TOpenDialog.Create(Self);
   try
     Dialog.Title := Tr('Open');
+    Dialog.InitialDir := FileDialogDirectory;
     Dialog.Filter := Tr('Dev-C++ project or C/C++ file|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*');
     if Dialog.Execute then
       if LowerCase(ExtractFileExt(Dialog.FileName)) = '.dev' then
@@ -4006,7 +4032,8 @@ begin
           Dialog.Options := Dialog.Options - [ofOverwritePrompt];
           Dialog.DefaultExt := 'cpp';
           Dialog.Filter := Tr('C/C++ source|*.cpp;*.c;*.h;*.hpp|All files|*');
-          if OldName <> '' then Dialog.FileName := OldName
+          Dialog.InitialDir := FileDialogDirectory(OldName);
+          if OldName <> '' then Dialog.FileName := ExtractFileName(OldName)
           else Dialog.FileName := Doc.UntitledName;
           if ExtractFileExt(Dialog.FileName) = '' then
             Dialog.FileName := Dialog.FileName + '.cpp';

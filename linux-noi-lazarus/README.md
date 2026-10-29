@@ -4,7 +4,7 @@
 
 ## 中文
 
-这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta3**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta3)。
+这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta4**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta4)。
 
 在此目录打开终端，运行：
 
@@ -27,7 +27,7 @@ bash run.sh /path/to/project.dev
 `.deb` 安装版无需 Lazarus/FPC。更新时先保存代码并关闭旧窗口，然后在安装包所在目录运行（替换为实际文件名）：
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta3_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta4_amd64.deb
 /usr/bin/dev-cpp --version
 /usr/bin/dev-cpp --new-window
 ```
@@ -56,9 +56,9 @@ are retained; new editor configurations use size 14.
 The application supports installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.3.1~beta3** (published as Pre-release `v1.3.1-beta3`). Future development pushes to `beta` publish a
+This beta build is **1.3.1~beta4** (published as Pre-release `v1.3.1-beta4`). Future development pushes to `beta` publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.3.1-beta3](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta3).
+and directory source archives. See [v1.3.1-beta4](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta4).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0).
 
@@ -92,7 +92,7 @@ when the interface language is Chinese). It forwards all selected files.
 Execute > Abort Compilation stops an active compiler process.
 The application starts with no document. Ctrl+N creates Untitled1, and the
 number increases during the current application run. Ctrl+N/O/S/W/F/G and
-Ctrl+Shift+S Save As, Ctrl+Shift+A Save All, Ctrl+B Open Containing Folder,
+Ctrl+Shift+S Save All, Ctrl+Shift+A AStyle Format Current File, Ctrl+B Open Containing Folder,
 Ctrl+Y redo, Ctrl+R replace, Ctrl+H project options, Ctrl+/ toggle line
 comment, Ctrl+; toggle inline comment, Ctrl+Shift+F Find All,
 Ctrl+Shift+R Replace All in the active file, Ctrl+Tab/Shift+Ctrl+Tab tab
@@ -229,12 +229,9 @@ The compact Sans 9 interface and panel structure move toward the original
 are restored after Stop or normal exit. See [the debugger guide](../docs/DEBUGGING.md).
 Watch persistence across IDE restarts, conditional breakpoints, call-stack browsing, attach and
 other advanced debugger features remain pending. Project resource builds,
-full C++ signature resolution, a second editor view and
-full-file formatting are also pending. F9 currently recompiles all project
+full C++ signature resolution and a second editor view are also pending. F9 currently recompiles all project
 sources, so F12 has the same compilation scope until an incremental builder
-exists. Ctrl+Shift+S is Save As in
-this port as requested; original Orwell Dev-C++ used it for Save All, which is
-Ctrl+Shift+A here. Find All currently searches open documents, and Replace All
+exists. Ctrl+Shift+S saves all files and Ctrl+Shift+A formats the current file, matching Orwell 5.11. Save As has no default key. See the bilingual [shortcut audit and save-folder guide](../docs/SHORTCUTS.md). Find All currently searches open documents, and Replace All
 currently acts on the active document.
 
 Execute > Parameters configures program arguments and working directory
@@ -304,3 +301,5 @@ launcher prints the version reported by its actual compiled binary.
 本轮六页编辑器属性、GDB 面板与恢复副本说明见 [原版 UI 移植说明](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/CLASSIC-UI.md)。界面名为 **Dev-C++**，命令与包名为 `dev-cpp`；旧名称保留升级兼容。
 
 See [classic UI behavior](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/CLASSIC-UI.md) for the six-page properties dialog, debugger actions and recovery copies. The display name is **Dev-C++**; the command and package are `dev-cpp`, retaining legacy upgrade redirects.
+
+快捷键及保存目录：Ctrl+Shift+S 全部保存，Ctrl+Shift+A 格式化，另存为不设默认键；新源码保存时记住最近成功打开/保存的目录。详见 [中英文说明](../docs/SHORTCUTS.md)。

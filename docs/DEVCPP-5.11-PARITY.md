@@ -96,8 +96,7 @@ F11 编译运行、关闭和重新打开项目，以及 Ctrl+N 新建源码；�
 
 ## 有意保留的差异
 
-- 当前项目既定 **Ctrl+Shift+S = Save As、Ctrl+Shift+A = Save All**，本轮继续保留。
-  原版快捷键表为 Ctrl+Shift+S = Save All，Ctrl+Shift+A = AStyle Format Current File；以后添加格式化时需选择其他键或允许配置。
+- `v1.3.1-beta4` 已恢复原版 **Ctrl+Shift+S = Save All、Ctrl+Shift+A = AStyle Format Current File**；另存为不设默认键。逐项绑定核对、自定义迁移与尚未移植的键见 [快捷键审计](SHORTCUTS.md)。
 - GTK2/LCL 控件、Linux 终端与路径处理服务于 NOI Linux 2.0。功能语义应对齐，不能以 Windows 像素布局、Win32 专用选项是否照搬来判断可用性。
 - 本轮对原版功能的验收要求包括取消、撤销、焦点、跨文档和跨项目状态；仅新增同名菜单不算完成。
 
