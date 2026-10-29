@@ -168,8 +168,12 @@ var Values, Used: TStringList; I: Integer; Sc: TShortCut; Key: Word;
 begin
   Values := TStringList.Create; Used := TStringList.Create;
   try
-    for I := 0 to FItems.Count - 1 do
-      Values.Add(CommandLabel(TMenuItem(FItems[I])) + '=' + ShortCutToText(TMenuItem(FItems[I]).ShortCut));
+    for I := 0 to FItems.Count - 1 do begin
+      Sc := TMenuItem(FItems[I]).ShortCut;
+      { LCL 2.0.6 renders zero as 'Unknown'; the editable disabled value is blank. }
+      if Sc = 0 then Values.Add(CommandLabel(TMenuItem(FItems[I])) + '=')
+      else Values.Add(CommandLabel(TMenuItem(FItems[I])) + '=' + ShortCutToText(Sc));
+    end;
     while EditSettingValues(Owner, 'Shortcut Options', Values) do begin
       Used.Clear; Valid := Values.Count = FItems.Count;
       for I := 0 to Values.Count - 1 do begin

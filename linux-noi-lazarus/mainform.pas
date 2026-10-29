@@ -12,7 +12,7 @@ uses
   SynEditMarks, SynGutter, SynEditMarkupFoldColoring, SynEditMiscClasses, editor_actions,
   cppcompletion, ui_language, app_instance, document_files, runtime_support,
   editor_themes, compiler_profiles, options_dialogs, language_catalog, input_appearance, app_paths, startup_trace, classic_chrome, source_navigation, source_output,
-  gdb_session, debugger_panel, debug_icons, app_version, about_dialog, classic_settings, editor_preferences, editor_options_dialog;
+  gdb_session, debugger_panel, debug_icons, app_version, about_dialog, classic_settings, editor_preferences, editor_options_dialog, document_tabs;
 
 type
   TNoiCppSyn = cpp_highlighter.TNoiCppSyn;
@@ -73,10 +73,11 @@ type
     FEditorPreferences: TEditorPreferences;
     FInsertMenu: TMenuItem;
     FLastRecoveryAt: QWord;
-    FPages: TPageControl;
+    FPages: TDocumentTabs;
     FNavigationBar: TToolBar;
     FMenuShortcuts: TMenuShortcuts;
     FCustomToolItem: TMenuItem;
+    procedure DocumentTabsMoved(Sender: TObject);
     procedure EnvironmentOptionsClick(Sender: TObject);
     procedure ShortcutOptionsClick(Sender: TObject);
     procedure ConfigureToolsClick(Sender: TObject);
@@ -386,7 +387,12 @@ function CompilerSignal(Pid, SignalNumber: LongInt): LongInt; cdecl;
 {$ENDIF}
 
 constructor TNoiSynEdit.Create(AOwner:TComponent);
-begin inherited Create(AOwner);FEnhancedHome:=True;end;
+begin
+  inherited Create(AOwner);FEnhancedHome:=True;
+  { SynEdit 2.0.6 treats zero as no history, not unlimited. Do not evict the
+    oldest edit after its default 1024 actions. Both undo/redo use this bound. }
+  MaxUndo:=High(Integer);
+end;
 
 procedure TNoiSynEdit.EnableIndentGuides;
 var GuideMarkup: TSynEditMarkupFoldColors;
@@ -1222,11 +1228,12 @@ begin
   Split := TSplitter.Create(Self); Split.Parent := MainPanel; Split.Align := alBottom;
   FReportSplitter := Split;
 
-  FPages := TPageControl.Create(Self);
+  FPages := TDocumentTabs.Create(Self);
   FPages.Parent := CenterPanel;
   FPages.Align := alClient;
   FPages.TabHeight := 22;
   FPages.OnChange := @PageChanged;
+  FPages.OnTabMoved := @DocumentTabsMoved;
   FCompletionForm := TForm.CreateNew(Self, 0);
   FCompletionForm.BorderStyle := bsNone;
   FCompletionForm.FormStyle := fsStayOnTop;
@@ -1313,7 +1320,7 @@ begin
   if FUiTimer <> nil then FUiTimer.Enabled := False;
   if FInstanceTimer <> nil then FInstanceTimer.Enabled := False;
   if FFileWatchTimer <> nil then FFileWatchTimer.Enabled := False;
-  if FPages <> nil then FPages.OnChange := nil;
+  if FPages <> nil then begin FPages.OnChange := nil; FPages.OnTabMoved := nil; end;
   if FDocs <> nil then
     for I := 0 to FDocs.Count - 1 do
     begin
@@ -1764,6 +1771,17 @@ begin
   FCompletionList.Invalidate;
   if FDebugger <> nil then FDebugger.RefreshBreakpoints;
   UpdateStatus;
+end;
+
+procedure TMainForm.DocumentTabsMoved(Sender: TObject);
+var I,J: Integer;
+begin
+  for I:=0 to FPages.PageCount-1 do
+    for J:=I to FDocs.Count-1 do
+      if TDocument(FDocs[J]).Tab=FPages.Pages[I] then begin
+        FDocs.Move(J,I); Break;
+      end;
+  PageChanged(Sender);
 end;
 
 function TMainForm.CurrentDoc: TDocument;

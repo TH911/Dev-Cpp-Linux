@@ -29,7 +29,7 @@ end;
 var
   Editor: TSynEdit;
   Form: TForm;
-  MatchBytes, MatchCount: Integer;
+  MatchBytes, MatchCount, UndoStep: Integer;
   Original: string;
   RepeatHome: Boolean;
   HomeEditor: TTestNoiSynEdit;
@@ -211,6 +211,26 @@ begin
     HomeEditor.Press(VK_HOME, [ssShift]);
     Check(HomeEditor.LogicalCaretXY = Point(1, 1), 'actual Shift+Home cycles to column one');
     Check(HomeEditor.BlockEnd = Point(10, 2), 'actual repeated Shift+Home retains its anchor');
+    HomeEditor.Options:=HomeEditor.Options-[eoGroupUndo];
+    HomeEditor.Text:='baseline';HomeEditor.ClearUndo;
+    HomeEditor.LogicalCaretXY:=Point(9,1);
+    for UndoStep:=1 to 6000 do begin
+      HomeEditor.BeginUndoBlock;
+      try HomeEditor.SelText:='x';finally HomeEditor.EndUndoBlock;end;
+    end;
+    Original:=HomeEditor.Text;
+    for UndoStep:=1 to 6000 do begin
+      Check(HomeEditor.CanUndo,'history must retain more than 1024 edits');HomeEditor.Undo;
+    end;
+    Check(HomeEditor.Lines[0]='baseline','6000 undos reach the original source');
+    Check(not HomeEditor.CanUndo,'all independent edits undone');
+    for UndoStep:=1 to 6000 do begin
+      Check(HomeEditor.CanRedo,'redo keeps the same extended history');HomeEditor.Redo;
+    end;
+    Check(HomeEditor.Text=Original,'6000 redos restore exact source bytes');
+    HomeEditor.Undo;HomeEditor.SelText:='y';
+    Check(not HomeEditor.CanRedo,'new edit still discards the abandoned redo branch');
+    WriteLn('PASS: 6000 independent undo and redo steps retain exact source and branch semantics');
   finally
     Form.Free;
   end;

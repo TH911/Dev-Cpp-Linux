@@ -62,3 +62,5 @@ CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 100s xvfb-run -a -s "-scr
 timeout 120s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/brackets-ui-smoke.sh
 
 timeout 150s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/save-shortcuts-ui-smoke.sh
+
+timeout 120s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/tab-order-ui-smoke.sh

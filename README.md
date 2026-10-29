@@ -6,7 +6,7 @@
 
 基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**，本 beta 分支版本为 **1.3.1~beta4**（[Pre-release](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta4)）。
 
-本次测试版恢复原版保存快捷键：**Ctrl+Shift+S 全部保存、Ctrl+Shift+A 格式化**。新文件保存时记住最近成功打开/保存的目录，重启后保留；已有文件另存为从其目录打开。已逐项核对原版绑定，尚未移植的快捷键和使用范围见 [快捷键及保存目录](docs/SHORTCUTS.md)。
+本次测试版支持拖动源码标签页调整文件顺序，移除源码编辑器默认的 1024 条撤销历史上限，并恢复原版保存快捷键：**Ctrl+Shift+S 全部保存、Ctrl+Shift+A 格式化**。新文件保存时记住最近成功打开/保存的目录，重启后保留；已有文件另存为从其目录打开。已逐项核对原版绑定，尚未移植的快捷键和使用范围见 [快捷键及保存目录](docs/SHORTCUTS.md)。
 
 
 开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。本分支测试安装包见 [v1.3.1-beta4](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta4)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
@@ -153,7 +153,7 @@ dpkg-query -W -f='${Version}\n' dev-cpp
 ## English
 
 Dev-C++ is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The beta is **[v1.3.1-beta4](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta4)**; the latest stable release remains **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
-This beta restores **Ctrl+Shift+S → Save All** and **Ctrl+Shift+A → Format Current File**. New-file saves remember the last successfully opened/saved folder across restarts; Save As starts beside the named source. See the [bilingual shortcut audit](docs/SHORTCUTS.md) for every explicit original binding, remaining gaps and migration behavior.
+This beta supports dragging source tabs to reorder files, removes the source editor’s default 1024-action undo cap, and restores **Ctrl+Shift+S → Save All** and **Ctrl+Shift+A → Format Current File**. New-file saves remember the last successfully opened/saved folder across restarts; Save As starts beside the named source. See the [bilingual shortcut audit](docs/SHORTCUTS.md) for every explicit original binding, remaining gaps and migration behavior.
 
 
 Development goes to the [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta) branch. Successful compatibility, GUI and installation checks automatically publish a GitHub **Pre-release** with an amd64 `.deb` and source ZIP/tar.gz archives containing `linux-noi-lazarus/`. Existing release tags and assets are preserved. `main` is reserved for stable releases. [Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) also retains build artifacts.

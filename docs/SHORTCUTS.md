@@ -96,3 +96,17 @@ Tab / Shift+Tab 缩进、Ctrl+1…9 设置书签、Alt+1…9 跳至书签沿用�
 Tab/Shift+Tab and the original dynamic bookmark bindings are retained. Ordinary movement, selection, Ctrl+Backspace, Insert, Shift+Insert, Ctrl+Insert, Shift+Delete and Alt+Backspace remain SynEdit operations. Linux extensions Ctrl+Alt+L (log), Ctrl+Alt+E (source), and Ctrl+Alt+O (compiler settings) remain configurable.
 
 自动回归 / Automated validation: `tests/shortcuts-test.lpr` checks 49 existing action bindings, duplicate defaults and custom-setting migration; `tests/save-shortcuts-ui-smoke.sh` checks real GTK keyboard input, saved bytes, multi-file prompts and chooser folders. Existing editor, focus, compiler and GDB suites remain required. This is not a claim that every 5.11 feature or every desktop keyboard layout is supported.
+
+## 标签页排序 / Tab order
+
+按住源码标签页并左右拖动，可调整已打开文件的顺序；未保存的文件也可移动。当前文档、源码缓冲区、未保存标记和撤销记录跟随原标签页，Ctrl+Tab / Ctrl+Shift+Tab、全部保存及关闭操作按新的顺序使用同一文档。仅调整本次窗口内的顺序，不会重命名或移动磁盘文件；重启后不会自动恢复窗口的打开文件列表。
+
+Hold and drag a source tab left/right to reorder open files, including unnamed files. The document, source buffer, dirty state and Undo history remain attached to the same tab. Keyboard switching, Save All and Close use the reordered document identities. This changes the current window's order; it does not rename/move disk files or add cross-restart session restoration.
+
+`tests/tab-order-ui-smoke.sh` uses actual GTK labels and mouse gestures to verify both directions, click/right/outside guards, active identity, keyboard order, saved bytes, close cancellation and Save All for a moved unnamed file.
+
+## 撤销与重做历史 / Undo and redo history
+
+源码编辑器不再按 SynEdit 默认的 1024 条上限丢弃较早操作，撤销和重做改用框架可表示的最大容量。历史保存在内存中，保存文件不会清空；关闭文档或确认从磁盘重新加载后不保留。新编辑仍会丢弃被放弃的重做分支。“成组恢复”仍控制一次 Ctrl+Z 合并哪些连续输入，和历史容量是两回事。已验证 6000 次独立编辑可以全部撤销至起点，再全部重做，内容逐字节一致。
+
+Source editors no longer evict old operations after SynEdit's default 1024 actions. Undo and redo use the framework's maximum representable capacity. History resides in memory and survives Save; it is not retained after closing a document or confirming a disk reload. A new edit still discards the abandoned redo branch. Group undo controls which consecutive input is undone together, independently of history capacity. Regression checks exercise 6000 independent edits, full Undo/Redo and exact source-byte restoration.

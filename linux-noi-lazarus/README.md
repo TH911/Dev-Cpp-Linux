@@ -303,3 +303,7 @@ launcher prints the version reported by its actual compiled binary.
 See [classic UI behavior](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/CLASSIC-UI.md) for the six-page properties dialog, debugger actions and recovery copies. The display name is **Dev-C++**; the command and package are `dev-cpp`, retaining legacy upgrade redirects.
 
 快捷键及保存目录：Ctrl+Shift+S 全部保存，Ctrl+Shift+A 格式化，另存为不设默认键；新源码保存时记住最近成功打开/保存的目录。详见 [中英文说明](../docs/SHORTCUTS.md)。
+
+源码标签页可左右拖动排序，未保存文件也保留内容和未保存状态。Source tabs support drag reordering while retaining document identity and unsaved edits. See [shortcuts, folders and tabs](../docs/SHORTCUTS.md).
+
+源码撤销与重做不再使用默认的 1024 条操作上限，保存仍保留历史。Source Undo/Redo no longer use the default 1024-action cap; Save retains history. Details: [undo history](../docs/SHORTCUTS.md).
