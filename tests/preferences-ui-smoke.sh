@@ -6,6 +6,7 @@ test_dir=$(mktemp -d)
 preferences_home="$test_dir/home"
 config="$preferences_home/.config/dev-cpp.ini"
 app_pid=''
+config_watcher=''
 window=''
 dialog_window=''
 export LANG=C.UTF-8
@@ -16,6 +17,10 @@ editor_control() { python3 "$app_dir/../tests/gtk-control.py" "$test_dir/state.j
 
 cleanup() {
   local result=$?
+  if [[ -n "$config_watcher" ]]; then
+    touch "$test_dir/stop-config-watch"
+    wait "$config_watcher" 2>/dev/null || true
+  fi
   if [[ -n "$app_pid" ]]; then
     kill "$app_pid" 2>/dev/null || true
     wait "$app_pid" 2>/dev/null || true
@@ -67,12 +72,18 @@ wait_dialog() {
 }
 expect_config() {
   python3 - "$config" "$1" "$2" "$3" <<'PY'
-import configparser, sys
-config = configparser.ConfigParser(interpolation=None)
-config.read(sys.argv[1])
-actual = config.get(sys.argv[2], sys.argv[3], fallback='<missing>')
-if actual != sys.argv[4]:
-    raise SystemExit(f'FAIL: [{sys.argv[2]}] {sys.argv[3]}: {actual!r} != {sys.argv[4]!r}')
+import configparser, sys, time
+deadline=time.monotonic()+5
+while True:
+    config = configparser.ConfigParser(interpolation=None)
+    try:
+        config.read(sys.argv[1])
+        actual = config.get(sys.argv[2], sys.argv[3], fallback='<missing>')
+    except (OSError,configparser.Error) as error:actual=str(error)
+    if actual == sys.argv[4]:break
+    if time.monotonic()>=deadline:
+        raise SystemExit(f'FAIL: [{sys.argv[2]}] {sys.argv[3]}: {actual!r} != {sys.argv[4]!r}')
+    time.sleep(.02)
 PY
 }
 # Capture the whole actual X window and count exact editor background colors.
@@ -199,6 +210,20 @@ echo 'PASS: theme menu updates existing and newly created documents.'
 theme_names=('Classic Plus' 'Twilight' 'Visual Studio' 'Obsidian' 'Classic'
              'Ocean' 'Borland' 'Matrix' 'GSS Hacker' 'Oblivion' 'PlasticCodeWrap')
 theme_rgb=(ffffff 000000 ffffff 293134 ffffff 00ffff 000080 000000 171717 1e1e1e 0b161d)
+# A reader opening the config during a theme change must see a complete old
+# or new snapshot, never a truncated INI between individual preference writes.
+python3 - "$config" "$test_dir/stop-config-watch" <<'PYWATCH' &
+import configparser,pathlib,sys,time
+path,stop=map(pathlib.Path,sys.argv[1:])
+while not stop.exists():
+    config=configparser.ConfigParser(interpolation=None)
+    config.read_string(path.read_text())
+    assert config.get('Interface','Language')=='en'
+    assert config.get('Editor','Theme')
+    time.sleep(.002)
+print('PASS: theme changes preserve a complete configuration snapshot for concurrent readers')
+PYWATCH
+config_watcher=$!
 for index in "${!theme_names[@]}"; do
   keys=(alt+v Home End Up Right Home)
   for ((step=0; step<index; step++)); do keys+=(Down); done
@@ -210,6 +235,9 @@ for index in "${!theme_names[@]}"; do
   expect_background "${theme_rgb[index]}" "theme-$index-new"
   press ctrl+w
 done
+touch "$test_dir/stop-config-watch"
+wait "$config_watcher" || fail 'theme switching exposed a partial configuration'
+config_watcher=''
 press alt+v Home End Up Right Home Down Down Down Return
 expect_config Editor Theme Obsidian
 echo 'PASS: all eleven original theme presets render, persist and apply to new documents.'

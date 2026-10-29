@@ -407,6 +407,17 @@ implementation
 
 uses Clipbrd, gdk2, DateUtils;
 
+type
+  TEditorSettingsBuffer=class(TMemIniFile)
+    procedure UpdateFile;override;
+  end;
+
+procedure TEditorSettingsBuffer.UpdateFile;
+begin
+  { FPC 3.0.4 also flushes dirty TMemIniFile instances in Destroy. This
+    buffer is serialized explicitly by SaveEditorSettings using atomic save. }
+end;
+
 {$IFDEF UNIX}
 function CompilerGetProcessGroup(Pid: LongInt): LongInt; cdecl;
   external 'c' name 'getpgid';
@@ -3975,16 +3986,22 @@ begin
 end;
 
 procedure TMainForm.SaveEditorSettings;
-var Ini: TIniFile;
+var Ini: TMemIniFile; Contents:TStringList; Saved:TFileSnapshot;
 begin
-  Ini := TIniFile.Create(FOptionsPath);
+  Ini := TEditorSettingsBuffer.Create(FOptionsPath);
+  Contents:=TStringList.Create;
   try
     FEditorPreferences.Save(Ini);
     Ini.WriteString('Editor', 'Theme', FEditorThemeName);
     Ini.WriteString('Editor', 'FontName', FEditorFontName);
     Ini.WriteInteger('Editor', 'FontSize', FEditorFontSize);
     Ini.WriteInteger('Editor', 'TabWidth', FEditorTabWidth);
-  finally Ini.Free; end;
+    { Write the complete settings once. TIniFile rewrites the whole file for
+      each individual preference, blocking the GTK loop and exposing partial
+      contents to readers while switching themes. }
+    Ini.GetStrings(Contents);
+    AtomicSaveDocument(Contents,FOptionsPath,Saved);
+  finally Contents.Free;Ini.Free; end;
 end;
 
 procedure TMainForm.AddCompilerFlags(Args: TStrings; const FlagText: string);

@@ -16,6 +16,8 @@
 
 快捷键窗口显示已移植命令，选中后直接按键；Esc／Delete 清除选中绑定，按钮可重置全部或选中项。保留已有自定义及旧默认值迁移规则。窗口菜单提供全屏、前后标签、打开文件列表；查看菜单可切换已有工具条。未移植的 TODO、双编辑视图等仍见 [快捷键对照](SHORTCUTS.md)。
 
+编辑器设置和主题改为在内存中整理后一次原子保存，避免每个选项都重写整份配置而阻塞界面；同时读取配置时只会看到完整的旧版或新版内容。搜索窗口也按 GTK 分组框的内容区域调整布局，底部选项及英文标签不会被裁切。
+
 环境选项包含基本、文件和路径、外部程序、文件关联四页。可以设置语言、编辑器主题、界面字体、报告标签位置及默认目录。默认目录仅在没有有效的最近目录时使用。程序资源路径只读。外部程序沿用“配置工具”的直接执行和参数替换规则。文件关联只修改当前用户的 `mimeapps.list`，只在勾选项发生改变后写入；适用于已安装的 `dev-cpp.desktop`。
 
 AStyle 选项显示括号风格、Tab／空格、宽度、行长和缩进类型，以及可编辑的最终参数与代码预览。更改选项会重新生成参数；手工参数按等价形式保存，换行可分隔选项；后续改动选项会用界面选项替换它们。预览最多使用当前源码的前 40,000 字节；实际格式化处理整个文件，作为一次可撤销编辑，不自动保存。需要系统 `astyle` 软件包。修正了 GTK2 参数文本框在完成编辑后保留鼠标抓取、导致确定按钮首次点击无效的问题；仍按住鼠标选择文字时保留正常选择行为。
@@ -39,6 +41,8 @@ Two sidebar arrows reveal Project/Classes/Debug pages. GDB locals refresh after 
 The four search tabs support case/whole-word matching, direction, selection/document and caret/start origins. File scope includes current/open/project files, including unopened project sources. Cross-file replacements modify undoable editor buffers and **do not save automatically**; use Save All afterward. Confirmation asks per occurrence; cancellation stops remaining replacements. Results are capped at 10,000 with a refinement notice. Non-ASCII word boundaries conservatively treat UTF-8 bytes as identifiers; complete Unicode punctuation classification remains pending.
 
 Shortcut Options lists ported actions and captures keys directly. Escape/Delete clears the selected binding; buttons reset selected/all defaults. Existing custom bindings and factory-value migration remain. Window contains fullscreen, previous/next and open-file lists. View toggles existing toolbars. See the [shortcut audit](SHORTCUTS.md) for unported actions.
+
+Editor preferences and themes are collected in memory and saved once atomically, avoiding repeated whole-file writes that block the interface. Concurrent readers see a complete old or new configuration. Search layout accounts for GTK group-box client insets so bottom options and English captions remain visible.
 
 Environment Options has Basic/Files and folders/External programs/File associations pages. It supports language, editor theme, UI font, report-tab position and a fallback default directory. Resource paths are read-only. External tools retain direct execution and literal argument substitution. Only changed association checkboxes update the current user's `mimeapps.list`, for an installed `dev-cpp.desktop`.
 
