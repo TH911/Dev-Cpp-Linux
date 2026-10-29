@@ -119,7 +119,7 @@ begin
   CacheDirectory := GetEnvironmentVariable('XDG_CACHE_HOME');
   if CacheDirectory = '' then
     CacheDirectory := GetEnvironmentVariable('HOME') + DirectorySeparator + '.cache';
-  CacheDirectory := IncludeTrailingPathDelimiter(CacheDirectory) + 'dev-cpp-linux';
+  CacheDirectory := IncludeTrailingPathDelimiter(CacheDirectory) + 'dev-cpp';
   ForceDirectories(CacheDirectory);
   { An atomic source rebuild with the same version must not forward into its
     old, still-running executable. /proc/self/exe identifies the mapped inode. }

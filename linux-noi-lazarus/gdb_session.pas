@@ -58,6 +58,10 @@ type
     procedure ContinueExecution;
     procedure StepInto;
     procedure StepOver;
+    procedure StepOut;
+    procedure NextInstruction;
+    procedure StepInstruction;
+    procedure ConsoleCommand(const Text: string);
     procedure Evaluate(const Expression: string);
     procedure SendInput(const Text: string);
     procedure ToggleBreakpoint(const FileName: string; Line: Integer);
@@ -557,6 +561,27 @@ procedure TGdbSession.StepOver;
 begin
   if (FState <> gsStopped) or ChangingBreakpoint or FStopping then Exit;
   Queue('-exec-next'); SendNext;
+end;
+
+procedure TGdbSession.StepOut;
+begin
+  if (FState<>gsStopped) or ChangingBreakpoint or FStopping then Exit;
+  Queue('-exec-finish');SendNext;
+end;
+procedure TGdbSession.NextInstruction;
+begin
+  if (FState<>gsStopped) or ChangingBreakpoint or FStopping then Exit;
+  Queue('-exec-next-instruction');SendNext;
+end;
+procedure TGdbSession.StepInstruction;
+begin
+  if (FState<>gsStopped) or ChangingBreakpoint or FStopping then Exit;
+  Queue('-exec-step-instruction');SendNext;
+end;
+procedure TGdbSession.ConsoleCommand(const Text:string);
+begin
+  if (FState<>gsStopped) or ChangingBreakpoint or FStopping or (Trim(Text)='') then Exit;
+  Queue('-interpreter-exec console '+MIQuote(Text));SendNext;
 end;
 
 procedure TGdbSession.Evaluate(const Expression: string);

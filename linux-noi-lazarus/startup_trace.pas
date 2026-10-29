@@ -8,12 +8,12 @@ var Started: QWord; Enabled: Boolean;
 procedure StartupMark(const Stage: string);
 begin
   if Enabled then begin
-    WriteLn(StdErr, 'dev-cpp-linux startup +', GetTickCount64 - Started, ' ms: ', Stage);
+    WriteLn(StdErr, 'dev-cpp startup +', GetTickCount64 - Started, ' ms: ', Stage);
     Flush(StdErr);
   end;
 end;
 initialization
   Started := GetTickCount64;
-  Enabled := GetEnvironmentVariable('DEV_CPP_LINUX_STARTUP_TRACE') = '1';
+  Enabled := (GetEnvironmentVariable('DEV_CPP_STARTUP_TRACE') = '1') or (GetEnvironmentVariable('DEV_CPP_LINUX_STARTUP_TRACE') = '1');
   StartupMark('runtime ready');
 end.

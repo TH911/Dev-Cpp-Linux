@@ -62,9 +62,8 @@ def main():
         backups = list((data / 'devcpp-noi/launcher-backups').glob('*.bak'))
         desktop_backups = [p for p in backups if p.name.startswith('devcpp-noi.desktop.')]
         assert len(backups) == 2 and len(desktop_backups) == 1 and desktop_backups[0].read_text() == text
-        assert not context.exists(), 'Old context-menu brand remains'
-        context = scripts / '在新窗口打开 (dev-cpp-linux)'
-        assert 'exec /usr/bin/dev-cpp-linux --new-window' in context.read_text()
+        context = scripts / '在新窗口打开 (Dev-C++)'
+        assert 'exec /usr/bin/dev-cpp --new-window' in context.read_text()
         assert context.stat().st_mode & 0o111
         repair()
         assert len(list((data / 'devcpp-noi/launcher-backups').glob('*.bak'))) == 2
@@ -74,7 +73,7 @@ def main():
         source.write_text(source_text)
         repair()
         migrated = source.read_text()
-        assert 'Name=dev-cpp-linux\n' in migrated and 'Name[zh_CN]=dev-cpp-linux\n' in migrated
+        assert 'Name=Dev-C++\n' in migrated and 'Name[zh_CN]=Dev-C++\n' in migrated
         assert 'NoDisplay=true\n' in migrated, 'Source registration duplicates the installed menu'
         assert 'Icon=' + str(base / 'deleted 中文 source/devcpp.ico') in migrated
         source_backups = list((data / 'devcpp-noi/launcher-backups').glob('devcpp-noi-source.desktop.*.bak'))
@@ -107,6 +106,10 @@ def main():
         old.symlink_to(target)
         repair()
         assert old.is_symlink() and target.read_text() == text
+        current = apps / 'dev-cpp-source.desktop'
+        current_text = text.replace('Name=Dev-C++\n','Name=Dev-C++\nName[zh_CN]=Dev-C++\n',1).replace('Terminal=false\n','Terminal=false\nNoDisplay=false\n',1)
+        current.write_text(current_text); repair()
+        assert 'NoDisplay=true\n' in current.read_text(), 'Current generated source entry duplicates the installed menu'
         assert mime.read_text() == '[Default Applications]\ntext/x-c++src=my-editor.desktop;\n'
         assert ini.read_text() == '[Interface]\nLanguage=en\n'
     print('PASS: precise launcher migration, source-menu deduplication, backups/idempotency, custom names/fields/flags, symlinks, MIME and settings preserved')

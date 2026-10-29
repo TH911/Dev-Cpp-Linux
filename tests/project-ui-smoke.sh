@@ -93,18 +93,18 @@ gcc "$test_dir/clipboard.c" -o "$test_dir/clipboard" \
 for language in en zh; do
   case_dir="$test_dir/$language"
   mkdir -p "$case_dir/home/.config" "$case_dir/home/.local/share" "$case_dir/中文 project"
-  printf '[Interface]\nLanguage=%s\n' "$language" > "$case_dir/home/.config/dev-cpp-linux.ini"
+  printf '[Interface]\nLanguage=%s\n' "$language" > "$case_dir/home/.config/dev-cpp.ini"
   project="$case_dir/中文 project/Project1.dev"
   if [[ $language == en ]]; then new_title='^New Project$'; open_title='^Open$';
   else new_title='^新建项目$'; open_title='^打开$'; fi
   env HOME="$case_dir/home" XDG_CACHE_HOME="$case_dir/home/.cache" \
     LD_PRELOAD="$test_dir/probe.so" DEVC_GTK_STATE="$case_dir/state.json" \
     DEVC_GTK_SCREENSHOT="$case_dir/screen.png" \
-    "$source_root/linux-noi-lazarus/dev-cpp-linux" --new-window > "$case_dir/runtime.log" 2>&1 &
+    "$source_root/linux-noi-lazarus/dev-cpp" --new-window > "$case_dir/runtime.log" 2>&1 &
   app_pid=$!
-  window=$(wait_window 'dev-cpp-linux')
+  window=$(wait_window 'Dev-C\+\+')
   sleep 0.3
-  # Traverse the same File -> New -> Project menu path as original dev-cpp-linux.
+  # Traverse the same File -> New -> Project menu path as original Dev-C++.
   press alt+f n p
   dialog=$(wait_window "$new_title")
   xdotool windowfocus "$dialog" key --clearmodifiers Escape
@@ -168,7 +168,7 @@ PY
   sleep 0.2
   [[ $(xdotool getwindowname "$window") != *Project1.dev* ]] || fail 'project did not close'
   env HOME="$case_dir/home" XDG_CACHE_HOME="$case_dir/home/.cache" \
-    "$source_root/linux-noi-lazarus/dev-cpp-linux" --forward-only "$project"
+    "$source_root/linux-noi-lazarus/dev-cpp" --forward-only "$project"
   sleep 0.3
   wait_project_units 2
   xdotool getwindowname "$window" | grep -F 'Project1.dev' >/dev/null || fail 'project did not reopen'

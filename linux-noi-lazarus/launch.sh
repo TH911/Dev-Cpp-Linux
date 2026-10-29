@@ -21,41 +21,41 @@ if [[ $# == 1 && ( $1 == --version || $1 == --help ) ]]; then new_window=true; f
 # Both CLI and desktop launchers start an existing build immediately.  New or changed
 # sources are compiled once, so an unpacked update cannot launch an old binary.
 needs_build=false
-if [[ ! -x ./dev-cpp-linux || ! -f ./dev-cpp-linux.instance-api ]]; then
+if [[ ! -x ./dev-cpp || ! -f ./dev-cpp.instance-api ]]; then
   needs_build=true
 else
   for launch_source in ./*.pas ./*.lpr ./*.lpi ./*.inc ./PORT_REVISION ./build.sh; do
-    if [[ -f "$launch_source" && "$launch_source" -nt ./dev-cpp-linux ]]; then
+    if [[ -f "$launch_source" && "$launch_source" -nt ./dev-cpp ]]; then
       needs_build=true
       break
     fi
   done
 fi
 if [[ "$needs_build" == true ]]; then
-  cache_dir=${XDG_CACHE_HOME:-"$HOME/.cache"}/dev-cpp-linux
+  cache_dir=${XDG_CACHE_HOME:-"$HOME/.cache"}/dev-cpp
   mkdir -p -- "$cache_dir"
   log_file="$cache_dir/launch-build.log"
   if ! bash build.sh >"$log_file" 2>&1; then
     if [[ "$devcpp_ui_language" == en ]]; then
-      build_error="dev-cpp-linux could not be built. See $log_file"
+      build_error="dev-cpp could not be built. See $log_file"
     else
-      build_error="dev-cpp-linux 编译失败。请查看日志：$log_file"
+      build_error="dev-cpp 编译失败。请查看日志：$log_file"
     fi
     if command -v zenity >/dev/null 2>&1; then
-      zenity --error --title='dev-cpp-linux' \
+      zenity --error --title='dev-cpp' \
         --text="$build_error" || true
     elif command -v notify-send >/dev/null 2>&1; then
-      notify-send 'dev-cpp-linux' "$build_error" || true
+      notify-send 'dev-cpp' "$build_error" || true
     fi
     exit 1
   fi
 fi
 
-if [[ "$new_window" == false && -x ./dev-cpp-linux && -f ./dev-cpp-linux.instance-api ]]; then
-  if ./dev-cpp-linux --forward-only "$@" 2>/dev/null; then exit 0; fi
+if [[ "$new_window" == false && -x ./dev-cpp && -f ./dev-cpp.instance-api ]]; then
+  if ./dev-cpp --forward-only "$@" 2>/dev/null; then exit 0; fi
 fi
 
 
-runtime_cache=${XDG_CACHE_HOME:-"$HOME/.cache"}/dev-cpp-linux
+runtime_cache=${XDG_CACHE_HOME:-"$HOME/.cache"}/dev-cpp
 mkdir -p -- "$runtime_cache"
-exec ./dev-cpp-linux "$@" 2> >(tee "$runtime_cache/runtime.log" >&2)
+exec ./dev-cpp "$@" 2> >(tee "$runtime_cache/runtime.log" >&2)

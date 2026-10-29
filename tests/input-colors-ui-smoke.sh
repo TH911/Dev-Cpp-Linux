@@ -19,7 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p "$test_dir/home/.config"
-printf '[Interface]\nLanguage=en\n' > "$test_dir/home/.config/dev-cpp-linux.ini"
+printf '[Interface]\nLanguage=en\n' > "$test_dir/home/.config/dev-cpp.ini"
 cat > "$test_dir/theme.rc" <<'RC'
 style "low-contrast-input" {
   text[NORMAL] = "#999999"
@@ -41,7 +41,7 @@ export LANG=C.UTF-8
 env HOME="$test_dir/home" XDG_CACHE_HOME="$test_dir/home/.cache" \
   GTK2_RC_FILES="$test_dir/theme.rc" LD_PRELOAD="$test_dir/gtk-state-probe.so" \
   DEVC_GTK_STATE="$test_dir/state.json" DEVC_GTK_SCREENSHOT="$test_dir/current.png" \
-  "${INPUT_COLORS_APP:-$source_root/linux-noi-lazarus/dev-cpp-linux}" \
+  "${INPUT_COLORS_APP:-$source_root/linux-noi-lazarus/dev-cpp}" \
   --new-window "$test_dir/sample.cpp" > "$test_dir/runtime.log" 2>&1 &
 app_pid=$!
 python3 - "$test_dir" "$app_pid" <<'PY'
@@ -60,7 +60,7 @@ def wait(predicate, message):
     raise AssertionError(message)
 def window(title=None):
     return next(w for w in snapshot() if w['type']=='GtkWindow' and w['visible']
-                and (w['text']==title if title else 'dev-cpp-linux ' in w['text']))
+                and (w['text']==title if title else 'Dev-C++ ' in w['text']))
 def keys(*values):
     subprocess.run(['xdotool','key','--clearmodifiers','--delay','70',*values],check=True)
     time.sleep(.2)
@@ -75,7 +75,7 @@ def descendants(items,w):
         added={x['id'] for x in items if x['parent'] in ids}-ids
         if not added: break
         ids.update(added)
-    return [x for x in items if x['id'] in ids and x['visible']]
+    return [x for x in items if x['id'] in ids and x['visible'] and x['mapped'] and x['viewable']]
 def contrast(a,b):
     def luminance(color):
         rgb=[int(color[i:i+2],16)/255 for i in (0,2,4)]
@@ -95,7 +95,7 @@ def inputs(title, minimum):
         for state in ('selected','active'):
             assert contrast(x[state+'_text'],x[state+'_base'])>=4.5,(title,state,x)
     return rows
-wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'dev-cpp-linux ' in x['text'] for x in xs),'main window missing')
+wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'Dev-C++ ' in x['text'] for x in xs),'main window missing')
 main=window(); focus(main)
 keys('ctrl+alt+o')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Compiler Options' for x in xs),'compiler options missing')
@@ -112,15 +112,20 @@ wait(lambda xs:(root/'current.png').exists(),'focused selection screenshot missi
 keys('Escape')
 focus(main); keys('alt+t','Home','Down','Down','Return')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Editor Options' for x in xs),'editor options missing')
+display=next(x for x in snapshot() if x['type']=='GtkLabel' and x['viewable'] and x['text']=='Display')
+subprocess.run(['xdotool','mousemove','--sync',str(display['x']+display['width']//2),str(display['y']+display['height']//2),'click','1'],check=True)
 inputs('Editor Options',3)  # editable font combo and both spin edits
-keys('Escape')
+focus(window('Editor Options')); keys('Escape')
 focus(main); keys('alt+x','End','Up','Return')
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Execute Parameters' for x in xs),'parameters missing')
 inputs('Execute Parameters',1)
 keys('Escape')
 focus(main); keys('alt+h','Home','Return')
-wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'About dev-cpp-linux' in x['text'] for x in xs),'about missing')
-about=next(x for x in snapshot() if x['type']=='GtkWindow' and x['visible'] and 'About dev-cpp-linux' in x['text'])
+wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and 'About Dev-C++' in x['text'] for x in xs),'about missing')
+about=next(x for x in snapshot() if x['type']=='GtkWindow' and x['visible'] and 'About Dev-C++' in x['text'])
+focus(about)
+info=next(x for x in snapshot() if x['type']=='GtkLabel' and x['viewable'] and x['text']=='Build and installation')
+subprocess.run(['xdotool','mousemove','--sync',str(info['x']+info['width']//2),str(info['y']+info['height']//2),'click','1'],check=True)
 inputs(about['text'],1)
 keys('Escape')
 focus(main)
@@ -130,7 +135,13 @@ assert disabled and all(x['insensitive_text'] not in ('000000','ffffff') for x i
 keys('F5')
 wait(lambda xs:sum(x['type']=='GtkEntry' and x['sensitive'] for x in descendants(xs,main))>=2, 'debugger inputs not enabled at main')
 inputs(main['text'],2)
-keys('F6')
+wait(lambda xs:any(x['type']=='GtkLabel' and x['viewable'] and x['sensitive'] and x['text'] in ('CPU','View CPU window') for x in xs),'CPU action not enabled at the source stop')
+cpu=next(x for x in snapshot() if x['type']=='GtkLabel' and x['viewable'] and x['text'] in ('CPU','View CPU window'))
+subprocess.run(['xdotool','mousemove','--sync',str(cpu['x']+cpu['width']//2),str(cpu['y']+cpu['height']//2),'click','1'],check=True)
+wait(lambda xs:any(x['type']=='GtkWindow' and x['viewable'] and x['text']=='CPU' for x in xs),'CPU window missing')
+inputs('CPU',1)
+wait(lambda xs:any('rax' in x['text'] for x in xs if x['type']=='GtkTextView'),'CPU registers were not read from GDB')
+focus(main); keys('F6')
 print('PASS: active debugger inputs remain readable; inactive program input retains its disabled appearance')
 print('PASS: compiler fields, font/spin controls, run parameters and About details use readable black-on-white text')
 print('PASS: actual mouse focus and Ctrl+A preserve native, contrasting selection colors')

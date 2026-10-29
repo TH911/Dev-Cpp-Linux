@@ -5,5 +5,5 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 exec 9> .build.lock
 flock 9
 lazbuild --widgetset=gtk2 --build-all devcpp_noi.lpi
-mv -f -- dev-cpp-linux.build dev-cpp-linux
-printf '1\n' > dev-cpp-linux.instance-api
+mv -f -- dev-cpp.build dev-cpp
+printf '1\n' > dev-cpp.instance-api

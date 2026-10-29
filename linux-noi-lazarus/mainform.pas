@@ -8,33 +8,21 @@ uses
   Classes, SysUtils, StrUtils, Math, Types, Forms, Controls, StdCtrls, ComCtrls, ExtCtrls,
   Menus, Dialogs, IniFiles, Process, Contnrs, LCLType, LCLIntf, Graphics, ImgList,
   LazUTF8, FileUtil, SynEdit, SynEditTypes, SynEditKeyCmds, SynEditHighlighter,
-  noi_syn_cpp, SynGutterLineNumber, SynGutterChanges, SynGutterMarks,
+  noi_syn_cpp, cpp_highlighter, SynGutterLineNumber, SynGutterChanges, SynGutterMarks,
   SynEditMarks, SynGutter, SynEditMarkupFoldColoring, SynEditMiscClasses, editor_actions,
   cppcompletion, ui_language, app_instance, document_files, runtime_support,
   editor_themes, compiler_profiles, options_dialogs, language_catalog, input_appearance, app_paths, startup_trace, classic_chrome, source_navigation, source_output,
-  gdb_session, debugger_panel, debug_icons, app_version, about_dialog, classic_settings;
+  gdb_session, debugger_panel, debug_icons, app_version, about_dialog, classic_settings, editor_preferences, editor_options_dialog;
 
 type
-  TNoiCppSyn = class(TSynCppSyn)
-  private
-    FCurrentLine: string;
-    FBracketAttri, FCharacterAttri, FFloatAttri, FHexAttri, FOctalAttri: TSynHighlighterAttributes;
-  public
-    constructor Create(AOwner: TComponent); override;
-    property BracketAttri: TSynHighlighterAttributes read FBracketAttri;
-    property FloatAttri: TSynHighlighterAttributes read FFloatAttri;
-    property HexAttri: TSynHighlighterAttributes read FHexAttri;
-    property OctalAttri: TSynHighlighterAttributes read FOctalAttri;
-    property CharacterAttri: TSynHighlighterAttributes read FCharacterAttri;
-    procedure SetLine(const NewValue: string; LineNumber: Integer); override;
-    function GetTokenAttribute: TSynHighlighterAttributes; override;
-  end;
+  TNoiCppSyn = cpp_highlighter.TNoiCppSyn;
 
   TEditorLineClickEvent = procedure(Sender: TObject; Line: Integer) of object;
 
   TNoiSynEdit = class(TSynEdit)
   private
     FHomeRepeat: Boolean;
+    FEnhancedHome: Boolean;
     FGutterPress: Boolean;
     FGutterPoint: TPoint;
     FGutterLine: Integer;
@@ -47,7 +35,9 @@ type
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer); override;
   public
+    property EnhancedHome: Boolean read FEnhancedHome write FEnhancedHome;
     property OnLineClick: TEditorLineClickEvent read FOnLineClick write FOnLineClick;
+    constructor Create(AOwner:TComponent);override;
     procedure ResetHomeCycle;
     procedure EnableIndentGuides;
     procedure MoveHome(SelectText: Boolean);
@@ -75,10 +65,14 @@ type
     ThemeColors: TEditorThemeColors;
     PreferredColumn: Integer;
     CachedLength: Integer;
+    RecoveryPath: string;
   end;
 
   TMainForm = class(TForm)
   private
+    FEditorPreferences: TEditorPreferences;
+    FInsertMenu: TMenuItem;
+    FLastRecoveryAt: QWord;
     FPages: TPageControl;
     FNavigationBar: TToolBar;
     FMenuShortcuts: TMenuShortcuts;
@@ -89,6 +83,14 @@ type
     procedure RunCustomToolClick(Sender: TObject);
     procedure PackageManagerClick(Sender: TObject);
     procedure LoadEnvironmentSettings;
+    procedure RebuildInsertMenu;
+    procedure InsertSnippetClick(Sender: TObject);
+    procedure InsertDateClick(Sender: TObject);
+    procedure IndentClick(Sender: TObject);
+    procedure UnindentClick(Sender: TObject);
+    procedure FoldAllClick(Sender: TObject);
+    procedure UnfoldAllClick(Sender: TObject);
+    procedure SaveRecoveryCopies;
   private
     FMenuImages: TImageList;
     procedure AssignMenuIcons(Item: TMenuItem);
@@ -260,6 +262,7 @@ type
       var Special: Boolean; var FG, BG: TColor);
     procedure FileWatchTick(Sender: TObject);
     procedure EditorClicked(Sender: TObject);
+    procedure EditorMouseMove(Sender:TObject;Shift:TShiftState;X,Y:Integer);
     procedure EditorFocusEntered(Sender: TObject);
     procedure EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure EditorKeyPress(Sender: TObject; var Key: Char);
@@ -369,6 +372,8 @@ var
 
 implementation
 
+uses Clipbrd;
+
 {$IFDEF UNIX}
 function CompilerGetProcessGroup(Pid: LongInt): LongInt; cdecl;
   external 'c' name 'getpgid';
@@ -378,163 +383,8 @@ function CompilerSignal(Pid, SignalNumber: LongInt): LongInt; cdecl;
   external 'c' name 'kill';
 {$ENDIF}
 
-procedure TNoiCppSyn.SetLine(const NewValue: string; LineNumber: Integer);
-begin
-  FCurrentLine := NewValue;
-  inherited SetLine(NewValue, LineNumber);
-end;
-
-function ValidIntegerLiteral(const S: string): Boolean;
-var
-  I, StartDigits, Base: Integer;
-  Suffix: string;
-begin
-  Result := False;
-  I := 1;
-  Base := 10;
-  if (Length(S) > 1) and (S[1] = '0') then
-    if S[2] in ['x', 'X'] then begin Base := 16; I := 3; end
-    else if S[2] in ['b', 'B'] then begin Base := 2; I := 3; end
-    else Base := 8;
-  StartDigits := I;
-  while I <= Length(S) do
-  begin
-    if ((Base = 16) and (S[I] in ['0'..'9', 'a'..'f', 'A'..'F'])) or
-       ((Base = 10) and (S[I] in ['0'..'9'])) or
-       ((Base = 8) and (S[I] in ['0'..'7'])) or
-       ((Base = 2) and (S[I] in ['0', '1'])) then Inc(I)
-    else Break;
-  end;
-  if I = StartDigits then Exit;
-  Suffix := Copy(S, I, MaxInt);
-  if (Pos('lL', Suffix) > 0) or (Pos('Ll', Suffix) > 0) then Exit;
-  Suffix := LowerCase(Suffix);
-  Result := (Suffix = '') or (Suffix = 'u') or (Suffix = 'l') or
-    (Suffix = 'll') or (Suffix = 'ul') or (Suffix = 'ull') or
-    (Suffix = 'lu') or (Suffix = 'llu');
-end;
-
-function ValidFloatingLiteral(const S: string): Boolean;
-var
-  I, Digits, ExponentStart: Integer;
-  Hexadecimal, HasPoint, HasExponent: Boolean;
-
-  function MantissaDigit(C: Char): Boolean;
-  begin
-    Result := (C in ['0'..'9']) or
-      (Hexadecimal and (C in ['a'..'f', 'A'..'F']));
-  end;
-
-begin
-  Result := False;
-  I := 1;
-  Hexadecimal := (Length(S) > 2) and (S[1] = '0') and (S[2] in ['x', 'X']);
-  if Hexadecimal then I := 3;
-  Digits := 0;
-  while (I <= Length(S)) and MantissaDigit(S[I]) do
-  begin Inc(I); Inc(Digits); end;
-  HasPoint := (I <= Length(S)) and (S[I] = '.');
-  if HasPoint then
-  begin
-    Inc(I);
-    while (I <= Length(S)) and MantissaDigit(S[I]) do
-    begin Inc(I); Inc(Digits); end;
-  end;
-  if Digits = 0 then Exit;
-  HasExponent := (I <= Length(S)) and
-    (((not Hexadecimal) and (S[I] in ['e', 'E'])) or
-      (Hexadecimal and (S[I] in ['p', 'P'])));
-  if HasExponent then
-  begin
-    Inc(I);
-    if (I <= Length(S)) and (S[I] in ['+', '-']) then Inc(I);
-    ExponentStart := I;
-    while (I <= Length(S)) and (S[I] in ['0'..'9']) do Inc(I);
-    if I = ExponentStart then Exit;
-  end;
-  if Hexadecimal and not HasExponent then Exit;
-  if not (HasPoint or HasExponent) then Exit;
-  if (I <= Length(S)) and (S[I] in ['f', 'F', 'l', 'L']) then Inc(I);
-  Result := I > Length(S);
-end;
-
-constructor TNoiCppSyn.Create(AOwner: TComponent);
-begin
-  inherited Create(AOwner);
-  FBracketAttri := TSynHighlighterAttributes.Create('Bracket', 'Bracket');
-  AddAttribute(FBracketAttri);
-  FCharacterAttri := TSynHighlighterAttributes.Create('Character', 'Character');
-  AddAttribute(FCharacterAttri);
-  FFloatAttri := TSynHighlighterAttributes.Create('Float', 'Float');
-  AddAttribute(FFloatAttri);
-  FHexAttri := TSynHighlighterAttributes.Create('Hexadecimal', 'Hexadecimal');
-  AddAttribute(FHexAttri);
-  FOctalAttri := TSynHighlighterAttributes.Create('Octal', 'Octal');
-  AddAttribute(FOctalAttri);
-  SetAttributesOnChange(@DefHighlightChange);
-end;
-
-function TNoiCppSyn.GetTokenAttribute: TSynHighlighterAttributes;
-const
-  NewKeywords = ' alignas alignof char8_t char16_t char32_t concept consteval ' +
-    'constexpr constinit decltype final noexcept nullptr override requires ' +
-    'static_assert thread_local co_await co_return co_yield import module ';
-var
-  TokenValue: string;
-  StartPos, EndPos: Integer;
-  WholeLiteral: string;
-begin
-  Result := inherited GetTokenAttribute;
-  TokenValue := GetToken;
-  if (GetTokenID = tkIdentifier) and
-    (Pos(' ' + TokenValue + ' ', NewKeywords) > 0) then
-    Result := KeyAttri;
-  if (TokenValue <> '') and
-    (GetTokenPos < Length(FCurrentLine)) then
-  begin
-    StartPos := GetTokenPos + 1;
-    EndPos := StartPos;
-    while StartPos > 1 do
-      if (FCurrentLine[StartPos - 1] in ['A'..'Z', 'a'..'z', '0'..'9', '_', '.']) or
-        ((StartPos > 2) and (FCurrentLine[StartPos - 1] in ['+', '-']) and
-          (FCurrentLine[StartPos - 2] in ['e', 'E', 'p', 'P'])) then Dec(StartPos)
-      else Break;
-    while EndPos <= Length(FCurrentLine) do
-      if (FCurrentLine[EndPos] in ['A'..'Z', 'a'..'z', '0'..'9', '_', '.']) or
-        ((EndPos > 1) and (FCurrentLine[EndPos] in ['+', '-']) and
-          (FCurrentLine[EndPos - 1] in ['e', 'E', 'p', 'P'])) then Inc(EndPos)
-      else Break;
-    WholeLiteral := Copy(FCurrentLine, StartPos, EndPos - StartPos);
-    if (WholeLiteral <> '') and (WholeLiteral[1] in ['0'..'9', '.']) and
-      (GetTokenID in [tkNumber, tkIdentifier]) then
-    begin
-      if ValidFloatingLiteral(WholeLiteral) then Result := FFloatAttri
-      else if ValidIntegerLiteral(WholeLiteral) then
-      begin
-        if (Length(WholeLiteral) > 2) and (WholeLiteral[1] = '0') and
-          (WholeLiteral[2] in ['x', 'X']) then Result := FHexAttri
-        else if (Length(WholeLiteral) > 1) and (WholeLiteral[1] = '0') and
-          (WholeLiteral[2] in ['0'..'7']) then Result := FOctalAttri
-        else Result := NumberAttri;
-      end
-      else Result := IdentifierAttri;
-    end;
-    { GTK2's older lexer can split leading decimal points, hex exponents and
-      suffixes. Color only punctuation contained in a complete valid float. }
-    if (GetTokenID = tkSymbol) and (Length(TokenValue) = 1) and
-      (TokenValue[1] in ['.', '+', '-']) and
-      (GetTokenPos + Length(TokenValue) < EndPos) and
-      ValidFloatingLiteral(WholeLiteral) then Result := FFloatAttri;
-  end;
-  { Lazarus may emit a quote delimiter as a symbol rather than include it
-    in the string token.  Keep the original Classic Plus string/char colors. }
-  if Copy(TokenValue, 1, 1) = '"' then
-    Result := StringAttri;
-  if Copy(TokenValue, 1, 1) = '''' then
-    Result := FCharacterAttri;
-  if (Length(TokenValue) = 1) and (TokenValue[1] in ['(', ')', '[', ']', '{', '}']) and
-    (GetTokenID = tkSymbol) then Result := FBracketAttri;
-end;
+constructor TNoiSynEdit.Create(AOwner:TComponent);
+begin inherited Create(AOwner);FEnhancedHome:=True;end;
 
 procedure TNoiSynEdit.EnableIndentGuides;
 var GuideMarkup: TSynEditMarkupFoldColors;
@@ -552,7 +402,7 @@ end;
 
 procedure TNoiSynEdit.KeyDown(var Key: Word; Shift: TShiftState);
 begin
-  if (Key = VK_HOME) and ((Shift * [ssCtrl, ssAlt]) = []) then
+  if FEnhancedHome and (Key = VK_HOME) and ((Shift * [ssCtrl, ssAlt]) = []) then
   begin
     MoveHome(ssShift in Shift);
     Key := 0;
@@ -941,6 +791,8 @@ begin
   FProjectFiles := TStringList.Create;
   FProjectFiles.CaseSensitive := True;
   StartupMark('basic form ready');
+  FEditorPreferences := TEditorPreferences.Create;
+  FLastRecoveryAt := GetTickCount64;
   LoadCompilerSettings;
   StartupMark('settings loaded');
   LoadRecentPaths;
@@ -998,36 +850,10 @@ begin
   AddMenu(EditMenu, '&Paste', @PasteClick, ShortCut(Ord('V'), [ssCtrl]));
   AddMenu(EditMenu, 'Select &All', @SelectAllClick, ShortCut(Ord('A'), [ssCtrl]));
   AddMenu(EditMenu, '-', nil);
-  AddMenu(EditMenu, '&Comment', @CommentClick, ShortCut(190, [ssCtrl]));
-  AddMenu(EditMenu, '&Uncomment', @UncommentClick, ShortCut(188, [ssCtrl]));
-  AddMenu(EditMenu, '&Toggle Comment', @ToggleCommentClick,
-    ShortCut(191, [ssCtrl]));
-  AddMenu(EditMenu, 'Toggle &Inline Comment', @InlineCommentClick,
-    ShortCut(186, [ssCtrl]));
-  AddMenu(EditMenu, '&Delete Line', @DeleteLineClick,
-    ShortCut(Ord('D'), [ssCtrl]));
-  AddMenu(EditMenu, 'D&uplicate Line', @DuplicateLineClick,
-    ShortCut(Ord('E'), [ssCtrl]));
-  AddMenu(EditMenu, 'Move Selection &Up', @MoveSelectionUpClick,
-    ShortCut(VK_UP, [ssCtrl, ssShift]));
-  AddMenu(EditMenu, 'Move Selection &Down', @MoveSelectionDownClick,
-    ShortCut(VK_DOWN, [ssCtrl, ssShift]));
-  AddMenu(EditMenu, 'Code &Completion', @CompletionClick, ShortCut(VK_SPACE, [ssCtrl]));
-
-  SearchMenu := TMenuItem.Create(Self); SearchMenu.Caption := Tr('&Search'); Bar.Items.Add(SearchMenu);
-  AddMenu(SearchMenu, '&Find...', @FindClick, ShortCut(Ord('F'), [ssCtrl]));
-  AddMenu(SearchMenu, 'Find &All...', @FindAllClick,
-    ShortCut(Ord('F'), [ssCtrl, ssShift]));
-  AddMenu(SearchMenu, 'Find &Next', @FindNextClick, ShortCut(VK_F3, []));
-  AddMenu(SearchMenu, 'Find &Previous', @FindPreviousClick,
-    ShortCut(VK_F3, [ssShift]));
-  AddMenu(SearchMenu, '&Replace...', @ReplaceClick, ShortCut(Ord('R'), [ssCtrl]));
-  AddMenu(SearchMenu, 'Replace &All...', @ReplaceAllClick,
-    ShortCut(Ord('R'), [ssCtrl, ssShift]));
-  AddMenu(SearchMenu, '&Go to line...', @GotoClick, ShortCut(Ord('G'), [ssCtrl]));
-  BookmarkMenu := AddMenu(SearchMenu, '&Bookmarks', nil);
-  ToggleBookmarksMenu := AddMenu(BookmarkMenu, '&Toggle Bookmark', nil);
-  GotoBookmarksMenu := AddMenu(BookmarkMenu, '&Go to Bookmark', nil);
+  FInsertMenu := AddMenu(EditMenu, '&Insert', nil);
+  RebuildInsertMenu;
+  ToggleBookmarksMenu := AddMenu(EditMenu, 'Set &Bookmark', nil);
+  GotoBookmarksMenu := AddMenu(EditMenu, '&Go to Bookmark', nil);
   for BookmarkIndex := 1 to 9 do
   begin
     BookmarkItem := AddMenu(ToggleBookmarksMenu, Format(Tr('Bookmark &%d'),
@@ -1040,6 +866,39 @@ begin
     BookmarkItem.Tag := BookmarkIndex;
   end;
 
+  AddMenu(EditMenu, '-', nil);
+  AddMenu(EditMenu, '&Comment', @CommentClick, ShortCut(190, [ssCtrl]));
+  AddMenu(EditMenu, '&Uncomment', @UncommentClick, ShortCut(188, [ssCtrl]));
+  AddMenu(EditMenu, '&Toggle Comment', @ToggleCommentClick,
+    ShortCut(191, [ssCtrl]));
+  AddMenu(EditMenu, 'Toggle &Inline Comment', @InlineCommentClick,
+    ShortCut(186, [ssCtrl]));
+  AddMenu(EditMenu, '-', nil);
+  AddMenu(EditMenu, 'I&ndent'+#9+'Tab', @IndentClick);
+  AddMenu(EditMenu, 'U&nindent'+#9+'Shift+Tab', @UnindentClick);
+  AddMenu(EditMenu, '-', nil);
+  AddMenu(EditMenu, '&Collapse All', @FoldAllClick);
+  AddMenu(EditMenu, '&Expand All', @UnfoldAllClick);
+  AddMenu(EditMenu, '-', nil);
+  AddMenu(EditMenu, 'D&uplicate Line', @DuplicateLineClick, ShortCut(Ord('E'), [ssCtrl]));
+  AddMenu(EditMenu, '&Delete Line', @DeleteLineClick, ShortCut(Ord('D'), [ssCtrl]));
+  AddMenu(EditMenu, '-', nil);
+  AddMenu(EditMenu, 'Move Selection &Up', @MoveSelectionUpClick, ShortCut(VK_UP, [ssCtrl, ssShift]));
+  AddMenu(EditMenu, 'Move Selection &Down', @MoveSelectionDownClick, ShortCut(VK_DOWN, [ssCtrl, ssShift]));
+
+  SearchMenu := TMenuItem.Create(Self); SearchMenu.Caption := Tr('&Search'); Bar.Items.Add(SearchMenu);
+  AddMenu(SearchMenu, '&Find...', @FindClick, ShortCut(Ord('F'), [ssCtrl]));
+  AddMenu(SearchMenu, 'Find &All...', @FindAllClick,
+    ShortCut(Ord('F'), [ssCtrl, ssShift]));
+  AddMenu(SearchMenu, 'Find &Next', @FindNextClick, ShortCut(VK_F3, []));
+  AddMenu(SearchMenu, 'Find &Previous', @FindPreviousClick,
+    ShortCut(VK_F3, [ssShift]));
+  AddMenu(SearchMenu, '&Replace...', @ReplaceClick, ShortCut(Ord('R'), [ssCtrl]));
+  AddMenu(SearchMenu, 'Replace &All...', @ReplaceAllClick,
+    ShortCut(Ord('R'), [ssCtrl, ssShift]));
+  AddMenu(SearchMenu, '&Go to line...', @GotoClick, ShortCut(Ord('G'), [ssCtrl]));
+  BookmarkItem := AddMenu(SearchMenu, 'Code &Completion', @CompletionClick, ShortCut(VK_SPACE,[ssCtrl]));
+  BookmarkItem.Visible := False;
   ViewMenu := TMenuItem.Create(Self); ViewMenu.Caption := Tr('&View'); Bar.Items.Add(ViewMenu);
   AddMenu(ViewMenu, '&Project Manager', @ProjectManagerClick);
   AddMenu(ViewMenu, '&Report window', @ToggleReportClick);
@@ -1099,6 +958,7 @@ begin
   AddMenu(ToolsMenu, 'Package Manager', @PackageManagerClick);
   AddMenu(ToolsMenu, '-', nil);
   FCustomToolItem := AddMenu(ToolsMenu, 'External tool', @RunCustomToolClick);
+  FCustomToolItem.Name:='UserText_ExternalTool';
   FCustomToolItem.Visible := False;
   AddMenu(ViewMenu, '-', nil);
   InitializeEditorThemes(ViewMenu);
@@ -1121,7 +981,7 @@ begin
   AddMenu(WindowMenu, '&Close', @CloseClick);
   AddMenu(WindowMenu, 'Close &All', @CloseAllClick);
   HelpMenu := TMenuItem.Create(Self); HelpMenu.Caption := Tr('&Help'); Bar.Items.Add(HelpMenu);
-  AddMenu(HelpMenu, '&About dev-cpp-linux', @AboutClick);
+  AddMenu(HelpMenu, '&About Dev-C++', @AboutClick);
 
   StartupMark('menus constructed');
   ToolImages := TImageList.Create(Self);
@@ -1440,6 +1300,7 @@ begin
   Application.RemoveAsyncCalls(Self);
   FLoading := True;
   FreeAndNil(FSymbols);
+  FreeAndNil(FEditorPreferences);
   ShutdownDebugger;
   if FUiTimer <> nil then FUiTimer.Enabled := False;
   if FInstanceTimer <> nil then FInstanceTimer.Enabled := False;
@@ -1484,7 +1345,7 @@ end;
 function TMainForm.CommandAvailable(Handler: TNotifyEvent): Boolean;
 var
   Doc: TDocument;
-  NativeEdit: TCustomEdit;
+  NativeEdit: TCustomEdit; NativeCombo:TCustomComboBox;
   InEditor, HasSelection, CanWrite: Boolean;
 
   function IsCommand(Command: TNotifyEvent): Boolean;
@@ -1495,16 +1356,20 @@ begin
   if not Assigned(Handler) then Exit;
   Doc := CurrentDoc;
   InEditor := EditorHasFocus;
-  NativeEdit := nil;
+  NativeEdit := nil;NativeCombo:=nil;
+  if ActiveControl is TCustomComboBox then NativeCombo:=TCustomComboBox(ActiveControl);
   if ActiveControl is TCustomEdit then NativeEdit := TCustomEdit(ActiveControl);
   HasSelection := (InEditor and (Doc <> nil) and Doc.Editor.SelAvail) or
-    ((NativeEdit <> nil) and (NativeEdit.SelLength > 0));
+    ((NativeEdit <> nil) and (NativeEdit.SelLength > 0)) or ((NativeCombo<>nil) and (NativeCombo.SelLength>0));
   CanWrite := not FCompileActive and ((InEditor and (Doc <> nil) and
-    not Doc.Editor.ReadOnly) or ((NativeEdit <> nil) and not NativeEdit.ReadOnly));
+    not Doc.Editor.ReadOnly) or ((NativeEdit <> nil) and not NativeEdit.ReadOnly) or ((NativeCombo<>nil) and not NativeCombo.ReadOnly));
   if IsCommand(@AbortCompileClick) then Exit(FCompileActive);
   if IsCommand(@StopExecuteClick) then Exit(FCompileActive or DebuggerActive);
   if IsCommand(@PrintClick) or IsCommand(@PropertiesClick) or
     IsCommand(@ExportHtmlClick) or IsCommand(@ExportRtfClick) or IsCommand(@ExportTexClick) then Exit(Doc <> nil);
+  if IsCommand(@InsertDateClick) or IsCommand(@InsertSnippetClick) or
+    IsCommand(@IndentClick) or IsCommand(@UnindentClick) then Exit(InEditor and CanWrite);
+  if IsCommand(@FoldAllClick) or IsCommand(@UnfoldAllClick) then Exit(InEditor);
   if IsCommand(@FormatClick) then Exit(InEditor and CanWrite);
   if IsCommand(@ToggleFirstBookmarkClick) or IsCommand(@GotoFirstBookmarkClick) then Exit(InEditor);
   if IsCommand(@DebugStartClick) then
@@ -1521,7 +1386,7 @@ begin
       not FDebugger.Session.ChangingBreakpoint);
   if IsCommand(@ClearRecentClick) then Exit(FRecentFiles.Count > 0);
   if IsCommand(@CopyClick) then Exit(HasSelection);
-  if IsCommand(@SelectAllClick) then Exit(InEditor or (NativeEdit <> nil));
+  if IsCommand(@SelectAllClick) then Exit(InEditor or (NativeEdit <> nil) or (NativeCombo<>nil));
   if IsCommand(@CutClick) then Exit(CanWrite and HasSelection);
   if IsCommand(@PasteClick) then Exit(CanWrite);
   if IsCommand(@UndoClick) then
@@ -1577,6 +1442,7 @@ begin
   if (FDocs = nil) or FRefreshingCommands or (Application.ModalLevel > 0) or FLoading then Exit;
   FRefreshingCommands := True;
   try
+    SaveRecoveryCopies;
     if FAbortButton <> nil then FAbortButton.Enabled := FCompileActive;
     if FNavigationDirty and not FCompileActive and
       (GetTickCount64 - FNavigationChangedAt >= 300) then RebuildNavigation;
@@ -1601,6 +1467,7 @@ begin
       FCompilerProfileCombo.Enabled := not FCompileActive and not DebuggerActive;
     if FRecentMenuDirty then RebuildRecentMenu;
     Doc := CurrentDoc;
+    if FDebugger<>nil then FDebugger.SetCanStart(not FCompileActive and ((Doc<>nil) or (FProjectPath<>'')));
     for I := 0 to ComponentCount - 1 do
       if Components[I] is TMenuItem then
       begin
@@ -2042,7 +1909,7 @@ begin
         Doc.MissingNotified := False;
         if SameFileSnapshot(CurrentSnapshot, Doc.DiskSnapshot) then Continue;
         FPages.ActivePage := Doc.Tab;
-        Answer := UiMessageDlg(Format(Tr('%s was modified outside dev-cpp-linux.' + LineEnding +
+        Answer := UiMessageDlg(Format(Tr('%s was modified outside Dev-C++.' + LineEnding +
           'Reload it from disk? Unsaved changes will be lost.'),
           [ExtractFileName(Doc.FileName)]), mtConfirmation, [mbYes, mbNo], 0);
         if Answer = mrYes then
@@ -2089,7 +1956,7 @@ begin
       end;
       if Doc.MissingNotified then Continue;
       Doc.MissingNotified := True;
-      Answer := UiMessageDlg(Format(Tr('%s was deleted outside dev-cpp-linux.' + LineEnding +
+      Answer := UiMessageDlg(Format(Tr('%s was deleted outside Dev-C++.' + LineEnding +
         'Keep the file in the editor?'), [ExtractFileName(Doc.FileName)]), mtConfirmation, [mbYes, mbNo], 0);
       if Answer <> mrNo then
       begin
@@ -2208,6 +2075,7 @@ var
 
 begin
   Modifiers := Shift * [ssCtrl, ssShift, ssAlt];
+  if (ActiveControl is TCustomComboBox) and (Modifiers=[ssCtrl]) and (Key in [Ord('Z'),Ord('Y')]) then Exit;
   if FMenuShortcuts <> nil then begin
     ShortcutItem := FMenuShortcuts.Match(Key, Modifiers, Suppress);
     if ShortcutItem <> nil then begin
@@ -2312,13 +2180,37 @@ begin
     OpenDroppedFile(FileNames[I]);
 end;
 
-procedure TMainForm.EditorFilesDropped(Sender: TObject; X, Y: Integer;
-  AFiles: TStrings);
-var
-  I: Integer;
+procedure TMainForm.EditorFilesDropped(Sender:TObject;X,Y:Integer;AFiles:TStrings);
+var I:Integer;Lines:TStringList;Snapshot:TFileSnapshot;Doc:TDocument;
 begin
-  for I := 0 to AFiles.Count - 1 do
-    OpenDroppedFile(AFiles[I]);
+  Doc:=CurrentDoc;
+  if (efDropInsert in FEditorPreferences.Flags) and (Doc<>nil) and not Doc.Editor.ReadOnly and not FCompileActive then begin
+    Lines:=TStringList.Create;Doc.Editor.LogicalCaretXY:=Doc.Editor.PixelsToLogicalPos(Point(X,Y));
+    Doc.Editor.BeginUndoBlock;
+    try
+      try
+        for I:=0 to AFiles.Count-1 do begin
+          LoadDocumentLines(Lines,AFiles[I],Snapshot);Doc.Editor.SelText:=Lines.Text;
+        end;
+      except on E:Exception do UiMessageDlg(E.Message,mtError,[mbOK],0);end;
+    finally Doc.Editor.EndUndoBlock;Lines.Free;end;
+  end else for I:=0 to AFiles.Count-1 do OpenDroppedFile(AFiles[I]);
+end;
+procedure TMainForm.EditorMouseMove(Sender:TObject;Shift:TShiftState;X,Y:Integer);
+var Doc:TDocument;WordText,Signature:string;P:TPoint;I,Row,Separator:Integer;
+begin
+  Doc:=CurrentDoc;if (Doc=nil) or (Doc.Editor<>Sender) then Exit;
+  if not (efEditorHints in FEditorPreferences.Flags) or FNavigationDirty then begin Doc.Editor.Hint:='';Exit;end;
+  P:=Doc.Editor.PixelsToLogicalPos(Point(X,Y));WordText:=Doc.Editor.GetWordAtRowCol(P);Signature:='';
+  if WordText<>'' then for I:=0 to FSymbols.Count-1 do begin
+    Separator:=Pos('|',FSymbols[I]);
+    if Copy(FSymbols[I],Separator+1,MaxInt)=WordText then begin
+      Row:=PtrInt(FSymbols.Objects[I]);
+      if (Row>0) and (Row<=Doc.Editor.Lines.Count) then Signature:=Trim(Doc.Editor.Lines[Row-1]);
+      Break;
+    end;
+  end;
+  if Doc.Editor.Hint<>Signature then Doc.Editor.Hint:=Signature;
 end;
 
 procedure TMainForm.EditorMouseUp(Sender: TObject; Button: TMouseButton;
@@ -2513,8 +2405,10 @@ begin
     not (Command in [ecLineStart, ecSelLineStart, ecUp, ecDown, ecSelUp, ecSelDown]) then Exit;
   if Command = ecTab then
   begin
+    if efSmartTabs in FEditorPreferences.Flags then Exit;
     Command := ecNone;
-    Doc.Editor.SelText := #9;
+    if efUseTabs in FEditorPreferences.Flags then Doc.Editor.SelText := #9
+    else Doc.Editor.SelText := StringOfChar(' ', Doc.Editor.TabWidth - ((Doc.Editor.CaretX-1) mod Doc.Editor.TabWidth));
     Exit;
   end;
   P := Doc.Editor.LogicalCaretXY;
@@ -2548,7 +2442,7 @@ begin
     Command := ecNone;
     Exit;
   end;
-  if Command in [ecLineStart, ecSelLineStart] then
+  if (Command in [ecLineStart, ecSelLineStart]) and (efEnhanceHome in FEditorPreferences.Flags) then
   begin
     TNoiSynEdit(Doc.Editor).MoveHome(Command = ecSelLineStart);
     Command := ecNone;
@@ -2557,21 +2451,26 @@ begin
   if Command = ecLineBreak then
   begin
     Command := ecNone;
+    if not (efAutoIndent in FEditorPreferences.Flags) then begin Doc.Editor.SelText := LineEnding; Exit; end;
     Prefix := Copy(LineText, 1, P.X - 1);
     Suffix := Copy(LineText, P.X, MaxInt);
     TrimmedPrefix := TrimRight(Prefix);
     TrimmedSuffix := TrimLeft(Suffix);
     BaseIndent := TabIndentOf(Prefix);
     NewIndent := BaseIndent;
-    if (Length(TrimmedPrefix) > 0) and
+    if (efAddIndent in FEditorPreferences.Flags) and (Length(TrimmedPrefix) > 0) and
       (TrimmedPrefix[Length(TrimmedPrefix)] = '{') then
       NewIndent := NewIndent + #9;
-    if (Length(TrimmedPrefix) > 0) and
+    if (efAddIndent in FEditorPreferences.Flags) and (Length(TrimmedPrefix) > 0) and
       (TrimmedPrefix[Length(TrimmedPrefix)] = ':') and
       ((Copy(TrimLeft(TrimmedPrefix), 1, 5) = 'case ') or
        (Copy(TrimLeft(TrimmedPrefix), 1, 5) = 'case'#9) or
        (Copy(TrimLeft(TrimmedPrefix), 1, 8) = 'default:')) then
       NewIndent := NewIndent + #9;
+    if not (efUseTabs in FEditorPreferences.Flags) then begin
+      NewIndent := StringReplace(NewIndent, #9, StringOfChar(' ', Doc.Editor.TabWidth), [rfReplaceAll]);
+      BaseIndent := StringReplace(BaseIndent, #9, StringOfChar(' ', Doc.Editor.TabWidth), [rfReplaceAll]);
+    end;
     if (NewIndent <> BaseIndent) and (Length(TrimmedSuffix) > 0) and
       (TrimmedSuffix[1] = '}') then
     begin
@@ -2745,6 +2644,7 @@ var
   StartPos, NameEnd, LogicalCol: Integer;
   P: TPoint;
 begin
+  if not (efCompletion in FEditorPreferences.Flags) then Exit;
   if (Doc = nil) or Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
   begin
     HideCompletion;
@@ -2924,6 +2824,7 @@ var
   Row, I, J, OpenPos, EndName, Depth, ActiveParam, ContextStart: Integer;
   CaretPos, ScreenPos: TPoint;
 begin
+  if not (efFunctionHints in FEditorPreferences.Flags) then begin HideFunctionTip; Exit; end;
   if (Doc = nil) or FCompletionForm.Visible then
   begin
     HideFunctionTip;
@@ -3307,7 +3208,7 @@ begin
     Doc.DebugReadOnlyApplied := True;
     Doc.Editor.ReadOnly := True;
   end;
-  { dev-cpp-linux uses Ctrl+1..9 to toggle and Alt+1..9 to jump. }
+  { dev-cpp uses Ctrl+1..9 to toggle and Alt+1..9 to jump. }
   Doc.Editor.BookMarkOptions.EnableKeys := False;
   Doc.Editor.BlockIndent := 0;
   Doc.Editor.BlockTabIndent := 1;
@@ -3315,12 +3216,12 @@ begin
   Doc.Editor.Gutter.Visible := True;
   Doc.Syntax := TNoiCppSyn.Create(Doc.Tab);
   ApplyDocumentEditorSettings(Doc);
-  Doc.Editor.Highlighter := Doc.Syntax;
   TNoiSynEdit(Doc.Editor).EnableIndentGuides;
   Doc.Editor.OnChange := @EditorChanged;
   Doc.Editor.OnEnter := @EditorFocusEntered;
   Doc.Editor.OnStatusChange := @EditorStatusChanged;
   Doc.Editor.OnClick := @EditorClicked;
+  Doc.Editor.OnMouseMove := @EditorMouseMove;
   Doc.Editor.OnKeyDown := @EditorKeyDown;
   Doc.Editor.OnKeyPress := @EditorKeyPress;
   Doc.Editor.OnProcessCommand := @EditorProcessCommand;
@@ -3341,6 +3242,8 @@ procedure TMainForm.NewClick(Sender: TObject);
 begin
   if FCompileActive or (FDocumentDialogs <> 0) then Exit;
   CreateDocument(True);
+  if (efDefaultCode in FEditorPreferences.Flags) and (CurrentDoc <> nil) then
+    CurrentDoc.Editor.SelText := FEditorPreferences.DefaultCode;
 end;
 
 procedure TMainForm.OpenFile(const FileName: string);
@@ -3408,7 +3311,7 @@ begin
       Ini := TIniFile.Create(SelectedPath);
       try
         if not Ini.SectionExists('Project') then
-          raise EInOutError.Create(Tr('The selected file is not a dev-cpp-linux project.'));
+          raise EInOutError.Create(Tr('The selected file is not a Dev-C++ project.'));
         Count := Ini.ReadInteger('Project', 'UnitCount', 0);
         if (Count < 0) or (Count > 100000) then
           raise EInOutError.Create(Tr('Invalid project unit count.'));
@@ -3534,7 +3437,7 @@ begin
   try
     Dialog.Title := Tr('New Project');
     Dialog.DefaultExt := 'dev';
-    Dialog.Filter := Tr('dev-cpp-linux project|*.dev');
+    Dialog.Filter := Tr('Dev-C++ project|*.dev');
     Dialog.FileName := 'Project1.dev';
     if not Dialog.Execute then Exit;
     ProjectFilePath := ExpandFileName(Dialog.FileName);
@@ -3783,6 +3686,17 @@ begin
   Ini := TIniFile.Create(FOptionsPath);
   try
     FCompilerProfiles.Load(Ini);
+    if not Ini.ReadBool('CompilerProfiles','NativePresetsV1',False) then begin
+      if (FCompilerProfiles.Count=1) and (FCompilerProfiles[0].Name='Default') and
+        (FCompilerProfiles[0].CCompiler='gcc') and (FCompilerProfiles[0].CppCompiler='g++') and
+        (FCompilerProfiles[0].CFlags='-g -O2 -Wall -Wextra') and
+        (FCompilerProfiles[0].CppFlags='-g -O2 -std=c++14 -Wall -Wextra') and
+        (FCompilerProfiles[0].LinkerFlags='') then begin
+          FCompilerProfiles.EnsureNativePresets;FCompilerProfiles.ActiveIndex:=1;
+      end;
+      Ini.WriteBool('CompilerProfiles','NativePresetsV1',True);
+    end;
+    FEditorPreferences.Load(Ini);
     { Persist migration before editing, leaving the legacy [Compiler] intact. }
     FCompilerProfiles.Save(Ini);
     FEditorFontName := Ini.ReadString('Editor', 'FontName', FEditorFontName);
@@ -3882,6 +3796,8 @@ begin
     Doc.Syntax.CharacterAttri,
     FEditorThemeName, Doc.ThemeColors, Doc.Syntax.FloatAttri,
     Doc.Syntax.HexAttri, Doc.Syntax.OctalAttri);
+  FEditorPreferences.Apply(Doc.Editor, Doc.Syntax);
+  TNoiSynEdit(Doc.Editor).EnhancedHome := efEnhanceHome in FEditorPreferences.Flags;
 end;
 
 procedure TMainForm.ApplyAllEditorSettings;
@@ -3906,6 +3822,7 @@ var Ini: TIniFile;
 begin
   Ini := TIniFile.Create(FOptionsPath);
   try
+    FEditorPreferences.Save(Ini);
     Ini.WriteString('Editor', 'Theme', FEditorThemeName);
     Ini.WriteString('Editor', 'FontName', FEditorFontName);
     Ini.WriteInteger('Editor', 'FontSize', FEditorFontSize);
@@ -3940,10 +3857,12 @@ procedure TMainForm.EditorOptionsClick(Sender: TObject);
 begin
   if Sender is TMenuItem then
   begin QueueMenuDialog(@EditorOptionsClick); Exit; end;
-  if not EditEditorSettings(Self, FEditorThemeName, FEditorFontName,
+  if not EditAdvancedEditor(Self, FEditorPreferences, FEditorThemeName, FEditorFontName,
     FEditorFontSize, FEditorTabWidth) then Exit;
   ApplyAllEditorSettings;
   SaveEditorSettings;
+  RebuildInsertMenu;
+  FLastRecoveryAt := GetTickCount64;
 end;
 
 procedure TMainForm.PopulateDiagnostics(const CompilerOutput: string);
@@ -4042,7 +3961,7 @@ begin
   Dialog := TOpenDialog.Create(Self);
   try
     Dialog.Title := Tr('Open');
-    Dialog.Filter := Tr('dev-cpp-linux project or C/C++ file|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*');
+    Dialog.Filter := Tr('Dev-C++ project or C/C++ file|*.dev;*.c;*.cc;*.cpp;*.cxx;*.h;*.hpp|All files|*');
     if Dialog.Execute then
       if LowerCase(ExtractFileExt(Dialog.FileName)) = '.dev' then
         OpenProject(Dialog.FileName)
@@ -4106,7 +4025,7 @@ begin
       ExistingIdentity := (OldName <> '') and SameDocumentPath(OldName, SelectedPath);
       if ExistingIdentity and not SameFileSnapshot(CurrentSnapshot, Doc.DiskSnapshot) then
       begin
-        if UiMessageDlg(Format(Tr('File %s was changed or removed outside dev-cpp-linux.' + LineEnding +
+        if UiMessageDlg(Format(Tr('File %s was changed or removed outside Dev-C++.' + LineEnding +
           'Overwrite the disk version with the editor contents?'), [SelectedPath]),
           mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
       end
@@ -4478,24 +4397,28 @@ end;
 procedure TMainForm.CutClick(Sender: TObject);
 begin
   if not CommandAvailable(@CutClick) then Exit;
-  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).CutToClipboard
+  if ActiveControl is TCustomComboBox then begin Clipboard.AsText:=TCustomComboBox(ActiveControl).SelText;TCustomComboBox(ActiveControl).SelText:='';end
+  else if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).CutToClipboard
   else if EditorHasFocus then CurrentDoc.Editor.CutToClipboard;
 end;
 procedure TMainForm.CopyClick(Sender: TObject);
 begin
   if not CommandAvailable(@CopyClick) then Exit;
-  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).CopyToClipboard
+  if ActiveControl is TCustomComboBox then Clipboard.AsText:=TCustomComboBox(ActiveControl).SelText
+  else if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).CopyToClipboard
   else if EditorHasFocus then CurrentDoc.Editor.CopyToClipboard;
 end;
 procedure TMainForm.PasteClick(Sender: TObject);
 begin
   if not CommandAvailable(@PasteClick) then Exit;
-  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).PasteFromClipboard
+  if ActiveControl is TCustomComboBox then TCustomComboBox(ActiveControl).SelText:=Clipboard.AsText
+  else if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).PasteFromClipboard
   else if EditorHasFocus then CurrentDoc.Editor.PasteFromClipboard;
 end;
 procedure TMainForm.SelectAllClick(Sender: TObject);
 begin
-  if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).SelectAll
+  if ActiveControl is TCustomComboBox then TCustomComboBox(ActiveControl).SelectAll
+  else if ActiveControl is TCustomEdit then TCustomEdit(ActiveControl).SelectAll
   else if EditorHasFocus then CurrentDoc.Editor.SelectAll;
 end;
 
@@ -4510,6 +4433,7 @@ begin
   Query := FFindText;
   Doc := CurrentDoc;
   if Doc = nil then Exit;
+  if efFindAtCursor in FEditorPreferences.Flags then Query := Doc.Editor.GetWordAtRowCol(Doc.Editor.LogicalCaretXY);
   if Doc.Editor.SelAvail and (Pos(#10, Doc.Editor.SelText) = 0) and
     (Pos(#13, Doc.Editor.SelText) = 0) then Query := Doc.Editor.SelText;
   if UiInputQuery(Tr('Find'), Tr('Find:'), Query) and (Query <> '') then
@@ -5364,6 +5288,7 @@ begin
   FDebugger.AttachSidebar(FLeftDebugTab);
   FDebugger.Session.OnLocation := @DebugLocation;
   FDebugger.OnStateChange := @DebugStateChange;
+  FDebugger.OnStartRequested := @DebugStartClick;
   FDebugTimer := TTimer.Create(Self);
   FDebugTimer.Interval := 40; FDebugTimer.OnTimer := @DebugTick;
   FDebugTimer.Enabled := True;

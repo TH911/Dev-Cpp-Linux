@@ -101,7 +101,7 @@ begin
     14, 154, 520, 42);
 
   ExecutablePath := ExpandFileName(ParamStr(0));
-  if ExtractFileDir(ExecutablePath) = '/usr/lib/dev-cpp-linux' then
+  if ExtractFileDir(ExecutablePath) = '/usr/lib/dev-cpp' then
     Distribution := Tr('Debian package')
   else Distribution := Tr('Directory build');
   FDetails := AppName + ' ' + AppVersion + LineEnding +

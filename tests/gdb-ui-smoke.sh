@@ -192,11 +192,11 @@ source_line() {
   wait_text "Line: $1 "
 }
 
-[[ -x "$app_dir/dev-cpp-linux" ]] || fail 'build the IDE before this GUI test'
+[[ -x "$app_dir/dev-cpp" ]] || fail 'build the IDE before this GUI test'
 gcc -shared -fPIC -Wno-deprecated-declarations \
   "$source_root/tests/gtk-state-probe.c" -o "$test_dir/gtk-state-probe.so" \
   $(pkg-config --cflags --libs gtk+-2.0) -ldl
-cat > "$test_dir/home/.config/dev-cpp-linux.ini" <<EOF
+cat > "$test_dir/home/.config/dev-cpp.ini" <<EOF
 [Interface]
 Language=en
 [Run]
@@ -227,11 +227,11 @@ env HOME="$test_dir/home" XDG_CACHE_HOME="$test_dir/home/.cache" \
   XDG_DATA_HOME="$test_dir/home/.local/share" \
   LD_PRELOAD="$test_dir/gtk-state-probe.so" DEVC_GTK_STATE="$test_dir/state.json" \
   DEVC_GTK_SCREENSHOT="$test_dir/current.png" \
-  "$app_dir/dev-cpp-linux" --new-window "$test_dir/debug fixture.c" > "$test_dir/runtime.log" 2>&1 &
+  "$app_dir/dev-cpp" --new-window "$test_dir/debug fixture.c" > "$test_dir/runtime.log" 2>&1 &
 app_pid=$!
 window=''
 for i in {1..100}; do
-  window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'dev-cpp-linux' 2>/dev/null | head -1) || true
+  window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C\+\+' 2>/dev/null | head -1) || true
   [[ -z $window ]] || break
   alive; sleep 0.1
 done

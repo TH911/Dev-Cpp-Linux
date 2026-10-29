@@ -9,9 +9,9 @@ linux-noi-lazarus/lib/
 linux-noi-lazarus/backup/
 linux-noi-lazarus/*.lps
 linux-noi-lazarus/.build.lock
-linux-noi-lazarus/dev-cpp-linux
-linux-noi-lazarus/dev-cpp-linux.build
-linux-noi-lazarus/dev-cpp-linux.instance-api
+linux-noi-lazarus/dev-cpp
+linux-noi-lazarus/dev-cpp.build
+linux-noi-lazarus/dev-cpp.instance-api
 tests/*.compiled
 tests/*.lps
 /dist/
@@ -19,3 +19,5 @@ packaging/__pycache__/
 **/__pycache__/
 
 linux-noi-lazarus/devcpp-noi*
+
+linux-noi-lazarus/dev-cpp-linux*

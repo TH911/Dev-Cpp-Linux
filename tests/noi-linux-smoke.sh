@@ -49,7 +49,7 @@ launch --new-window "$sample_dir/hello.cpp" > "$test_dir/runtime.log" 2>&1 &
 ide_pid=$!
 window=''
 for i in {1..100}; do
-  window=$(xdotool search --onlyvisible --name 'dev-cpp-linux' 2>/dev/null | head -1) || true
+  window=$(xdotool search --onlyvisible --name 'Dev-C\+\+' 2>/dev/null | head -1) || true
   [[ -z "$window" ]] || break
   kill -0 "$ide_pid" 2>/dev/null || fail 'IDE failed to start'
   sleep 0.1
@@ -81,7 +81,7 @@ wait_file "$sample_dir/ran.txt"
 
 launch "$sample_dir/second.cpp"
 sleep 0.5
-[[ $(xdotool search --onlyvisible --name 'dev-cpp-linux' | wc -l) -eq 1 ]] || \
+[[ $(xdotool search --onlyvisible --name 'Dev-C\+\+' | wc -l) -eq 1 ]] || \
   fail 'file forwarding opened an extra main window'
 xdotool windowfocus "$window" key F9
 wait_file "$sample_dir/second"

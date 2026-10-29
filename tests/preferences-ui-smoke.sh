@@ -4,13 +4,16 @@ set -euo pipefail
 app_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../linux-noi-lazarus" && pwd)
 test_dir=$(mktemp -d)
 preferences_home="$test_dir/home"
-config="$preferences_home/.config/dev-cpp-linux.ini"
+config="$preferences_home/.config/dev-cpp.ini"
 app_pid=''
 window=''
 dialog_window=''
 export LANG=C.UTF-8
 export PREFERENCES_COMPILER_LOG="$test_dir/compiler-argv"
 mkdir -p "$preferences_home/.config"
+cc -shared -fPIC -Wno-deprecated-declarations "$app_dir/../tests/gtk-state-probe.c" -o "$test_dir/probe.so" $(pkg-config --cflags --libs gtk+-2.0) -ldl
+editor_control() { python3 "$app_dir/../tests/gtk-control.py" "$test_dir/state.json" 'Editor Options' "$@"; }
+
 cleanup() {
   local result=$?
   if [[ -n "$app_pid" ]]; then
@@ -121,12 +124,12 @@ finally:
 PY
 }
 start_app() {
-  env HOME="$preferences_home" XDG_CACHE_HOME="$preferences_home/.cache" \
-    "$app_dir/dev-cpp-linux" --new-window "$test_dir/sample.cpp" >> "$test_dir/runtime.log" 2>&1 &
+  env HOME="$preferences_home" XDG_CACHE_HOME="$preferences_home/.cache" LD_PRELOAD="$test_dir/probe.so" DEVC_GTK_STATE="$test_dir/state.json" \
+    "$app_dir/dev-cpp" --new-window "$test_dir/sample.cpp" >> "$test_dir/runtime.log" 2>&1 &
   app_pid=$!
   window=''
   for i in {1..100}; do
-    window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'dev-cpp-linux' 2>/dev/null | head -1) || true
+    window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C\+\+' 2>/dev/null | head -1) || true
     [[ -z "$window" ]] || break
     alive
     sleep 0.1
@@ -250,11 +253,10 @@ echo 'PASS: switching profiles does not mix flags, and Cancel discards new profi
 # must use a monospace fallback while retaining the user's requested family.
 press alt+t Home Down Down Return
 wait_dialog 'Editor Options'
-dialog_press Tab ctrl+a
-type_text 'Consolas'
-dialog_press Tab ctrl+a
-type_text '12'
-dialog_press Tab Tab space
+editor_control click Display
+editor_control entry 0 Consolas
+editor_control entry 1 12
+editor_control click OK
 expect_config Editor FontName Consolas
 expect_config Editor FontSize 12
 press ctrl+n ctrl+w
@@ -264,9 +266,9 @@ echo 'PASS: accepting Consolas and font size persists the requested settings.'
 config_before=$(sha256sum "$config")
 press alt+t Home Down Down Return
 wait_dialog 'Editor Options'
-dialog_press Tab ctrl+a
-type_text 'Liberation Mono'
-dialog_press Escape
+editor_control click Display
+editor_control entry 0 'Liberation Mono'
+editor_control click Cancel
 [[ $(sha256sum "$config") == "$config_before" ]] || fail 'cancelling editor preferences changed persisted settings'
 echo 'PASS: cancelling font preferences preserves the saved configuration.'
 

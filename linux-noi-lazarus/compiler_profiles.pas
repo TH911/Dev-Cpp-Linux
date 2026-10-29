@@ -25,6 +25,7 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure Load(Ini: TCustomIniFile);
+    procedure EnsureNativePresets;
     procedure Save(Ini: TCustomIniFile);
     procedure Assign(Source: TCompilerProfiles);
     function Add(const Name: string; Source: TCompilerProfile = nil): Integer;
@@ -155,6 +156,19 @@ begin
   end;
   FActiveIndex := 0;
   SetActiveIndex(Ini.ReadInteger('CompilerProfiles', 'Active', 0));
+end;
+
+procedure TCompilerProfiles.EnsureNativePresets;
+const Names: array[0..2] of string = ('GCC 64-bit Release','GCC 64-bit Debug','GCC 64-bit Profiling');
+  Options: array[0..2] of string = ('-O2 -Wall -Wextra','-g3 -O0 -Wall -Wextra','-pg -g -O2 -Wall -Wextra');
+var I,J:Integer;Found:Boolean;P:TCompilerProfile;
+begin
+  for I:=0 to 2 do begin
+    Found:=False;for J:=0 to Count-1 do if Items[J].Name=Names[I] then Found:=True;
+    if Found or (Count>=128) then Continue;
+    P:=Items[Add(Names[I])];P.CFlags:=Options[I];P.CppFlags:='-std=c++14 '+Options[I];
+    if I=2 then P.LinkerFlags:='-pg';
+  end;
 end;
 
 procedure TCompilerProfiles.Save(Ini: TCustomIniFile);

@@ -6,7 +6,7 @@
     <General>
       <Flags>
         <MainUnitHasCreateFormStatements Value="True"/>
-        <MainUnitHasTitleStatement Value="False"/>
+        <MainUnitHasTitleStatement Value="True"/>
       </Flags>
       <MainUnit Value="0"/>
     </General>
@@ -101,7 +101,7 @@
   <CompilerOptions>
     <Version Value="11"/>
     <Target>
-      <Filename Value="dev-cpp-linux.build"/>
+      <Filename Value="dev-cpp.build"/>
     </Target>
     <SearchPaths>
       <OtherUnitFiles Value="."/>

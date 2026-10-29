@@ -19,4 +19,4 @@ runuser -u nobody -- env HOME="$ci_home" LANG=C.UTF-8 \
 python3 packaging/verify-artifacts.py --output dist
 package_version=$(tr -d '\r\n' < VERSION)
 package_version=${package_version#v}
-bash packaging/verify-install.sh "dist/dev-cpp-linux_${package_version}_amd64.deb"
+bash packaging/verify-install.sh "dist/dev-cpp_${package_version}_amd64.deb"

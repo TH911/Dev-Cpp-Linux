@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 CPP
 cp "$test_dir/program.cpp" "$source_dir/args.cpp"
 write_config() {
-  cat > "$test_home/.config/dev-cpp-linux.ini" <<EOF
+  cat > "$test_home/.config/dev-cpp.ini" <<EOF
 [Interface]
 Language=en
 [Compiler]
@@ -85,11 +85,11 @@ start_app() {
   app_sequence=$((app_sequence + 1))
   instance_cache="$test_home/.cache/$app_sequence"
   env HOME="$test_home" XDG_CACHE_HOME="$instance_cache" \
-    "$app_dir/dev-cpp-linux" --new-window "$1" > "$test_dir/runtime.log" 2>&1 &
+    "$app_dir/dev-cpp" --new-window "$1" > "$test_dir/runtime.log" 2>&1 &
   ide_pid=$!
   window=''
   for i in {1..100}; do
-    window=$(xdotool search --onlyvisible --pid "$ide_pid" --name 'dev-cpp-linux' 2>/dev/null | head -1) || true
+    window=$(xdotool search --onlyvisible --pid "$ide_pid" --name 'Dev-C\+\+' 2>/dev/null | head -1) || true
     [[ -z "$window" ]] || break
     kill -0 "$ide_pid" 2>/dev/null || fail 'IDE failed to start'
     sleep 0.1
@@ -106,7 +106,7 @@ stop_app() {
 }
 open_file() {
   env HOME="$test_home" XDG_CACHE_HOME="$instance_cache" \
-    "$app_dir/dev-cpp-linux" --forward-only "$1" || fail 'could not forward source to the running IDE'
+    "$app_dir/dev-cpp" --forward-only "$1" || fail 'could not forward source to the running IDE'
   sleep 0.3
   xdotool windowfocus "$window" key ctrl+alt+e
 }
@@ -163,7 +163,7 @@ rm -f "$run_dir/ran.txt" "$run_dir/args.txt"
 xdotool windowfocus "$window" key F10
 sleep 0.3
 [[ ! -e "$run_dir/ran.txt" ]] || fail 'F10 ran a stale target after compilation failed'
-dialog_count=$(xdotool search --onlyvisible --pid "$ide_pid" --name 'dev-cpp-linux' | wc -l)
+dialog_count=$(xdotool search --onlyvisible --pid "$ide_pid" --name 'Dev-C\+\+' | wc -l)
 [[ $dialog_count -ge 2 ]] || fail 'F10 did not explain that compilation is required'
 echo 'PASS: failed compilation preserves the old file and blocks F10 with an explanation.'
 stop_app

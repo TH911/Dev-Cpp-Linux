@@ -12,7 +12,7 @@ function fixture(t, options = {}) {
   fs.writeFileSync(path.join(root, 'VERSION'), version + '\n');
   fs.mkdirSync(path.join(root, 'dist'));
   const names = [`linux-noi-lazarus-${version}-src.tar.gz`,
-    `linux-noi-lazarus-${version}-src.zip`, `dev-cpp-linux_${version}_amd64.deb`];
+    `linux-noi-lazarus-${version}-src.zip`, `dev-cpp_${version}_amd64.deb`];
   for (const name of names) fs.writeFileSync(path.join(root, 'dist', name), 'verified fixture');
   const context = {ref: 'refs/heads/beta', eventName: 'push',
     sha: 'a'.repeat(40),

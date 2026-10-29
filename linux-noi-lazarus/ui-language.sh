@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Read the same Interface/Language setting as ui_language.pas.
 # This file is sourced, so it does not change the caller's shell options.
-devcpp_language_file=${HOME:+"$HOME/.config/"}dev-cpp-linux.ini
+devcpp_language_file=${HOME:+"$HOME/.config/"}dev-cpp.ini
 if [[ -z ${HOME:-} ]]; then
-  devcpp_language_file="$(dirname -- "${BASH_SOURCE[0]}")/dev-cpp-linux.ini"
+  devcpp_language_file="$(dirname -- "${BASH_SOURCE[0]}")/dev-cpp.ini"
 fi
-# Read the legacy preference until the application copies it on first launch.
-if [[ ! -r "$devcpp_language_file" && -n ${HOME:-} && -r "$HOME/.config/devcpp-noi.ini" ]]; then
-  devcpp_language_file="$HOME/.config/devcpp-noi.ini"
+# Use the previous preference until the application migrates it.
+if [[ ! -r "$devcpp_language_file" && -n ${HOME:-} ]]; then
+  for legacy_config in "$HOME/.config/dev-cpp-linux.ini" "$HOME/.config/devcpp-noi.ini"; do
+    if [[ -r "$legacy_config" ]]; then devcpp_language_file="$legacy_config"; break; fi
+  done
 fi
 devcpp_ui_language=zh
 if [[ -r "$devcpp_language_file" ]]; then

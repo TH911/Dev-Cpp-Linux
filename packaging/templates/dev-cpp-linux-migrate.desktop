@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=dev-cpp-linux launcher migration
-Exec=/usr/bin/dev-cpp-linux --repair-launchers
-NoDisplay=true
-X-GNOME-Autostart-enabled=true

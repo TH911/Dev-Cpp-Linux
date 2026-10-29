@@ -12,10 +12,17 @@ type
   private
     FSession: TGdbSession;
     FTerminal, FLog: TMemo;
-    FInput, FExpression: TEdit;
+    FInput: TEdit;
+    FExpression, FCommand: TComboBox;
+    FStart, FAddWatch, FCPU, FOut, FNextIns, FStepIns: TButton;
+    FCPUWindow: TForm;
+    FCPUMemo: TMemo;
+    FWatched, FWatchQueue: TStringList;
+    FCanStart: Boolean;
+    FOnStartRequested: TNotifyEvent;
     FStatus: TLabel;
     FContinue, FInto, FOver, FStop: TButton;
-    FControls, FCommandBar: TPanel;
+    FControls, FCommandBar, FConsoleBar: TPanel;
     FPages: TPageControl;
     FProgramTab, FLogTab: TTabSheet;
     FValues: TListView;
@@ -27,6 +34,14 @@ type
     procedure ErrorText(Sender: TObject; const AText: string);
     procedure EvaluationText(Sender: TObject; const AText: string);
     procedure StateChange(Sender: TObject);
+    procedure StartClick(Sender: TObject);
+    procedure AddWatchClick(Sender: TObject);
+    procedure CPUClick(Sender: TObject);
+    procedure OutClick(Sender: TObject);
+    procedure NextInstructionClick(Sender: TObject);
+    procedure StepInstructionClick(Sender: TObject);
+    procedure CommandKey(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure NextWatch;
     procedure ContinueClick(Sender: TObject);
     procedure IntoClick(Sender: TObject);
     procedure OverClick(Sender: TObject);
@@ -47,18 +62,20 @@ type
     procedure RefreshBreakpoints;
     procedure BeginSession;
     procedure FocusExpression;
+    procedure SetCanStart(Value: Boolean);
+    property OnStartRequested: TNotifyEvent read FOnStartRequested write FOnStartRequested;
     property Session: TGdbSession read FSession;
     property OnStateChange: TNotifyEvent read FOnStateChange write FOnStateChange;
   end;
 
 implementation
 
-uses LCLType, Graphics, Math, ui_language, editor_themes;
+uses LCLType, Graphics, Math, ui_language, editor_themes, input_appearance;
 
 constructor TDebuggerPanel.Create(AOwner: TComponent);
 var InputBar, EvalBar: TPanel; Splitter: TSplitter;
   Column: TListColumn;
-  EvaluateLabel: TLabel;
+  EvaluateLabel: TLabel; RightPanel:TPanel;
 
   function Button(ParentControl: TWinControl; const ACaption, AHint: string;
     Handler: TNotifyEvent): TButton;
@@ -84,6 +101,7 @@ begin
   inherited Create(AOwner);
   BevelOuter := bvNone;
   Font.Size := 9;
+  FWatched:=TStringList.Create;FWatchQueue:=TStringList.Create;FWatched.CaseSensitive:=True;FWatchQueue.CaseSensitive:=True;
   FSession := TGdbSession.Create;
   FSession.OnLog := @LogText;
   FSession.OnOutput := @ProgramText;
@@ -91,23 +109,29 @@ begin
   FSession.OnEvaluation := @EvaluationText;
   FSession.OnState := @StateChange;
 
-  { dev-cpp-linux 5.11 keeps debugger commands and evaluation on the left of its
+  { dev-cpp 5.11 keeps debugger commands and evaluation on the left of its
     bottom Debugging sheet, with debugger output to the right. Keep that
     structure while giving the native program terminal a separate page. }
   FControls := TPanel.Create(Self);
   FControls.Parent := Self;
   FControls.Align := alLeft;
   FControls.BevelOuter := bvNone;
-  FControls.Width := 390;
+  FControls.Width := 586;
   FControls.BorderWidth := 3;
   FCommandBar := TPanel.Create(Self);
   FCommandBar.Parent := FControls;
   FCommandBar.Align := alTop;
-  FCommandBar.Height := 30;
+  FCommandBar.Height := 58;
   FCommandBar.BevelOuter := bvNone;
+  FStart:=Button(FCommandBar,'Debug','Start or continue debugging',@StartClick);
+  FAddWatch:=Button(FCommandBar,'Add watch','Add a watched expression',@AddWatchClick);
+  FCPU:=Button(FCommandBar,'View CPU window','Registers and machine instructions',@CPUClick);
+  FOut:=Button(FCommandBar,'Skip function','Run until the current function returns',@OutClick);
+  FNextIns:=Button(FCommandBar,'Next instruction','Step over one machine instruction',@NextInstructionClick);
+  FStepIns:=Button(FCommandBar,'Into instruction','Step into one machine instruction',@StepInstructionClick);
   FContinue := Button(FCommandBar, 'Continue', 'Continue execution', @ContinueClick);
-  FOver := Button(FCommandBar, 'Step over', 'Next line (F7)', @OverClick);
-  FInto := Button(FCommandBar, 'Step into', 'Step into (F8)', @IntoClick);
+  FOver := Button(FCommandBar, 'Next line', 'Next line (F7)', @OverClick);
+  FInto := Button(FCommandBar, 'Into line', 'Step into (F8)', @IntoClick);
   FStop := Button(FCommandBar, 'Stop', 'Stop debugging (F6)', @StopClick);
   FStatus := TLabel.Create(Self);
   FStatus.Parent := FControls;
@@ -129,7 +153,7 @@ begin
   EvaluateLabel.Width := 64;
   EvaluateLabel.Layout := tlCenter;
   EvaluateLabel.Caption := Tr('Evaluate:');
-  FExpression := TEdit.Create(Self);
+  FExpression := TComboBox.Create(Self);
   FExpression.Parent := EvalBar;
   FExpression.Align := alClient;
   FExpression.BorderSpacing.Top := 2;
@@ -157,8 +181,13 @@ begin
   Splitter.Align := alLeft;
   Splitter.Width := 4;
   Splitter.MinSize := 220;
+  RightPanel:=TPanel.Create(Self);RightPanel.Parent:=Self;RightPanel.Align:=alClient;RightPanel.BevelOuter:=bvNone;
+  FConsoleBar:=TPanel.Create(Self);FConsoleBar.Parent:=RightPanel;FConsoleBar.Align:=alTop;FConsoleBar.Height:=28;FConsoleBar.BevelOuter:=bvNone;
+  EvaluateLabel:=TLabel.Create(Self);EvaluateLabel.Parent:=FConsoleBar;EvaluateLabel.Align:=alLeft;
+  EvaluateLabel.AutoSize:=False;EvaluateLabel.Width:=150;EvaluateLabel.Layout:=tlCenter;EvaluateLabel.Caption:=Tr('Send command to GDB:');
+  FCommand:=TComboBox.Create(Self);FCommand.Parent:=FConsoleBar;FCommand.Align:=alClient;FCommand.OnKeyDown:=@CommandKey;
   FPages := TPageControl.Create(Self);
-  FPages.Parent := Self;
+  FPages.Parent := RightPanel;
   FPages.Align := alClient;
   FProgramTab := TTabSheet.Create(Self);
   FProgramTab.PageControl := FPages;
@@ -186,7 +215,7 @@ begin
   FLog.Parent := FLogTab;
   FLog.Align := alClient;
   SetOutputFont(FLog);
-  FPages.ActivePage := FProgramTab;
+  FPages.ActivePage := FLogTab;
   OnResize := @LayoutControls;
   FControls.OnResize := @LayoutControls;
   LayoutControls(Self);
@@ -198,6 +227,7 @@ begin
   FSession.OnState := nil;
   FSession.OnLocation := nil;
   FSession.Free;
+  FWatchQueue.Free;FWatched.Free;
   inherited Destroy;
 end;
 
@@ -218,29 +248,28 @@ begin
   RefreshSidebar;
 end;
 
-procedure TDebuggerPanel.LayoutControls(Sender: TObject);
-var AvailableWidth, ButtonWidth, I, Columns: Integer;
-  Buttons: array[0..3] of TButton;
+procedure TDebuggerPanel.LayoutControls(Sender:TObject);
+var I,ButtonWidth:Integer;Buttons:array[0..9] of TButton;S:string;Measure:TBitmap;
+const Full:array[0..9] of string=('Debug','Add watch','Next line','Continue','Next instruction','Stop','View CPU window','Into line','Skip function','Into instruction');
+  Short:array[0..9] of string=('Debug','Watch','Next','Continue','Next instr.','Stop','CPU','Into','Out','Into instr.');
 begin
-  if FValues = nil then Exit;
-  { The splitter remains usable. On a narrower window, wrap the command
-    buttons into two rows instead of clipping their captions. }
-  if Sender = Self then
-    FControls.Width := Max(240, Min(410, ClientWidth div 2));
-  AvailableWidth := Max(1, FCommandBar.ClientWidth - 8);
-  Columns := 4;
-  if AvailableWidth < 320 then Columns := 2;
-  ButtonWidth := (AvailableWidth - (Columns - 1) * 3) div Columns;
-  Buttons[0] := FContinue;
-  Buttons[1] := FOver;
-  Buttons[2] := FInto;
-  Buttons[3] := FStop;
-  FCommandBar.Height := (4 div Columns) * 28 + 2;
-  for I := 0 to 3 do
-    Buttons[I].SetBounds(2 + (I mod Columns) * (ButtonWidth + 3),
-      1 + (I div Columns) * 28, ButtonWidth, 26);
-  FValues.Columns[0].Width := Max(90, FValues.ClientWidth div 2 - 4);
-  FValues.Columns[1].Width := Max(90, FValues.ClientWidth div 2 - 4);
+  if FValues=nil then Exit;
+  if Sender=Self then FControls.Width:=Max(330,Min(586,ClientWidth div 3));
+  ButtonWidth:=Max(50,(FCommandBar.ClientWidth-16) div 5);
+  Buttons[0]:=FStart;Buttons[1]:=FAddWatch;Buttons[2]:=FOver;Buttons[3]:=FContinue;Buttons[4]:=FNextIns;
+  Buttons[5]:=FStop;Buttons[6]:=FCPU;Buttons[7]:=FInto;Buttons[8]:=FOut;Buttons[9]:=FStepIns;
+  Measure:=TBitmap.Create;
+  try
+  Measure.Canvas.Font.Assign(Font);
+  for I:=0 to 9 do begin
+    Buttons[I].SetBounds(2+(I mod 5)*(ButtonWidth+3),2+(I div 5)*28,ButtonWidth,25);
+    S:=Tr(Full[I]);if Measure.Canvas.TextWidth(S)>ButtonWidth-10 then S:=Tr(Short[I]);
+    Buttons[I].Caption:=S;
+  end;
+  finally Measure.Free; end;
+  FCommandBar.Height:=58;
+  FValues.Columns[0].Width:=Max(90,FValues.ClientWidth div 2-4);
+  FValues.Columns[1].Width:=Max(90,FValues.ClientWidth div 2-4);
 end;
 
 procedure TDebuggerPanel.Append(Memo: TMemo; const AText: string);
@@ -253,12 +282,13 @@ begin
 end;
 
 procedure TDebuggerPanel.LogText(Sender: TObject; const AText: string);
-begin Append(FLog, AText); end;
+begin Append(FLog, AText);if (FCPUWindow<>nil) and FCPUWindow.Visible then Append(FCPUMemo,AText);end;
 
 procedure TDebuggerPanel.ProgramText(Sender: TObject; const AText: string);
 begin Append(FTerminal, AText); end;
 
 procedure TDebuggerPanel.ErrorText(Sender: TObject; const AText: string);
+var I: Integer;
 begin
   Append(FLog, Tr('Debugger error: ') + AText + LineEnding);
   FStatus.Caption := Tr('Debugger error: ') + AText;
@@ -266,7 +296,12 @@ begin
   FPages.ActivePage := FLogTab;
   if FPendingExpression <> '' then
   begin
+    for I:=0 to FValues.Items.Count-1 do
+      if FValues.Items[I].Caption=FPendingExpression then
+        FValues.Items[I].SubItems[0]:=Tr('Unavailable');
     FPendingExpression := '';
+    RefreshSidebar;
+    NextWatch;
   end;
 end;
 
@@ -292,6 +327,7 @@ begin
   FStatus.Caption := ExpressionText + ' = ' + AText;
   FStatus.Hint := FStatus.Caption;
   RefreshSidebar;
+  NextWatch;
 end;
 
 procedure TDebuggerPanel.StateChange(Sender: TObject);
@@ -302,6 +338,13 @@ var Paused: Boolean;
 begin
   Paused := (FSession.State = gsStopped) and not FSession.ChangingBreakpoint;
   if not FSession.Active then FPendingExpression := '';
+  FStart.Enabled := Paused or (FCanStart and not FSession.Active);
+  FAddWatch.Enabled:=not FSession.ChangingBreakpoint;
+  FCPU.Enabled:=Paused;FOut.Enabled:=Paused;FNextIns.Enabled:=Paused;FStepIns.Enabled:=Paused;
+  FCommand.Enabled:=Paused;FExpression.Enabled:=True;
+  FPages.ShowTabs:=FSession.Active;
+  if not FSession.Active then FPages.ActivePage:=FLogTab;
+  if not Paused then FWatchQueue.Clear;
   FContinue.Enabled := Paused;
   FInto.Enabled := Paused;
   FOver.Enabled := Paused;
@@ -311,6 +354,7 @@ begin
   FStatus.Hint := FStatus.Caption;
   RefreshSidebar;
   if Assigned(FOnStateChange) then FOnStateChange(Self);
+  if Paused then begin FWatchQueue.Assign(FWatched);NextWatch;end;
 end;
 
 procedure TDebuggerPanel.RefreshSidebar;
@@ -380,6 +424,54 @@ begin
   FocusExpression;
 end;
 
+procedure TDebuggerPanel.SetCanStart(Value:Boolean);
+begin FCanStart:=Value;FStart.Enabled:=((FSession.State=gsStopped) and not FSession.ChangingBreakpoint) or (Value and not FSession.Active);end;
+procedure TDebuggerPanel.StartClick(Sender:TObject);
+begin
+  if FSession.State=gsStopped then FSession.ContinueExecution
+  else if Assigned(FOnStartRequested) then FOnStartRequested(Self);
+end;
+procedure TDebuggerPanel.AddWatchClick(Sender:TObject);
+var ExpressionText:string;Item:TListItem;I:Integer;
+begin
+  ExpressionText:=FExpression.Text;
+  if not UiInputQuery(Tr('Add watch'),Tr('Expression'),ExpressionText) then Exit;
+  ExpressionText:=Trim(ExpressionText);if (ExpressionText='') or (FWatched.IndexOf(ExpressionText)>=0) or (FWatched.Count>=64) then Exit;
+  FWatched.Add(ExpressionText);FExpression.Text:=ExpressionText;
+  Item:=nil;for I:=0 to FValues.Items.Count-1 do if FValues.Items[I].Caption=ExpressionText then Item:=FValues.Items[I];
+  if Item=nil then begin Item:=FValues.Items.Add;Item.Caption:=ExpressionText;Item.SubItems.Add(Tr('Not evaluated'));end;
+  RefreshSidebar;EvaluateClick(Self);
+end;
+procedure TDebuggerPanel.NextWatch;
+begin
+  if (FPendingExpression<>'') or (FWatchQueue.Count=0) or (FSession.State<>gsStopped) or FSession.ChangingBreakpoint then Exit;
+  FPendingExpression:=FWatchQueue[0];FWatchQueue.Delete(0);FSession.Evaluate(FPendingExpression);
+end;
+procedure TDebuggerPanel.OutClick(Sender:TObject);
+begin FSession.StepOut;end;
+procedure TDebuggerPanel.NextInstructionClick(Sender:TObject);
+begin FSession.NextInstruction;end;
+procedure TDebuggerPanel.StepInstructionClick(Sender:TObject);
+begin FSession.StepInstruction;end;
+procedure TDebuggerPanel.CPUClick(Sender:TObject);
+begin
+  if FSession.State<>gsStopped then Exit;
+  if FCPUWindow=nil then begin
+    FCPUWindow:=TForm.CreateNew(Self);FCPUWindow.Caption:=Tr('CPU');FCPUWindow.Position:=poMainFormCenter;
+    FCPUWindow.SetBounds(100,100,760,460);FCPUMemo:=TMemo.Create(FCPUWindow);FCPUMemo.Parent:=FCPUWindow;FCPUMemo.Align:=alClient;
+    FCPUMemo.ReadOnly:=True;FCPUMemo.ScrollBars:=ssAutoBoth;FCPUMemo.Font.Name:=DefaultEditorFontName;UseReadableInput(FCPUMemo);PrepareInputAppearance(FCPUWindow);
+  end;
+  FCPUMemo.Clear;FCPUWindow.Show;
+  FSession.ConsoleCommand('info registers');FSession.ConsoleCommand('x/12i $pc');
+end;
+procedure TDebuggerPanel.CommandKey(Sender:TObject;var Key:Word;Shift:TShiftState);
+begin
+  if Key<>VK_RETURN then Exit;Key:=0;
+  if Trim(FCommand.Text)='' then Exit;
+  if FCommand.Items.IndexOf(FCommand.Text)<0 then FCommand.Items.Add(FCommand.Text);
+  FPages.ActivePage:=FLogTab;FSession.ConsoleCommand(FCommand.Text);FCommand.Text:='';
+end;
+
 procedure TDebuggerPanel.ContinueClick(Sender: TObject);
 begin FSession.ContinueExecution; end;
 procedure TDebuggerPanel.IntoClick(Sender: TObject);
@@ -393,6 +485,7 @@ begin
   if (FSession.State <> gsStopped) or FSession.ChangingBreakpoint or
     (FPendingExpression <> '') or
     (Trim(FExpression.Text) = '') then Exit;
+  if FExpression.Items.IndexOf(FExpression.Text)<0 then FExpression.Items.Add(FExpression.Text);
   FPendingExpression := Trim(FExpression.Text);
   FSession.Evaluate(FPendingExpression);
 end;

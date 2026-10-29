@@ -1,18 +1,18 @@
-Package: dev-cpp-linux
+Package: dev-cpp
 Version: @VERSION@
-Provides: devcpp-noi
-Conflicts: devcpp-noi
-Replaces: devcpp-noi
+Provides: dev-cpp-linux, devcpp-noi
+Conflicts: dev-cpp-linux, devcpp-noi
+Replaces: dev-cpp-linux, devcpp-noi
 Section: devel
 Priority: optional
 Architecture: amd64
-Maintainer: dev-cpp-linux NOI contributors <dev-cpp-linux@users.noreply.github.com>
+Maintainer: Dev-C++ NOI contributors <dev-cpp@users.noreply.github.com>
 Homepage: https://github.com/TH911/Dev-Cpp-Linux
 Installed-Size: @INSTALLED_SIZE@
 Depends: bash, python3, mawk | gawk, gcc, g++, gdb, gnome-terminal | xterm, libc6 (>= 2.31), libgtk2.0-0 (>= 2.24), libglib2.0-0 (>= 2.56), libgdk-pixbuf2.0-0 (>= 2.36.11) | libgdk-pixbuf-2.0-0 (>= 2.36.11), libpango-1.0-0 (>= 1.40), libcairo2 (>= 1.14), libatk1.0-0 (>= 2.18), libx11-6
 Recommends: fonts-dejavu-core, fonts-noto-cjk, astyle
-Description: dev-cpp-linux - C/C++ IDE for NOI Linux
- dev-cpp-linux is a native GTK2 Lazarus port of Orwell Dev-C++ 5.11 for NOI Linux 2.0.
+Description: Dev-C++ - C/C++ IDE for NOI Linux
+ Dev-C++ is a native GTK2 Lazarus port of Orwell Dev-C++ 5.11 for NOI Linux 2.0.
  Includes the prebuilt IDE, editor resources and console runner. GCC, G++,
  GDB and a graphical terminal are installed as runtime dependencies.
  .

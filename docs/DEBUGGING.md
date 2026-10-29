@@ -16,7 +16,7 @@ editor. Breakpoints have red gutter dots; the stopped source line has a yellow
 arrow. Their line colors follow the original theme's breakpoint and active
 breakpoint entries rather than applying one fixed color to every theme.
 
-The 1.1.1 layout follows dev-cpp-linux 5.11's bottom debugging sheet: commands, an
+The 1.1.1 layout follows Dev-C++ 5.11's bottom debugging sheet: commands, an
 expression field and an expression/value table are on the left; program
 input/output and the debugger log are pages on the right. A splitter adjusts
 the two areas. The left sidebar's Debug page lists breakpoints, and the main
@@ -27,7 +27,7 @@ Enter a line in the program input field and press Enter  to
 supply standard input. Enter an expression, variable name or array subscript
 and press Enter  while paused. The result appears in
 the expression/value table and the debugger log. Expressions use the current
-stopped frame; this table is not a persistent watch list.
+stopped frame. Add watch retains expressions for the current IDE process and refreshes them at source stops; watch definitions are not saved between IDE launches.
 
 Breakpoint changes while running use an asynchronous interrupt, wait for the
 actual stop, edit the breakpoint, then resume only when the pause was internal.
@@ -56,7 +56,7 @@ are capped at 1 MiB, and each visible text history is bounded. Shutdown has a
 bounded termination fallback. Breakpoints are kept for the current IDE session;
 Save As migrates their file paths after a successful save. Inserting, deleting
 or moving source lines after stopping does not relocate their line numbers. Call-stack
-browsing, persistent watch lists and conditional breakpoints are not implemented.
+browsing, watch persistence across IDE restarts and conditional breakpoints are not implemented.
 
 To test with the target FPC 3.0.4 and GDB 9.1:
 
@@ -89,3 +89,9 @@ Version 1.1.2 keeps only Debug and Stop in the top compile/debug toolbar,
 as in the original 5.11 layout. Source stepping and Continue remain available
 in the original bottom controls, menus and shortcuts. The extra Evaluate
 and Send Input buttons were removed; press Enter in the relevant field.
+
+## beta2 调试区 / beta2 debugger panel
+
+本轮恢复两排原版动作、表达式历史、添加查看和 GDB 命令输入。逐指令执行和跳出函数由实际 GDB 命令实现；CPU 窗口显示寄存器与当前位置反汇编。查看表达式只保留在当前 IDE 进程内。手工 GDB 命令改变的断点还不能保证与行号区完全同步。设置界面和其他限制见 [界面说明](CLASSIC-UI.md)。
+
+The panel now restores two command rows, expression history, Add watch and a GDB command field. Instruction stepping and finish invoke real GDB commands; the CPU window displays registers and current-PC disassembly. Watches remain process-local. Breakpoints edited through arbitrary console commands may not fully synchronize with gutter indicators. See [UI behavior](CLASSIC-UI.md) for settings and remaining limits.

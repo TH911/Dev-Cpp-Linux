@@ -13,7 +13,7 @@ fc-cache -f
 fc-match -f '%{family}\n' Consolas
 ```
 
-最后一条命令应显示 `Consolas`。如果显示 DejaVu Sans Mono 等其他名称，说明系统仍在替代缺失字体，不能表示 Consolas 已安装成功。字体安装后请完全退出并重新打开 dev-cpp-linux，以刷新 GTK 的字体列表。
+最后一条命令应显示 `Consolas`。如果显示 DejaVu Sans Mono 等其他名称，说明系统仍在替代缺失字体，不能表示 Consolas 已安装成功。字体安装后请完全退出并重新打开 Dev-C++，以刷新 GTK 的字体列表。
 
 在“工具 → 编辑器选项”中，将字体设为 `Consolas` 并确定。所选字体名同时用于已打开和新建的编辑器、编译日志、代码补全和函数提示，并在重启后保留。已有的其他字体设置不会被自动覆盖。
 

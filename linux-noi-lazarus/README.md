@@ -1,10 +1,10 @@
-# dev-cpp-linux for NOI Linux 2.0
+# Dev-C++ for NOI Linux 2.0
 
 [中文](#中文) | [English](#english)
 
 ## 中文
 
-这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta1**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta1)。
+这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta2**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta2)。
 
 在此目录打开终端，运行：
 
@@ -15,24 +15,24 @@ bash run.sh /path/to/main.cpp
 bash run.sh /path/to/project.dev
 ```
 
-首次运行会编译程序，后续可用 `bash launch.sh` 启动；源码变动后会重新编译。请保留旁边的脚本、`icons/`、`profiles/` 和 `languages/`。编译错误保存到 `~/.cache/dev-cpp-linux/launch-build.log`，运行错误保存到 `~/.cache/dev-cpp-linux/runtime.log`。
+首次运行会编译程序，后续可用 `bash launch.sh` 启动；源码变动后会重新编译。请保留旁边的脚本、`icons/`、`profiles/` 和 `languages/`。编译错误保存到 `~/.cache/dev-cpp/launch-build.log`，运行错误保存到 `~/.cache/dev-cpp/runtime.log`。
 
 - F9 编译、F10 运行、F11 编译并运行；Ctrl+F9 检查语法。
 - “文件 → 新建 → 项目”创建空的控制台 `.dev` 项目，再通过“项目 → 添加文件到项目”添加 C/C++ 源文件。Ctrl+N 新建源码。完整项目模板向导尚未实现。
 - “查看 → 编辑器主题”提供原版全部 11 套配色；“编辑器选项”可设置字体、字号和 Tab 宽度。设置保存并应用于现有和新建文档。Consolas 的安装与回退规则见 [FONTS.md](FONTS.md)，安装包不附带微软字体文件。
 - “查看 → 语言”提供原版 33 份语言资源，切换即时生效并保存。Linux 新增文字缺少译文时回退英语，简体中文保留已有补充翻译。资源数量不代表所有新功能都已完成母语校对，详见 [语言说明](languages/README.md)。控制台提示目前提供中英两种。
-- F5 开始调试、F4 切换断点、F7 单步跳过、F8 单步进入、F6 停止；单击行号或标记区也可切换断点。红点表示断点，黄色箭头表示当前执行行。监视、条件断点、调用栈浏览、进程附加等高级功能尚未完成。
+- F5 开始调试、F4 切换断点、F7 单步跳过、F8 单步进入、F6 停止；单击行号或标记区也可切换断点。红点表示断点，黄色箭头表示当前执行行。本轮支持进程内表达式监视、逐指令及跳出函数；跨重启监视保存、条件断点、调用栈浏览、进程附加等高级功能尚未完成。
 - “帮助 → 关于”显示版本、GitHub 链接、许可证和实际程序路径。菜单弹窗会在 GTK 菜单激活完成后打开；编辑或切换文档后，按钮状态立即刷新。
 
 `.deb` 安装版无需 Lazarus/FPC。更新时先保存代码并关闭旧窗口，然后在安装包所在目录运行（替换为实际文件名）：
 
 ```bash
-sudo apt install --reinstall ./dev-cpp-linux_1.3.1-beta1_amd64.deb
-/usr/bin/dev-cpp-linux --version
-/usr/bin/dev-cpp-linux --new-window
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta2_amd64.deb
+/usr/bin/dev-cpp --version
+/usr/bin/dev-cpp --new-window
 ```
 
-更新无需先卸载，用户设置会保留。源码版与安装版使用不同启动入口和实例标识；如果旧图标仍打开旧版，可运行 `/usr/bin/dev-cpp-linux --repair-launchers` 迁移可识别的历史自动生成入口。自定义入口保持不变。完整的中英双语更新步骤见 [仓库 README](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/README.md#使用命令行更新已安装的-dev-cpp-linux)。
+更新无需先卸载，用户设置会保留。源码版与安装版使用不同启动入口和实例标识；如果旧图标仍打开旧版，可运行 `/usr/bin/dev-cpp --repair-launchers` 迁移可识别的历史自动生成入口。自定义入口保持不变。完整的中英双语更新步骤见 [仓库 README](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/README.md#使用命令行更新已安装的-dev-cpp)。
 
 当前仍有移植范围限制，包括完整模板向导、增量项目构建、完整 C++ 语义解析、第二编辑视图及高级调试功能。完整检查使用 Ubuntu 20.04 对应工具链、Xvfb 和 XTerm；NOI Linux 原版 GNOME 桌面上的焦点、缩放和终端行为仍需实机验收。代码与原始资源按 GPL-2.0-or-later 提供，见 `COPYING.txt`。
 
@@ -56,9 +56,9 @@ are retained; new editor configurations use size 14.
 The application supports installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.3.1~beta1** (published as Pre-release `v1.3.1-beta1`). Future development pushes to `beta` publish a
+This beta build is **1.3.1~beta2** (published as Pre-release `v1.3.1-beta2`). Future development pushes to `beta` publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.3.1-beta1](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta1).
+and directory source archives. See [v1.3.1-beta2](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta2).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0).
 
@@ -71,11 +71,11 @@ bash run.sh [source.cpp | project.dev]
 The terminal launcher builds with the preinstalled `lazbuild`; desktop icons
 and file association use `launch.sh` to start an up-to-date binary immediately.
 If no binary exists or sources are newer, the desktop launcher builds once and saves any build error
-to `~/.cache/dev-cpp-linux/launch-build.log`. No network access or additional
+to `~/.cache/dev-cpp/launch-build.log`. No network access or additional
 packages are needed.
 The build explicitly selects the GTK2 widget set used by NOI Linux 2.0.
-It links to `dev-cpp-linux.build`, then atomically moves the successful
-output to `dev-cpp-linux`. A build lock serializes builders. This avoids Linux's
+It links to `dev-cpp.build`, then atomically moves the successful
+output to `dev-cpp`. A build lock serializes builders. This avoids Linux's
 `Text file busy` error when an earlier IDE executable is still running.
 Normal launches forward file paths to an existing window using FPC SimpleIPC,
 which is part of the preinstalled Free Pascal libraries. The UI polls requests
@@ -86,7 +86,7 @@ installed release does not activate a running source build or another version.
 Close earlier windows when upgrading to avoid confusing them with the new IDE.
 `bash launch.sh --new-window file.cpp` explicitly starts a new window. Desktop
 registration adds a New Window action and a second Open With application,
-plus GNOME Files' Scripts > Open in New Window (dev-cpp-linux) context entry (Chinese
+plus GNOME Files' Scripts > Open in New Window (Dev-C++) context entry (Chinese
 when the interface language is Chinese). It forwards all selected files.
 `F9` compiles, `Ctrl+F9` checks syntax, `F10` runs, and `F11` compiles and runs in GNOME Terminal.
 Execute > Abort Compilation stops an active compiler process.
@@ -109,15 +109,15 @@ finds simple function definitions in the current file, open documents, project
 files, and local quoted headers. Template, macro, and overload resolution are
 not yet part of the navigation index.
 
-Run `bash register-desktop.sh --register` once to register `dev-cpp-linux` in the desktop's **Open With** list for C/C++
+Run `bash register-desktop.sh --register` once to register **Dev-C++** in the desktop's **Open With** list for C/C++
 files using only your user account. To make it the default application for
 `.cpp` and `.c` files, run `bash register-desktop.sh --default` in this folder.
 No sudo or network connection is needed. The user-level desktop entry points
-to this folder, so rerun the registration command after moving it. Source desktop entries use the separate `dev-cpp-linux-source.desktop` identity.
-The installed package has its own visible `dev-cpp-linux-installed.desktop` entry,
+to this folder, so rerun the registration command after moving it. Source desktop entries use the separate `dev-cpp-source.desktop` identity.
+The installed package has its own visible `dev-cpp-installed.desktop` entry,
 so rebuilding from source does not shadow the installed application. The source
 entry is hidden from menus when the package is installed, keeping one visible
-dev-cpp-linux application. Source entries are refreshed by `bash register-desktop.sh --register` or
+Dev-C++ application. Source entries are refreshed by `bash register-desktop.sh --register` or
 `bash register-desktop.sh --default`; ordinary launches do not rewrite desktop files.
 When the package is installed, the explicit `--default` command chooses the
 installed entry. Normal launching or package installation does not change MIME
@@ -155,10 +155,10 @@ from their declared type even when the header line is absent from the current
 snippet. Ctrl+mouse wheel zooms the fonts of all open editors. New files are
 named Untitled1, Untitled2, and so on for the current session; the Save dialog
 prefills UntitledN.cpp. String quote delimiters follow the original string
-color; bracket matching excludes quotes, as in Orwell dev-cpp-linux.
+color; bracket matching excludes quotes, as in Orwell Dev-C++.
 The interface defaults to Chinese. View > Language offers all 33 original
 language catalogs; changes apply immediately and persist in
-`~/.config/dev-cpp-linux.ini`. Missing Linux-specific translations fall back to
+`~/.config/dev-cpp.ini`. Missing Linux-specific translations fall back to
 English; Simplified Chinese keeps its existing extra translations. See
 [language resources](languages/README.md) for provenance and translation limits.
 Menus, tooltips, settings, dialog buttons and status labels use the selected
@@ -202,7 +202,7 @@ search, go to line, and a compiler error list that selects the first error
 and highlights its source line. Execute > Compiler Parameters (also available
 under Tools, or Ctrl+Alt+O) edits the C and C++ compiler commands, compile flags
 such as `-std=c++14`, and Linux linker flags; these settings are saved
-in `~/.config/dev-cpp-linux.ini`. New C++ settings include `-O2 -std=c++14`;
+in `~/.config/dev-cpp.ini`. New C++ settings include `-O2 -std=c++14`;
 an unchanged earlier default is upgraded, while custom saved flags are kept.
 The compiler dialog supports named profiles: create, copy, delete and switch
 independent C/C++ commands and flags. The toolbar selects the active profile;
@@ -227,13 +227,13 @@ Debug page lists breakpoints; the main toolbar provides debugger actions.
 The compact Sans 9 interface and panel structure move toward the original
 5.11 layout while remaining native GTK2 controls. Editors become read-only during a session and
 are restored after Stop or normal exit. See [the debugger guide](../docs/DEBUGGING.md).
-Persistent watches, conditional breakpoints, call-stack browsing, attach and
+Watch persistence across IDE restarts, conditional breakpoints, call-stack browsing, attach and
 other advanced debugger features remain pending. Project resource builds,
 full C++ signature resolution, a second editor view and
 full-file formatting are also pending. F9 currently recompiles all project
 sources, so F12 has the same compilation scope until an incremental builder
 exists. Ctrl+Shift+S is Save As in
-this port as requested; original Orwell dev-cpp-linux used it for Save All, which is
+this port as requested; original Orwell Dev-C++ used it for Save All, which is
 Ctrl+Shift+A here. Find All currently searches open documents, and Replace All
 currently acts on the active document.
 
@@ -270,33 +270,37 @@ need acceptance testing on that desktop.
 
 Future Release assets include a source ZIP and tar.gz rooted at
 `linux-noi-lazarus/`, plus an amd64 `.deb` with the prebuilt binary. Install
-with `sudo apt install ./dev-cpp-linux_VERSION_amd64.deb`, then open **dev-cpp-linux** from the software panel or run `/usr/bin/dev-cpp-linux`.
-Use `/usr/bin/dev-cpp-linux --version` or Help > About to check the version and
+with `sudo apt install ./dev-cpp_VERSION_amd64.deb`, then open **Dev-C++** from the software panel or run `/usr/bin/dev-cpp`.
+Use `/usr/bin/dev-cpp --version` or Help > About to check the version and
 actual executable path. The installer keeps old custom launchers and MIME
 defaults; recognized historical source launchers are backed up and migrated.
 APT installs runtime dependencies; Lazarus/FPC are required only for source
-builds. The installed program uses `/usr/lib/dev-cpp-linux` read-only and stores
+builds. The installed program uses `/usr/lib/dev-cpp` read-only and stores
 user settings separately. See [packaging and uninstall instructions](../docs/PACKAGING.md).
 
 Help > About now shows the application version, the clickable GitHub project
 link, Orwell Dev-C++ 5.11 attribution and GPL license. Build and installation
 details show the executable and configuration paths, installation type, FPC
 version and target platform. Copy Details copies this information for bug
-reports. For a terminal-only version check, use `./dev-cpp-linux --version` from a
-source build or `/usr/bin/dev-cpp-linux --version` for the package; no GUI window
+reports. For a terminal-only version check, use `./dev-cpp --version` from a
+source build or `/usr/bin/dev-cpp --version` for the package; no GUI window
 is opened. Check the executable path in About when diagnosing an old launcher.
 
 The launcher now initializes Xlib thread support before GTK and uses CreateNew
 for the resource-free main form. Runtime stderr is saved in
-`~/.cache/dev-cpp-linux/runtime.log` (or `$XDG_CACHE_HOME/dev-cpp-linux/runtime.log`).
+`~/.cache/dev-cpp/runtime.log` (or `$XDG_CACHE_HOME/dev-cpp/runtime.log`).
 These startup changes address possible causes of the reported XCB assertion;
 the complete cause still needs confirmation on the NOI Linux desktop.
 
 The port is GPL-2.0-or-later; see `COPYING.txt`. The toolbar bitmaps are copied
 from Orwell Dev-C++ 5.11's `Source/Images/newlook` directory (the editor-options icon uses `Source/Images/blue/EditorOptions.bmp`).
 
-Version 1.1.2 uses the name dev-cpp-linux and the unchanged upstream ICO for both
+Version 1.1.2 uses the name Dev-C++ and the unchanged upstream ICO for both
 source and installed launches. Extra toolbar Continue/Step/Breakpoint actions
 and the added Evaluate/Send/Copy buttons were removed. Evaluation and program
 input use Enter; About details remain selectable with Ctrl+A/C. The source
 launcher prints the version reported by its actual compiled binary.
+
+本轮六页编辑器属性、GDB 面板与恢复副本说明见 [原版 UI 移植说明](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/CLASSIC-UI.md)。界面名为 **Dev-C++**，命令与包名为 `dev-cpp`；旧名称保留升级兼容。
+
+See [classic UI behavior](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/CLASSIC-UI.md) for the six-page properties dialog, debugger actions and recovery copies. The display name is **Dev-C++**; the command and package are `dev-cpp`, retaining legacy upgrade redirects.

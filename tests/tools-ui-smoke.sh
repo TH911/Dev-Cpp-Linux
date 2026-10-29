@@ -9,12 +9,12 @@ python3 - "$root" "$fixture" "${CLASSIC_UI_ARTIFACT_DIR:-$fixture/screenshots}" 
 import configparser,json,os,pathlib,shlex,subprocess,sys,time
 root=pathlib.Path(sys.argv[1]); folder=pathlib.Path(sys.argv[2]); output=pathlib.Path(sys.argv[3]);output.mkdir(parents=True,exist_ok=True)
 home=folder/'home';(home/'.config').mkdir(parents=True)
-config=home/'.config/dev-cpp-linux.ini'; p=configparser.ConfigParser(interpolation=None);p.optionxform=str
+config=home/'.config/dev-cpp.ini'; p=configparser.ConfigParser(interpolation=None);p.optionxform=str
 p['Interface']={'Language':'en'};p['Shortcuts']={'menu.0.0.1':str(78+16384+32768)}
 code='import sys,pathlib;pathlib.Path(sys.argv[1]).write_text(repr(sys.argv[2:]))'
 p['ExternalTool']={'Name':'Fixture tool','Executable':'/usr/bin/python3','Arguments':shlex.join(['-c',code,str(folder/'tool-output'),'%FILE%','a b','$(literal)'])}
 with config.open('w') as stream:p.write(stream)
-env=dict(os.environ,DEV_CPP_LINUX_STARTUP_TRACE='1',HOME=str(home),LD_PRELOAD=str(folder/'probe.so'),DEVC_GTK_STATE=str(folder/'state.json'),DEVC_GTK_SCREENSHOT=str(folder/'current.png'))
+env=dict(os.environ,DEV_CPP_STARTUP_TRACE='1',HOME=str(home),LD_PRELOAD=str(folder/'probe.so'),DEVC_GTK_STATE=str(folder/'state.json'),DEVC_GTK_SCREENSHOT=str(folder/'current.png'))
 app=None
 def state():
  try:return json.loads((folder/'state.json').read_text())
@@ -40,9 +40,9 @@ def read_config():
  q=configparser.ConfigParser(interpolation=None);q.read(config);return q
 try:
  with (folder/'runtime.log').open('w') as log:
-  app=subprocess.Popen([str(root/'linux-noi-lazarus/dev-cpp-linux'),'--new-window'],env=env,stdout=log,stderr=log)
-  wait(lambda xs:any(x['type']=='GtkWindow' and x['viewable'] and 'dev-cpp-linux ' in x['text'] for x in xs),'main window')
-  win=subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(app.pid),'--name','dev-cpp-linux'],text=True).split()[0]
+  app=subprocess.Popen([str(root/'linux-noi-lazarus/dev-cpp'),'--new-window'],env=env,stdout=log,stderr=log)
+  wait(lambda xs:any(x['type']=='GtkWindow' and x['viewable'] and 'Dev-C++ ' in x['text'] for x in xs),'main window')
+  win=subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(app.pid),'--name',r'Dev-C\+\+'],text=True).split()[0]
   subprocess.run(['xdotool','windowsize',win,'1920','1040','windowmove',win,'0','0','windowfocus',win],check=True)
   # An unchanged/default shortcut may not bypass a saved remapping.
   keys('ctrl+n');assert not any('Untitled' in x['text'] for x in state() if x['type']=='GtkWindow')
@@ -70,9 +70,9 @@ try:
   app.terminate();app.wait(timeout=5)
   q=read_config();q['Interface']['Language']='zh';q.remove_section('ExternalTool')
   with config.open('w') as stream:q.write(stream)
-  app=subprocess.Popen([str(root/'linux-noi-lazarus/dev-cpp-linux'),'--new-window'],env=env,stdout=log,stderr=log)
+  app=subprocess.Popen([str(root/'linux-noi-lazarus/dev-cpp'),'--new-window'],env=env,stdout=log,stderr=log)
   time.sleep(.4)
-  win=subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(app.pid),'--name','dev-cpp-linux'],text=True).split()[0]
+  win=subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(app.pid),'--name',r'Dev-C\+\+'],text=True).split()[0]
   subprocess.run(['xdotool','windowsize',win,'1920','1040','windowmove',win,'0','0','windowfocus',win],check=True);keys('alt+t');image('classic-tools-menu-zh.png')
   print('PASS: restored Tools menus, environment persistence, editable/suppressed shortcuts, literal external argv and native package chooser')
 except Exception:

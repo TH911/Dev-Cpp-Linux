@@ -5,14 +5,14 @@ app_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$app_dir/ui-language.sh"
 data_dir=${XDG_DATA_HOME:-"$HOME/.local/share"}
 applications_dir="$data_dir/applications"
-desktop_file="$applications_dir/dev-cpp-linux-source.desktop"
+desktop_file="$applications_dir/dev-cpp-source.desktop"
 # Source builds have a separate identity and never shadow the installed menu.
-if [[ -x /usr/lib/dev-cpp-linux/migrate-launchers.py ]]; then
-  /usr/lib/dev-cpp-linux/migrate-launchers.py || true
+if [[ -x /usr/lib/dev-cpp/migrate-launchers.py ]]; then
+  /usr/lib/dev-cpp/migrate-launchers.py || true
 fi
 mkdir -p -- "$applications_dir"
 source_hidden=false
-if [[ -x /usr/bin/dev-cpp-linux ]]; then source_hidden=true; fi
+if [[ -x /usr/bin/dev-cpp ]]; then source_hidden=true; fi
 
 # Desktop files use double quotes around executable paths containing spaces.
 escaped_dir=${app_dir//\\/\\\\}
@@ -20,10 +20,10 @@ escaped_dir=${escaped_dir//\"/\\\"}
 cat > "$desktop_file" <<EOF
 [Desktop Entry]
 Type=Application
-Name=dev-cpp-linux
-Name[zh_CN]=dev-cpp-linux
-Comment=dev-cpp-linux for NOI Linux
-Comment[zh_CN]=适用于 NOI Linux 的 dev-cpp-linux
+Name=Dev-C++
+Name[zh_CN]=Dev-C++
+Comment=Dev-C++ for NOI Linux
+Comment[zh_CN]=适用于 NOI Linux 的 Dev-C++
 Exec=/bin/bash "$escaped_dir/launch.sh" %F
 Icon=$app_dir/devcpp.ico
 Terminal=false
@@ -38,11 +38,11 @@ Name[zh_CN]=在新窗口打开
 Exec=/bin/bash "$escaped_dir/launch.sh" --new-window %F
 EOF
 
-cat > "$applications_dir/dev-cpp-linux-source-new-window.desktop" <<EOF
+cat > "$applications_dir/dev-cpp-source-new-window.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=dev-cpp-linux
-Name[zh_CN]=dev-cpp-linux
+Name=Dev-C++
+Name[zh_CN]=Dev-C++
 Exec=/bin/bash "$escaped_dir/launch.sh" --new-window %F
 Icon=$app_dir/devcpp.ico
 Terminal=false
@@ -54,12 +54,12 @@ EOF
 scripts_dir="$data_dir/nautilus/scripts"
 mkdir -p -- "$scripts_dir"
 if [[ "$devcpp_ui_language" == en ]]; then
-  context_script="$scripts_dir/Open in New Window (dev-cpp-linux)"
+  context_script="$scripts_dir/Open in New Window (Dev-C++)"
 else
-  context_script="$scripts_dir/在新窗口打开 (dev-cpp-linux)"
+  context_script="$scripts_dir/在新窗口打开 (Dev-C++)"
 fi
 context_launch="$app_dir/launch.sh"
-if [[ -x /usr/bin/dev-cpp-linux ]]; then context_launch=/usr/bin/dev-cpp-linux; fi
+if [[ -x /usr/bin/dev-cpp ]]; then context_launch=/usr/bin/dev-cpp; fi
 printf '#!/usr/bin/env bash\napp_launch=%q\n' "$context_launch" > "$context_script"
 cat >> "$context_script" <<'EOF'
 set -euo pipefail
@@ -78,19 +78,19 @@ fi
 if [[ "${1:-}" == "--default" ]]; then
   if ! command -v xdg-mime >/dev/null 2>&1; then
     if [[ "$devcpp_ui_language" == en ]]; then
-      echo 'xdg-mime is unavailable; dev-cpp-linux is registered in Open With.' >&2
+      echo 'xdg-mime is unavailable; dev-cpp is registered in Open With.' >&2
     else
-      echo '找不到 xdg-mime；dev-cpp-linux 已注册到“打开方式”。' >&2
+      echo '找不到 xdg-mime；dev-cpp 已注册到“打开方式”。' >&2
     fi
     exit 1
   fi
-  default_desktop=dev-cpp-linux-source.desktop
-  if [[ -x /usr/bin/dev-cpp-linux ]]; then default_desktop=dev-cpp-linux-installed.desktop; fi
+  default_desktop=dev-cpp-source.desktop
+  if [[ -x /usr/bin/dev-cpp ]]; then default_desktop=dev-cpp-installed.desktop; fi
   xdg-mime default "$default_desktop" text/x-c++src
   xdg-mime default "$default_desktop" text/x-csrc
   if [[ "$devcpp_ui_language" == en ]]; then
-    echo 'dev-cpp-linux is the default application for .cpp and .c files.'
+    echo 'dev-cpp is the default application for .cpp and .c files.'
   else
-    echo 'dev-cpp-linux 已设置为 .cpp 和 .c 文件的默认打开程序。'
+    echo 'dev-cpp 已设置为 .cpp 和 .c 文件的默认打开程序。'
   fi
 fi

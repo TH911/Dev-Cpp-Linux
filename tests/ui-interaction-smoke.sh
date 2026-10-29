@@ -50,7 +50,7 @@ start_case() {
   stop_case
   case_dir="$test_dir/$1"
   mkdir -p "$case_dir/home/.config"
-  printf '[Interface]\nLanguage=en\n' > "$case_dir/home/.config/dev-cpp-linux.ini"
+  printf '[Interface]\nLanguage=en\n' > "$case_dir/home/.config/dev-cpp.ini"
   printf '%s' "$2" > "$case_dir/sample.cpp"
   local -a startup_files=("$case_dir/sample.cpp")
   if [[ $# -ge 3 ]]; then
@@ -59,11 +59,11 @@ start_case() {
   fi
   env HOME="$case_dir/home" XDG_CACHE_HOME="$case_dir/home/.cache" \
     XDG_DATA_HOME="$case_dir/home/.local/share" \
-    "$app_dir/dev-cpp-linux" --new-window "${startup_files[@]}" > "$case_dir/runtime.log" 2>&1 &
+    "$app_dir/dev-cpp" --new-window "${startup_files[@]}" > "$case_dir/runtime.log" 2>&1 &
   app_pid=$!
   window=''
   for i in {1..100}; do
-    window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'dev-cpp-linux' 2>/dev/null | head -1) || true
+    window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C\+\+' 2>/dev/null | head -1) || true
     [[ -z "$window" ]] || break
     alive
     sleep 0.1
@@ -107,7 +107,7 @@ wait_message_window() {
         found=$candidate
         break
       fi
-    done < <(xdotool search --all --onlyvisible --pid "$app_pid" --name 'dev-cpp-linux' 2>/dev/null || true)
+    done < <(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C\+\+' 2>/dev/null || true)
     if [[ -n "$found" ]]; then printf '%s\n' "$found"; return 0; fi
     alive
     sleep 0.1
@@ -137,7 +137,7 @@ home_case() {
   echo "PASS: $name places/replaces text correctly and one Undo restores it."
 }
 
-[[ -x "$app_dir/dev-cpp-linux" ]] || fail 'run linux-noi-lazarus/build.sh first'
+[[ -x "$app_dir/dev-cpp" ]] || fail 'run linux-noi-lazarus/build.sh first'
 base=$'one\ntwo\nthree\n'
 if [[ ${1:-} != --save-as-conflict ]]; then
 undo_case delete-line "$base" $'two\nthree\n' ctrl+Home ctrl+d

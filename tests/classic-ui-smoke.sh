@@ -11,7 +11,7 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p "$fixture/home/.config"
-printf '[Interface]\nLanguage=en\n[Editor]\nFontSize=14\nTheme=Classic Plus\n' > "$fixture/home/.config/dev-cpp-linux.ini"
+printf '[Interface]\nLanguage=en\n[Editor]\nFontSize=14\nTheme=Classic Plus\n' > "$fixture/home/.config/dev-cpp.ini"
 cat > "$fixture/example.cpp" <<'CPP'
 #include <iostream>
 struct Solver {
@@ -35,7 +35,7 @@ CPP
 cc -shared -fPIC -Wno-deprecated-declarations "$root/tests/gtk-state-probe.c" \
   -o "$fixture/probe.so" $(pkg-config --cflags --libs gtk+-2.0) -ldl
 HOME="$fixture/home" LD_PRELOAD="$fixture/probe.so" DEVC_GTK_STATE="$fixture/state.json" \
-  DEVC_GTK_SCREENSHOT="$fixture/current.png" "$root/linux-noi-lazarus/dev-cpp-linux" \
+  DEVC_GTK_SCREENSHOT="$fixture/current.png" "$root/linux-noi-lazarus/dev-cpp" \
   --new-window "$fixture/example.cpp" > "$fixture/runtime.log" 2>&1 &
 app_pid=$!
 python3 - "$fixture" "$app_pid" "${CLASSIC_UI_ARTIFACT_DIR:-$fixture/screenshots}" <<'PY'
@@ -61,8 +61,8 @@ def image(name):
     (root/'current.png').unlink(missing_ok=True);(root/'current.png.request').touch()
     wait(lambda _: (root/'current.png').exists() and (root/'current.png').read_bytes().endswith(bytes.fromhex('0000000049454e44ae426082')),'screenshot not captured')
     (output/name).write_bytes((root/'current.png').read_bytes())
-wait(lambda data:any(x['type']=='GtkWindow' and x['viewable'] and 'dev-cpp-linux ' in x['text'] for x in data),'main window missing')
-win=subprocess.check_output(['xdotool','search','--onlyvisible','--pid',pid,'--name','dev-cpp-linux'],text=True).split()[0]
+wait(lambda data:any(x['type']=='GtkWindow' and x['viewable'] and 'Dev-C++ ' in x['text'] for x in data),'main window missing')
+win=subprocess.check_output(['xdotool','search','--onlyvisible','--pid',pid,'--name',r'Dev-C\+\+'],text=True).split()[0]
 subprocess.run(['xdotool','windowsize',win,'1920','1040','windowmove',win,'0','0','windowfocus',win],check=True)
 time.sleep(.6)
 data=state()

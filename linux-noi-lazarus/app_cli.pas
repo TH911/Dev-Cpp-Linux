@@ -13,17 +13,17 @@ initialization
     before the program body, even for a command that only prints its version. }
   if (ParamCount = 1) and (ParamStr(1) = '--version') then
   begin
-    WriteLn(AppName, ' ', AppVersion);
+    WriteLn(AppCommand, ' ', AppVersion);
     WriteLn(AppRepositoryUrl);
     Halt(0);
   end;
 
   if (ParamCount = 1) and (ParamStr(1) = '--help') then
   begin
-    WriteLn(AppName, ' ', AppVersion);
-    WriteLn('Usage: dev-cpp-linux [--new-window | --forward-only] [FILE ...]');
-    WriteLn('       dev-cpp-linux --version');
-    WriteLn('       dev-cpp-linux --help');
+    WriteLn(AppCommand, ' ', AppVersion);
+    WriteLn('Usage: dev-cpp [--new-window | --forward-only] [FILE ...]');
+    WriteLn('       dev-cpp --version');
+    WriteLn('       dev-cpp --help');
     WriteLn(AppRepositoryUrl);
     Halt(0);
   end;

@@ -85,11 +85,19 @@ begin
   finally D.Free; end;
 end;
 
+{$I shortcut_legacy_keys.inc}
+function StableShortcutPath(Key: Word; const Fallback: string): string;
+var I: Integer;
+begin
+  for I:=Low(LegacyShortcuts) to High(LegacyShortcuts) do
+    if LegacyShortcuts[I].Key=Key then Exit(LegacyShortcuts[I].Path);
+  Result:=Fallback;
+end;
 procedure TMenuShortcuts.Collect(Item: TMenuItem; const Path: string);
 var I: Integer;
 begin
   if Item.ShortCut <> 0 then begin
-    FItems.Add(Item); FPaths.Add(Path); FDefaults.Add(IntToStr(Item.ShortCut));
+    FItems.Add(Item); FPaths.Add(StableShortcutPath(Item.ShortCut,Path)); FDefaults.Add(IntToStr(Item.ShortCut));
   end;
   for I := 0 to Item.Count - 1 do Collect(Item.Items[I], Path + '.' + IntToStr(I));
 end;

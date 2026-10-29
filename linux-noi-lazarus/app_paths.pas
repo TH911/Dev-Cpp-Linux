@@ -11,9 +11,11 @@ begin
   Folder := GetEnvironmentVariable('HOME');
   if Folder = '' then Folder := ExtractFilePath(ParamStr(0))
   else Folder := IncludeTrailingPathDelimiter(Folder) + '.config';
-  Result := IncludeTrailingPathDelimiter(Folder) + 'dev-cpp-linux.ini';
+  Result := IncludeTrailingPathDelimiter(Folder) + 'dev-cpp.ini';
   if not MigrateLegacy or FileExists(Result) then Exit;
-  OldName := IncludeTrailingPathDelimiter(Folder) + 'devcpp-noi.ini';
+  OldName := IncludeTrailingPathDelimiter(Folder) + 'dev-cpp-linux.ini';
+  if not FileExists(OldName) then
+    OldName := IncludeTrailingPathDelimiter(Folder) + 'devcpp-noi.ini';
   if (fpLStat(OldName, Info) <> 0) or not FPS_ISREG(Info.st_mode) or
     (Info.st_uid <> fpGetUID) then Exit;
   { Exclusive creation preserves an existing config, including a symlink.

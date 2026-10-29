@@ -9,18 +9,18 @@ python3 packaging/build-release.py source --output dist
 # 在 Ubuntu 20.04 amd64 中先完成 GTK2 构建，再打二进制安装包。
 bash linux-noi-lazarus/build.sh
 python3 packaging/build-release.py deb --output dist \
-  --binary linux-noi-lazarus/dev-cpp-linux
+  --binary linux-noi-lazarus/dev-cpp
 
 # CI 也可一次生成全部资产；此命令本身不会编译。
 python3 packaging/build-release.py all --output dist
 python3 packaging/verify-artifacts.py --output dist
 ```
 
-以 `VERSION=1.3.1~beta1` 为例（下列为公开附件名，本地产物保留 `~`），Release 资产名称为：
+以 `VERSION=1.3.1~beta2` 为例（下列为公开附件名，本地产物保留 `~`），Release 资产名称为：
 
-- `linux-noi-lazarus-1.3.1-beta1-src.tar.gz`
-- `linux-noi-lazarus-1.3.1-beta1-src.zip`
-- `dev-cpp-linux_1.3.1-beta1_amd64.deb`
+- `linux-noi-lazarus-1.3.1-beta2-src.tar.gz`
+- `linux-noi-lazarus-1.3.1-beta2-src.zip`
+- `dev-cpp_1.3.1-beta2_amd64.deb`
 
 源码归档解压后直接得到 `linux-noi-lazarus/`，包含 Pascal/Lazarus 源码、构建和启动脚本、说明、许可证及运行资源。它们采用文件类型白名单，排除编译产物 `.o/.or/.ppu/.compiled`、可执行文件、`.build.lock`、IDE 会话、备份、临时文件和用户设置。新增运行资源类型时，请同步更新 `packaging/build-release.py` 中的白名单。归档内脚本为 0755，其他文件为 0644，不依赖 checkout 的权限。可设置 `SOURCE_DATE_EPOCH` 固定归档时间；默认固定为 1980-01-01，保证相同输入可重现。
 
@@ -30,7 +30,7 @@ Debian 打包需要 `dpkg-deb`，并拒绝非 amd64 ELF 输入。**发布的程�
 
 常规 [兼容性工作流](../.github/workflows/noi-linux.yml) 在 push、PR 和手动触发时执行检查并保存打包产物。推送到 `beta` 后，完整构建、GTK2 回归和安装检查均通过，发布任务就会使用同一次构建的产物自动创建 **Pre-release**，并附带 `.deb`、源码 ZIP 和 tar.gz。普通手动检查默认只保存构建产物；手动运行时启用 `publish_beta` 也会在检查通过后发行。发布标签固定到通过检查的提交；三个附件先上传到草稿，全部成功后再公开，并保留最新稳定 Release。
 
-beta 版本使用 `1.3.1~beta1` 格式，Git 标签将 `~` 转成 `-`，对应 `v1.3.1-beta1`。GitHub 会改写附件名中的 `~`，因此上传时明确使用连字符，例如 `dev-cpp-linux_1.3.1-beta1_amd64.deb`；安装包内部版本仍为 `1.3.1~beta1`，本地构建和 Actions 产物文件名也保留 `~`。发布新测试内容时递增 beta 编号，并同步 `VERSION`、应用版本、`PORT_REVISION` 和相关说明；已发布的版本不能用于另一提交。重跑同一提交不会覆盖已有附件，未完成的草稿可继续上传。
+beta 版本使用 `1.3.1~beta2` 格式，Git 标签将 `~` 转成 `-`，对应 `v1.3.1-beta2`。GitHub 会改写附件名中的 `~`，因此上传时明确使用连字符，例如 `dev-cpp_1.3.1-beta2_amd64.deb`；安装包内部版本仍为 `1.3.1~beta2`，本地构建和 Actions 产物文件名也保留 `~`。发布新测试内容时递增 beta 编号，并同步 `VERSION`、应用版本、`PORT_REVISION` 和相关说明；已发布的版本不能用于另一提交。重跑同一提交不会覆盖已有附件，未完成的草稿可继续上传。
 
 正式 [发布工作流](../.github/workflows/release.yml) 在 Release 发布后签出该标签，使用同样的 Ubuntu 20.04 工具链重新构建和检查，然后上传 ZIP、tar.gz 和 `.deb`；也可指定已经公开的 Release 标签手动触发（按标签查询接口不提供草稿）。正式版标签去掉 `v` 后与 `VERSION` 一致，例如 `VERSION=1.2.3` 对应 `v1.2.3`；手动构建 beta 标签时同样使用上述 `~` → `-` 映射。
 
@@ -38,16 +38,16 @@ beta 版本使用 `1.3.1~beta1` 格式，Git 标签将 `~` 转成 `-`，对应 `
 
 ## 安装与卸载
 
-已经安装的用户可直接覆盖更新，完整步骤见 [README：使用命令行更新已安装的 dev-cpp-linux](../README.md#使用命令行更新已安装的-dev-cpp-linux)。
+已经安装的用户可直接覆盖更新，完整步骤见 [README：使用命令行更新已安装的 Dev-C++](../README.md#使用命令行更新已安装的-dev-cpp)。
 
 ```bash
-sudo apt install ./dev-cpp-linux_1.3.1-beta1_amd64.deb
-/usr/bin/dev-cpp-linux --version
-/usr/bin/dev-cpp-linux
-/usr/bin/dev-cpp-linux --new-window '/home/user/中文 source/main.cpp'
-sudo apt remove dev-cpp-linux
+sudo apt install ./dev-cpp_1.3.1-beta2_amd64.deb
+/usr/bin/dev-cpp --version
+/usr/bin/dev-cpp
+/usr/bin/dev-cpp --new-window '/home/user/中文 source/main.cpp'
+sudo apt remove dev-cpp
 # purge 同样保留用户自己的设置和缓存。
-sudo apt purge dev-cpp-linux
+sudo apt purge dev-cpp
 ```
 
 `apt install` 会安装 GCC、G++、GDB、GTK2 等共享库，以及 `gnome-terminal | xterm`。建议安装 `fonts-dejavu-core` 和 `fonts-noto-cjk` 保证等宽字体与中文显示。二进制发行不需要 Lazarus/FPC；从源码构建则按 `linux-noi-lazarus/README.md` 安装构建依赖。
@@ -64,11 +64,11 @@ sudo apt purge dev-cpp-linux
 sudo apt install gdebi
 ```
 
-然后右键 `.deb` →“使用其他应用打开”→“GDebi 软件包安装程序”；在文件属性的“打开方式”中将其设为默认后，即可双击安装。需要认证时输入当前管理员密码。这里设置的是系统如何打开 `.deb`，dev-cpp-linux 包不会擅自修改此文件关联，也不会把 GDebi 设为自身的运行依赖。
+然后右键 `.deb` →“使用其他应用打开”→“GDebi 软件包安装程序”；在文件属性的“打开方式”中将其设为默认后，即可双击安装。需要认证时输入当前管理员密码。这里设置的是系统如何打开 `.deb`，Dev-C++ 包不会擅自修改此文件关联，也不会把 GDebi 设为自身的运行依赖。
 
 也可参考 [Ubuntu 安装软件说明](https://help.ubuntu.com/community/InstallingSoftware)中的本地 `.deb` 与 GDebi 安装方式。
 
-如果安装器能打开但安装失败，应查看其具体错误：依赖下载失败、软件源不可用、认证取消和软件包格式错误是不同问题。可以使用 `sudo apt install ./包文件.deb` 获取完整错误信息。终端中出现“正在设置 dev-cpp-linux”且没有后续错误表示安装成功。
+如果安装器能打开但安装失败，应查看其具体错误：依赖下载失败、软件源不可用、认证取消和软件包格式错误是不同问题。可以使用 `sudo apt install ./包文件.deb` 获取完整错误信息。终端中出现“正在设置 Dev-C++”且没有后续错误表示安装成功。
 
 测试构建使用 `1.1.3~beta1` 这样的 Debian 预发布版本，以区分稳定版；版本顺序为 `1.1.2 < 1.1.3~beta1 < 1.1.3`。
 
@@ -76,21 +76,21 @@ sudo apt install gdebi
 
 | 位置 | 用途 |
 | --- | --- |
-| `/usr/bin/dev-cpp-linux` | 直接 exec 已编译程序，保留参数和调用者工作目录 |
-| `/usr/lib/dev-cpp-linux/` | 程序、`console-pauser.sh`、`ui-language.sh`、窗口图标、工具栏图标及可用的 profiles |
-| `/usr/share/applications/dev-cpp-linux-installed.desktop` | 可见的“dev-cpp-linux”菜单项，直接启动安装版 |
-| `/usr/share/applications/dev-cpp-linux.desktop`、`dev-cpp-linux-new-window.desktop` | 隐藏兼容入口，保留旧 MIME 关联与已固定的快捷方式 |
-| `/etc/xdg/autostart/dev-cpp-linux-migrate.desktop` | 用户登录时迁移本程序历史自动生成的启动入口 |
-| `/usr/share/pixmaps/dev-cpp-linux.ico` | 与源码版完全相同的原版图标 |
-| `/usr/share/icons/hicolor/48x48/apps/dev-cpp-linux.png` | 从原版 ICO 无损导出的 PNG，供 AppStream 和图标主题加载 |
+| `/usr/bin/dev-cpp` | 直接 exec 已编译程序，保留参数和调用者工作目录 |
+| `/usr/lib/dev-cpp/` | 程序、`console-pauser.sh`、`ui-language.sh`、窗口图标、工具栏图标及可用的 profiles |
+| `/usr/share/applications/dev-cpp-installed.desktop` | 可见的“Dev-C++”菜单项，直接启动安装版 |
+| `/usr/share/applications/dev-cpp.desktop`、`dev-cpp-new-window.desktop` | 隐藏兼容入口，保留旧 MIME 关联与已固定的快捷方式 |
+| `/etc/xdg/autostart/dev-cpp-migrate.desktop` | 用户登录时迁移本程序历史自动生成的启动入口 |
+| `/usr/share/pixmaps/dev-cpp.ico` | 与源码版完全相同的原版图标 |
+| `/usr/share/icons/hicolor/48x48/apps/dev-cpp.png` | 从原版 ICO 无损导出的 PNG，供 AppStream 和图标主题加载 |
 | `/usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml` | 应用名称、贡献者、GPL 许可证、仓库和帮助链接 |
-| `/usr/share/doc/dev-cpp-linux/` | 说明和许可证 |
+| `/usr/share/doc/dev-cpp/` | 说明和许可证 |
 
-安装版入口不会运行开发目录的 `launch.sh`、`run.sh` 或 `build.sh`，不会尝试在 `/usr` 编译、写锁或注册用户桌面项。所有目录可供普通用户遍历，程序和资源可读。`/usr/lib/dev-cpp-linux/languages/` 包含原版的 33 份 UTF-8 语言文件，源码归档也包含相同资源。设置仍由程序保存到 `~/.config/dev-cpp-linux.ini`，卸载脚本不删除用户设置或缓存。菜单仅声明支持的文件类型，不执行 `xdg-mime default`，不修改 `mimeapps.list`；如需默认打开应用，请通过桌面“打开方式”自行选择。
+安装版入口不会运行开发目录的 `launch.sh`、`run.sh` 或 `build.sh`，不会尝试在 `/usr` 编译、写锁或注册用户桌面项。所有目录可供普通用户遍历，程序和资源可读。`/usr/lib/dev-cpp/languages/` 包含原版的 33 份 UTF-8 语言文件，源码归档也包含相同资源。设置仍由程序保存到 `~/.config/dev-cpp.ini`，卸载脚本不删除用户设置或缓存。菜单仅声明支持的文件类型，不执行 `xdg-mime default`，不修改 `mimeapps.list`；如需默认打开应用，请通过桌面“打开方式”自行选择。
 
-包的 `Homepage` 指向 GitHub 仓库，简介使用 dev-cpp-linux 名称并注明许可证。内部包名继续为
-`dev-cpp-linux`，保证 APT 能正常升级旧版。AppStream 元数据遵循 freedesktop 标准，
-关联可见的 `dev-cpp-linux-installed.desktop`；原版 ICO 保持字节不变，PNG 与其最大尺寸图像逐像素一致。
+包的 `Homepage` 指向 GitHub 仓库，简介使用 Dev-C++ 名称并注明许可证。内部包名继续为
+`dev-cpp`，保证 APT 能正常升级旧版。AppStream 元数据遵循 freedesktop 标准，
+关联可见的 `dev-cpp-installed.desktop`；原版 ICO 保持字节不变，PNG 与其最大尺寸图像逐像素一致。
 PNG 转换使用已有 GTK2 运行依赖中的 GdkPixbuf；不需要额外的 Python 图像包或在线转换服务。
 
 **这些信息不能保证新版应用中心的本地 deb 页面显示完整。** 该页面可能使用默认图标、
@@ -99,17 +99,17 @@ PNG 转换使用已有 GTK2 运行依赖中的 GdkPixbuf；不需要额外的 Py
 
 ## 从旧源码版或 1.1.0 升级
 
-安装后，在软件面板中选择 **dev-cpp-linux**。这是独立的安装版入口，旧源码目录被删除也不会影响它。`--version` 无需图形显示环境；“帮助 → 关于”显示实际版本、程序路径与安装来源，安装版程序应位于 `/usr/lib/dev-cpp-linux/dev-cpp-linux`。
+安装后，在软件面板中选择 **Dev-C++**。这是独立的安装版入口，旧源码目录被删除也不会影响它。`--version` 无需图形显示环境；“帮助 → 关于”显示实际版本、程序路径与安装来源，安装版程序应位于 `/usr/lib/dev-cpp/dev-cpp`。
 
-旧源码脚本曾将用户级 `dev-cpp-linux.desktop` 指向源码目录，该文件会遮蔽同名系统入口。安装包使用未修改的 `linux-noi-lazarus/devcpp.ico`，不再生成替代 SVG；升级时旧包拥有的 SVG 由 dpkg 移除。菜单回归通过 GIO 的实际应用发现、名称、可见性及图标加载来检查。
+旧源码脚本曾将用户级 `dev-cpp.desktop` 指向源码目录，该文件会遮蔽同名系统入口。安装包使用未修改的 `linux-noi-lazarus/devcpp.ico`，不再生成替代 SVG；升级时旧包拥有的 SVG 由 dpkg 移除。菜单回归通过 GIO 的实际应用发现、名称、可见性及图标加载来检查。
 
-新启动器只识别历史脚本完整生成的入口，先备份到 `${XDG_DATA_HOME:-~/.local/share}/dev-cpp-linux/launcher-backups/`，再迁移到安装版。自定义名称、参数、额外字段、符号链接及 MIME 默认设置保持不变。由 `sudo apt install` 安装时，安装脚本只处理明确的 `SUDO_USER`；其他用户在首次启动安装版或下次登录时处理，不遍历所有用户的家目录。也可主动执行：
+新启动器只识别历史脚本完整生成的入口，先备份到 `${XDG_DATA_HOME:-~/.local/share}/dev-cpp/launcher-backups/`，再迁移到安装版。自定义名称、参数、额外字段、符号链接及 MIME 默认设置保持不变。由 `sudo apt install` 安装时，安装脚本只处理明确的 `SUDO_USER`；其他用户在首次启动安装版或下次登录时处理，不遍历所有用户的家目录。也可主动执行：
 
 ```bash
-/usr/bin/dev-cpp-linux --repair-launchers
+/usr/bin/dev-cpp --repair-launchers
 ```
 
-源码版使用独立的桌面入口 ID，名称同样为 dev-cpp-linux；检测到安装版时隐藏源码入口，避免菜单中出现重复项目，直接运行 `bash run.sh` 仍可启动源码版。实例通信按版本和程序位置隔离，安装版不会把启动请求转交给旧源码进程；通信句柄也不会被编译器或终端继承，IDE 退出后能够正常重开。
+源码版使用独立的桌面入口 ID，名称同样为 Dev-C++；检测到安装版时隐藏源码入口，避免菜单中出现重复项目，直接运行 `bash run.sh` 仍可启动源码版。实例通信按版本和程序位置隔离，安装版不会把启动请求转交给旧源码进程；通信句柄也不会被编译器或终端继承，IDE 退出后能够正常重开。
 
 ## 验证
 
@@ -123,15 +123,15 @@ python3 packaging/verify-artifacts.py --output dist
 python3 packaging/verify-artifacts.py --source-only --output dist
 ```
 
-安装验证会实际安装和卸载包，**仅在一次性 Ubuntu 20.04 amd64 容器中以 root 运行**。镜像须已安装本包全部依赖及 `xvfb xauth xdotool`；可选 `desktop-file-utils` 验证 desktop 文件。依赖不齐时先用 `apt install ./包文件.deb` 解决依赖，再移除该包，恢复到未安装状态后运行验证；CI 更适合预先安装依赖。脚本拒绝覆盖已有的 `dev-cpp-linux` 安装。
+安装验证会实际安装和卸载包，**仅在一次性 Ubuntu 20.04 amd64 容器中以 root 运行**。镜像须已安装本包全部依赖及 `xvfb xauth xdotool`；可选 `desktop-file-utils` 验证 desktop 文件。依赖不齐时先用 `apt install ./包文件.deb` 解决依赖，再移除该包，恢复到未安装状态后运行验证；CI 更适合预先安装依赖。脚本拒绝覆盖已有的 `dev-cpp` 安装。
 
 ```bash
-bash packaging/verify-install.sh dist/dev-cpp-linux_1.3.1~beta1_amd64.deb
+bash packaging/verify-install.sh dist/dev-cpp_1.3.1~beta2_amd64.deb
 ```
 
 验证包括：`dpkg -i`、普通用户启动并打开含空格的中文相对路径、IPC 转发到当前安装实例、GIO 实际执行软件面板入口、旧实例隔离、旧入口备份、删除源码后重新打开、通信句柄不被终端继承、无 DISPLAY 版本查询、F11 实际编译运行 C++ 程序、`/usr/lib` 无变化和锁文件、文件类型默认关联保持不变、卸载和 purge 后设置保留。脚本需要能够创建 Xvfb 显示的容器，且结束后删除自己的临时 HOME。
 
-历史 v1.3.0 使用数值标签并标记 Pre-release；当前 beta 使用 `v1.3.1-beta1` 标签和 `1.3.1~beta1` 包内版本，不替换 v1.2.0 稳定版。可选 AStyle 使用系统 `astyle` 包（Recommends），打印使用系统已配置的打印机。
+历史 v1.3.0 使用数值标签并标记 Pre-release；当前 beta 使用 `v1.3.1-beta2` 标签和 `1.3.1~beta2` 包内版本，不替换 v1.2.0 稳定版。可选 AStyle 使用系统 `astyle` 包（Recommends），打印使用系统已配置的打印机。
 
 
-当前 beta 使用 `dev-cpp-linux` 包名和主命令；旧包替换、配置迁移及版本顺序说明见 [STARTUP.md](STARTUP.md)。Current beta package/command naming and upgrade migration are documented in [STARTUP.md](STARTUP.md).
+当前 beta 使用 `dev-cpp` 包名和主命令；旧包替换、配置迁移及版本顺序说明见 [STARTUP.md](STARTUP.md)。Current beta package/command naming and upgrade migration are documented in [STARTUP.md](STARTUP.md).

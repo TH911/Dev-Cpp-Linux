@@ -193,7 +193,7 @@ begin
     Alias('Tab width (1-16)', 79008);
     Alias('Program arguments', 71002);
     Alias('Execute Parameters', 67001);
-    Alias('About dev-cpp-linux', 9001);
+    Alias('About Dev-C++', 9001);
   finally
     Ini.Free;
     Values.Free;
@@ -278,9 +278,8 @@ begin
   { Never feed a stale Windows translation's incompatible placeholders to Format. }
   if (Value <> '') and (FormatSignature(Value) = FormatSignature(EnglishText)) then
     Result := StringReplace(Value, '<CR>', LineEnding, [rfReplaceAll]);
-  if Pos('About dev-cpp-linux', StringReplace(EnglishText, '&', '', [rfReplaceAll])) > 0 then begin
-    Result := StringReplace(Result, 'Dev-C++', 'dev-cpp-linux', [rfReplaceAll]);
-    Result := StringReplace(Result, 'Dev-Cpp', 'dev-cpp-linux', [rfReplaceAll]);
+  if Pos('About Dev-C++', StringReplace(EnglishText, '&', '', [rfReplaceAll])) > 0 then begin
+    Result := StringReplace(Result, 'Dev-Cpp', 'Dev-C++', [rfReplaceAll]);
   end;
 end;
 

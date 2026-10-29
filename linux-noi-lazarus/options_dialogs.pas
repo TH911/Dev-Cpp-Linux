@@ -8,8 +8,6 @@ uses Classes, SysUtils, Forms, Controls, StdCtrls, Dialogs, Spin,
   compiler_profiles;
 
 function EditCompilerProfiles(Owner: TComponent; Profiles: TCompilerProfiles): Boolean;
-function EditEditorSettings(Owner: TComponent; var ThemeName, FontName: string;
-  var FontSize, TabWidth: Integer): Boolean;
 
 implementation
 
@@ -224,77 +222,6 @@ begin
       if Result then Profiles.Assign(Working);
     finally Dialog.Free; end;
   finally Working.Free; end;
-end;
-
-function EditEditorSettings(Owner: TComponent; var ThemeName, FontName: string;
-  var FontSize, TabWidth: Integer): Boolean;
-var
-  Dialog: TForm;
-  Theme, Font: TComboBox;
-  Size, Tabs: TSpinEdit;
-  Button: TButton;
-  I: Integer;
-begin
-  Dialog := TForm.CreateNew(Owner, 0);
-  try
-    Dialog.Caption := Tr('Editor Options');
-    Dialog.BorderStyle := bsDialog;
-    Dialog.Position := poMainFormCenter;
-    Dialog.ClientWidth := 580;
-    Dialog.ClientHeight := 350;
-    LabelAt(Dialog, 'Editor theme:', 14, 14, 550);
-    Theme := TComboBox.Create(Dialog);
-    Theme.Parent := Dialog;
-    Theme.Style := csDropDownList;
-    Theme.SetBounds(14, 42, 550, 34);
-    for I := 0 to EditorThemeCount - 1 do Theme.Items.Add(EditorThemeName(I));
-    Theme.ItemIndex := EditorThemeIndex(ThemeName);
-    LabelAt(Dialog, 'Font (monospace recommended):', 14, 88, 550);
-    Font := TComboBox.Create(Dialog);
-    Font.Parent := Dialog;
-    Font.SetBounds(14, 116, 550, 34);
-    Font.Items.Assign(Screen.Fonts);
-    Font.Text := FontName;
-    LabelAt(Dialog, 'Font size (1-72):', 14, 168, 266);
-    Size := TSpinEdit.Create(Dialog);
-    Size.Parent := Dialog;
-    Size.SetBounds(14, 196, 266, 34);
-    Size.MinValue := 1;
-    Size.MaxValue := 72;
-    Size.Value := FontSize;
-    LabelAt(Dialog, 'Tab width (1-16):', 298, 168, 266);
-    Tabs := TSpinEdit.Create(Dialog);
-    Tabs.Parent := Dialog;
-    Tabs.SetBounds(298, 196, 266, 34);
-    Tabs.MinValue := 1;
-    Tabs.MaxValue := 16;
-    Tabs.Value := TabWidth;
-    LabelAt(Dialog,
-      'Consolas requires an installed font file. If unavailable, a monospace font is used.',
-      14, 246, 550).Height := 44;
-    Button := ButtonAt(Dialog, 'OK', 354, 300, 100, nil);
-    Button.Default := True;
-    Button.ModalResult := mrOK;
-    Button := ButtonAt(Dialog, 'Cancel', 464, 300, 100, nil);
-    Button.Cancel := True;
-    Button.ModalResult := mrCancel;
-    UseReadableInput(Theme);
-    UseReadableInput(Font);
-    UseReadableInput(Size);
-    UseReadableInput(Tabs);
-    Dialog.ActiveControl := Theme;
-    PrepareInputAppearance(Dialog);
-    repeat
-      Result := Dialog.ShowModal = mrOK;
-      if not Result then Exit;
-      if Trim(Font.Text) <> '' then Break;
-      UiMessageDlg(Tr('Font name cannot be empty.'), mtError, [mbOK], 0);
-    until False;
-    ThemeName := EditorThemeName(Theme.ItemIndex);
-    FontName := Trim(Font.Text);
-    FontSize := Size.Value;
-    TabWidth := Tabs.Value;
-  finally Dialog.Free; end;
 end;
 
 end.

@@ -401,7 +401,7 @@ var
   ChildOrdinal, ColumnIndex: Integer;
 begin
   if Root = nil then Exit;
-  TranslateProperty(Root, 'Caption');
+  if Pos('UserText_',Root.Name)<>1 then TranslateProperty(Root, 'Caption');
   TranslateProperty(Root, 'Hint');
   if Root is TListView then
     for ColumnIndex := 0 to TListView(Root).Columns.Count - 1 do

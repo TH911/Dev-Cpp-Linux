@@ -348,7 +348,7 @@ begin
     FFileWatchTimer.Enabled := Ini.ReadBool('Interface', 'WatchFiles', True);
     FBottomPanel.Visible := Ini.ReadBool('Interface', 'ShowReports', True);
     FReportSplitter.Visible := FBottomPanel.Visible;
-    FCustomToolItem.Caption := Ini.ReadString('ExternalTool', 'Name', Tr('External tool'));
+    FCustomToolItem.Caption := StringReplace(Ini.ReadString('ExternalTool', 'Name', Tr('External tool')),'&','&&',[rfReplaceAll]);
     if Trim(FCustomToolItem.Caption) = '' then FCustomToolItem.Caption := Tr('External tool');
     FCustomToolItem.Visible := Trim(Ini.ReadString('ExternalTool', 'Executable', '')) <> '';
   finally Ini.Free; end;
@@ -439,4 +439,57 @@ begin
     if Dialog.Execute and not OpenDocument(Dialog.FileName) then
       UiMessageDlg(Tr('Could not open the system package installer.'), mtError, [mbOK], 0);
   finally Dialog.Free; end;
+end;
+
+procedure TMainForm.RebuildInsertMenu;
+var I: Integer; Item:TMenuItem;
+begin
+  if FInsertMenu=nil then Exit;
+  FInsertMenu.Clear;
+  AddMenu(FInsertMenu,'Date/time',@InsertDateClick);
+  if FEditorPreferences.Snippets.Count>0 then AddMenu(FInsertMenu,'-',nil);
+  for I:=0 to FEditorPreferences.Snippets.Count-1 do begin
+    Item:=AddMenu(FInsertMenu,'',@InsertSnippetClick);Item.Tag:=I;
+    Item.Name:='UserText_Insert_'+IntToStr(I);
+    Item.Caption:=StringReplace(FEditorPreferences.Snippets.Names[I],'&','&&',[rfReplaceAll]);
+  end;
+end;
+procedure TMainForm.InsertDateClick(Sender:TObject);
+begin if (CurrentDoc<>nil) and not CurrentDoc.Editor.ReadOnly then CurrentDoc.Editor.SelText:=FormatDateTime('yyyy-mm-dd hh:nn:ss',Now);end;
+procedure TMainForm.InsertSnippetClick(Sender:TObject);
+var I:Integer;
+begin
+  if not (Sender is TMenuItem) or (CurrentDoc=nil) or CurrentDoc.Editor.ReadOnly then Exit;
+  I:=TMenuItem(Sender).Tag;
+  if (I>=0) and (I<FEditorPreferences.Snippets.Count) then CurrentDoc.Editor.SelText:=FEditorPreferences.Snippets.ValueFromIndex[I];
+end;
+procedure TMainForm.IndentClick(Sender:TObject);
+begin if (CurrentDoc<>nil) and not CurrentDoc.Editor.ReadOnly then CurrentDoc.Editor.CommandProcessor(ecBlockIndent,#0,nil);end;
+procedure TMainForm.UnindentClick(Sender:TObject);
+begin if (CurrentDoc<>nil) and not CurrentDoc.Editor.ReadOnly then CurrentDoc.Editor.CommandProcessor(ecBlockUnindent,#0,nil);end;
+procedure TMainForm.FoldAllClick(Sender:TObject);
+begin if CurrentDoc<>nil then CurrentDoc.Editor.FoldAll;end;
+procedure TMainForm.UnfoldAllClick(Sender:TObject);
+begin if CurrentDoc<>nil then CurrentDoc.Editor.UnfoldAll;end;
+procedure TMainForm.SaveRecoveryCopies;
+var I:Integer;Doc:TDocument;Folder,BaseName:string;ID:TGUID;Snapshot:TFileSnapshot;
+begin
+  if (FEditorPreferences=nil) or not (efAutoSave in FEditorPreferences.Flags) or
+    FLoading or FCompileActive or DebuggerActive or (FDocumentDialogs<>0) or
+    (Application.ModalLevel>0) or (GetTickCount64-FLastRecoveryAt<QWord(FEditorPreferences.AutoSaveSeconds)*1000) then Exit;
+  FLastRecoveryAt:=GetTickCount64;
+  Folder:=GetEnvironmentVariable('XDG_CACHE_HOME');
+  if (Folder='') or (Folder[1]<>'/') then Folder:=GetEnvironmentVariable('HOME')+'/.cache';
+  Folder:=IncludeTrailingPathDelimiter(Folder)+'dev-cpp/autosave/';
+  try
+    if not ForceDirectories(Folder) then raise Exception.Create('Cannot create recovery directory.');
+    for I:=0 to FDocs.Count-1 do begin
+      Doc:=TDocument(FDocs[I]);if not Doc.Dirty then Continue;
+      if Doc.RecoveryPath='' then begin
+        CreateGUID(ID);BaseName:=ChangeFileExt(ExtractFileName(Doc.FileName),'');if BaseName='' then BaseName:=Doc.UntitledName;
+        Doc.RecoveryPath:=Folder+BaseName+'-'+GUIDToString(ID)+'.cpp';
+      end;
+      AtomicSaveDocumentChecked(Doc.Editor.Lines,Doc.RecoveryPath,CaptureFileSnapshot(Doc.RecoveryPath),Snapshot);
+    end;
+  except on E:Exception do SetStatusMessage(Tr('Recovery copy failed: ')+E.Message);end;
 end;
