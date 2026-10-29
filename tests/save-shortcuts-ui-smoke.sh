@@ -22,7 +22,7 @@ def wait(test,message):
   if test():return
   assert app.poll() is None,'IDE exited'
   time.sleep(.05)
- raise AssertionError(message+'; windows='+str([x for x in state() if x['type']=='GtkWindow' and x['viewable']]))
+ raise AssertionError(message+'; windows='+str([x for x in state() if x['type'] in ('GtkWindow','GtkFileChooserDialog') and x['viewable']]))
 def keys(*args):subprocess.run(['xdotool','key','--clearmodifiers','--delay','30',*args],check=True);time.sleep(.12)
 def text(value):subprocess.run(['xdotool','type','--clearmodifiers','--delay','12','--',value],check=True);time.sleep(.1)
 def window(title):
@@ -37,9 +37,15 @@ def stop():
  global app
  if app and app.poll() is None:app.terminate();app.wait(timeout=5)
  app=None
-def chooser(expected):
- wait(lambda:any(x.get('folder')==str(expected) and x['viewable'] for x in state()),'chooser must open in '+str(expected))
+def chooser(expected,default_name=None):
+ wait(lambda:any(x.get('folder')==str(expected) and x['viewable'] for x in state()) and (default_name is None or any('normal_text' in x and x['viewable'] and x['mapped'] and x['text']==default_name for x in state())),'chooser must open in '+str(expected))
  subprocess.run(['xdotool','windowfocus',window('^Save$')],check=True)
+def cancel_chooser():
+ keys('Escape')
+ wait(lambda:not any(x.get('folder') and x['viewable'] and x['mapped'] for x in state()),'cancelled chooser must finish closing')
+ # Bare Xvfb has no window manager to restore focus to the parent after a
+ # native modal closes. Do that explicitly before sending the next command.
+ subprocess.run(['xdotool','windowfocus',window(r'Dev-C\+\+')],check=True)
 def save_new(name,directory):
  keys('ctrl+s');chooser(directory);keys('alt+n','ctrl+a');text(name);keys('Return')
  wait(lambda:(directory/name).exists(),'new file saved in expected directory')
@@ -57,19 +63,20 @@ try:
  # Last successful save is now A. Relative new-file names must resolve there.
  keys('ctrl+n');text('int newer;');keys('Escape','ctrl+s');chooser(a)
  # Navigating and cancelling the native chooser does not change app history.
- keys('alt+Home');chooser(home);keys('Escape','ctrl+s');chooser(a);keys('Escape')
+ keys('alt+Home');chooser(home);cancel_chooser();keys('ctrl+s');chooser(a);cancel_chooser()
  save_new('new.cpp',a);assert (a/'new.cpp').read_text().strip()=='int newer;'
  # Existing source Save As opens its own B directory rather than recent A.
  keys('ctrl+Tab','ctrl+Tab','alt+f')
  wait(lambda:any(x['type']=='GtkLabel' and x['text']=='Save As...' and x['viewable'] for x in state()),'Save As menu')
  item=next(x for x in state() if x['type']=='GtkLabel' and x['text']=='Save As...' and x['viewable'])
  subprocess.run(['xdotool','mousemove','--sync',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True)
- chooser(b);keys('Escape')
+ chooser(b);cancel_chooser()
  # Save All prompts for two unnamed files; Cancel leaves the second pending.
  keys('ctrl+n');text('int one;');keys('Escape','ctrl+n');text('int two;');keys('Escape','ctrl+shift+s');chooser(a)
  keys('alt+n','ctrl+a');text('one.cpp');keys('Return')
  wait(lambda:(a/'one.cpp').exists(),'first unnamed file saved')
- chooser(a);keys('Escape')
+ # Wait for the second file's dialog, not a stale observation of the first.
+ chooser(a,'Untitled3.cpp');cancel_chooser()
  assert (a/'one.cpp').read_text().strip()=='int one;'
  keys('ctrl+shift+s');chooser(a);keys('alt+n','ctrl+a');text('two.cpp');keys('Return')
  wait(lambda:(a/'two.cpp').exists(),'cancelled unnamed document remains pending and can be saved later')
