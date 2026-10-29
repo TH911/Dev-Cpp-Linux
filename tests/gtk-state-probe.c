@@ -67,6 +67,11 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
     json_string(out, G_OBJECT_TYPE_NAME(widget));
     fprintf(out, ",\"grab\":%s", widget == gtk_grab_get_current() ? "true" : "false");
     fputs(",\"text\":", out); json_string(out, text);
+    if (GTK_IS_LABEL(widget)) {
+        int text_width = 0, text_height = 0;
+        pango_layout_get_pixel_size(gtk_label_get_layout(GTK_LABEL(widget)), &text_width, &text_height);
+        fprintf(out, ",\"text_width\":%d,\"text_height\":%d", text_width, text_height);
+    }
     if (GTK_IS_FILE_CHOOSER(widget)) {
         char *folder = gtk_file_chooser_get_current_folder(GTK_FILE_CHOOSER(widget));
         fputs(",\"folder\":", out); json_string(out, folder); g_free(folder);

@@ -30,6 +30,22 @@ def image(name):
  (folder/'current.png').unlink(missing_ok=True);(folder/'current.png.request').touch()
  wait(lambda _: (folder/'current.png').exists() and (folder/'current.png').read_bytes().endswith(bytes.fromhex('0000000049454e44ae426082')),'screenshot')
  (images/name).write_bytes((folder/'current.png').read_bytes())
+def groups_fit():
+ rows=state();by_id={x['id']:x for x in rows};window=next(x for x in rows if x['type']=='GtkWindow' and x['text']==title and x['viewable'])
+ count=0
+ for item in rows:
+  if item['type'] not in ('GtkCheckButton','GtkRadioButton') or not item['viewable'] or not item['mapped']:continue
+  parent=by_id.get(item['parent']);frame=None
+  while parent and parent['id']!=window['id']:
+   if parent['type']=='GtkFrame':frame=parent
+   parent=by_id.get(parent['parent'])
+  if not parent or frame is None:continue
+  count+=1
+  assert item['y']>=frame['y'] and item['y']+item['height']<=frame['y']+frame['height'],('search option clipped by group frame',item,frame)
+  for label in rows:
+   if label['type']=='GtkLabel' and label['parent']==item['id']:
+    assert label['width']>=label['text_width'],('search option caption clipped',label)
+ assert count>=6,('missing visible search options',count)
 def opened(name):return any(x['type']=='GtkWindow' and x['viewable'] and x['text']==name for x in state())
 def dialog(shortcut,name):
  global title
@@ -45,7 +61,7 @@ try:
   keys('ctrl+shift+Tab','ctrl+Home')
   dialog('ctrl+f','Search')
   for label,name in [('Search','search'),('Search in files','find-files'),('Replace','replace'),('Replace in files','replace-files')]:
-   control('click',label);title='Replace' if label.startswith('Replace') else 'Search';image('classic-'+name+'-en.png')
+   control('click',label);title='Replace' if label.startswith('Replace') else 'Search';groups_fit();image('classic-'+name+'-en.png')
   control('click','Search');title='Search';control('entry','0','cat');control('click','Case sensitive');control('click','Whole words');control('click','From start');accept()
   # Delete the found selection and save: proves exact case+whole-word match.
   keys('Delete','ctrl+s');assert first.read_text()==' Cat scatter cat\ncat LAST\n',first.read_text()
