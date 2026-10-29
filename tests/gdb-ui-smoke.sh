@@ -165,7 +165,7 @@ click_gutter() {
   local point gx gy red
   point=$(gutter_geometry "$1") || fail 'could not locate actual rendered line number'
   read -r gx gy red <<< "$point"
-  xdotool mousemove --sync "$gx" "$gy" click "${2:-1}"
+  xdotool mousemove "$gx" "$gy" click "${2:-1}"
   sleep 0.2
 }
 expect_gutter_marker() {
@@ -179,12 +179,26 @@ expect_gutter_marker() {
   fail "line $1 breakpoint marker did not become $2 (red pixels: $red)"
 }
 evaluate() {
-  press alt+x End Right e ctrl+a
+  press alt+x End Return ctrl+a
   type_text "$1"
   press Return
   wait_text "$1 = $2"
 }
-continue_debug() { press alt+x End Right c; }
+continue_debug() {
+  press alt+x
+  python3 - "$test_dir/state.json" <<'PY_CONTINUE'
+import json,subprocess,sys
+items=json.load(open(sys.argv[1]));by_id={x['id']:x for x in items}
+def in_menu(item):
+ while item:
+  if 'MenuItem' in item['type']:return True
+  item=by_id.get(item['parent'])
+ return False
+item=next(x for x in items if x['type']=='GtkLabel' and x['viewable'] and x['mapped'] and x['text'].replace('_','')=='Continue' and in_menu(x))
+subprocess.run(['xdotool','mousemove',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True)
+PY_CONTINUE
+  sleep 0.2
+}
 source_line() {
   # Escape does not move the caret. Its KeyUp refreshes the normal editor
   # status, allowing observation of the actual caret set by DebugLocation.
@@ -237,6 +251,17 @@ for i in {1..100}; do
 done
 [[ -n $window ]] || fail 'main window missing'
 wait_file "$test_dir/state.json"
+# Both header arrows are real controls; the right arrow reveals the Debug tab.
+python3 - "$test_dir/state.json" <<'PY_SIDEBAR'
+import json,subprocess,sys,time
+path=sys.argv[1]
+header_y=min(x['y'] for x in json.load(open(path)) if x['type']=='GtkLabel' and x['viewable'] and x['mapped'] and x['text']=='>')
+def click(text):
+ items=json.load(open(path));item=next(x for x in items if x['type']=='GtkLabel' and x['viewable'] and x['mapped'] and abs(x['y']-header_y)<4 and x['text']==text)
+ subprocess.run(['xdotool','mousemove',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True);time.sleep(.25)
+click('>');click('Debug');click('<');click('Project Manager')
+print('PASS: two native sidebar arrows reveal Debug without starting GDB.')
+PY_SIDEBAR
 go_line 1
 click_gutter 13
 expect_gutter_marker 13 present
@@ -248,8 +273,8 @@ expect_gutter_marker 13 absent
 # A drag across the line-number area must not toggle a breakpoint.
 read -r drag_x drag_y _ <<< "$(gutter_geometry 13)"
 read -r _ drag_end_y _ <<< "$(gutter_geometry 14)"
-xdotool mousemove --sync "$drag_x" "$drag_y" mousedown 1 \
-  mousemove --sync "$drag_x" "$drag_end_y" mouseup 1
+xdotool mousemove "$drag_x" "$drag_y" mousedown 1 \
+  mousemove "$drag_x" "$drag_end_y" mouseup 1
 sleep 0.2
 expect_gutter_marker 13 absent
 expect_gutter_marker 14 absent

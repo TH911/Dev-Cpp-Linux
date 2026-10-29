@@ -23,7 +23,7 @@
       <Filename Value="../linux-noi-lazarus/lib/classic-layout-test"/>
     </Target>
     <SearchPaths>
-      <OtherUnitFiles Value="../linux-noi-lazarus"/>
+      <OtherUnitFiles Value="../linux-noi-lazarus/lib/synedit-fast;../linux-noi-lazarus"/>
       <UnitOutputDirectory Value="../linux-noi-lazarus/lib/classic-layout-test-units"/>
     </SearchPaths>
   </CompilerOptions>

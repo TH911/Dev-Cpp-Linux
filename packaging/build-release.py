@@ -19,7 +19,7 @@ SOURCE = ROOT / "linux-noi-lazarus"
 # An allowlist also keeps newly-created test outputs, local settings, lock files
 # and compiler output out of release archives. Extend it for new runtime assets.
 SOURCE_SUFFIXES = {
-    ".pas", ".pp", ".inc", ".lpr", ".lpi", ".lfm", ".lrs", ".sh",
+    ".py", ".pas", ".pp", ".inc", ".lpr", ".lpi", ".lfm", ".lrs", ".sh",
     ".md", ".txt", ".lng", ".ico", ".bmp", ".png", ".svg", ".xpm", ".po",
     ".mo", ".json", ".xml", ".sample", ".example", ".ini", ".cfg",
     ".conf", ".theme", ".toml", ".yaml", ".yml",
@@ -54,7 +54,7 @@ def archive_mode(path):
 
 def build_sources(version, output, epoch):
     files = list(source_files())
-    required = {"devcpp_noi.lpr", "devcpp_noi.lpi", "mainform.pas", "build.sh", *RUNTIME_FILES}
+    required = {"devcpp_noi.lpr", "devcpp_noi.lpi", "mainform.pas", "build.sh", "prepare-synedit.py", *RUNTIME_FILES}
     if not required <= {p.name for p, _ in files}:
         raise ValueError("Source directory is missing required source/runtime files")
     base = output / ("linux-noi-lazarus-" + version + "-src")

@@ -12,13 +12,13 @@ type
 
 { All search positions and lengths are bytes in the original UTF-8 text, as
   required by SynEdit.LogicalCaretXY. Case folding may change byte lengths. }
-function FindTextMatchLengthAt(const Source, Query: string; ByteColumn: Integer): Integer;
+function FindTextMatchLengthAt(const Source, Query: string; ByteColumn: Integer; MatchCase:Boolean=False;WholeWord:Boolean=False): Integer;
 function FindTextForward(const Source, Query: string; FirstByte, LastByte: Integer;
-  out MatchBytes: Integer): Integer;
+  out MatchBytes: Integer; MatchCase:Boolean=False;WholeWord:Boolean=False): Integer;
 function FindTextBackward(const Source, Query: string; FirstByte, LastByte: Integer;
-  out MatchBytes: Integer): Integer;
+  out MatchBytes: Integer; MatchCase:Boolean=False;WholeWord:Boolean=False): Integer;
 function ReplaceTextMatches(const Source, Query, Replacement: string;
-  out MatchCount: Integer): string;
+  out MatchCount: Integer; MatchCase:Boolean=False;WholeWord:Boolean=False): string;
 procedure CommentEditorLines(Editor: TSynEdit; Remove: Boolean);
 procedure DuplicateEditorLine(Editor: TSynEdit);
 procedure MoveEditorLines(Editor: TSynEdit; Delta: Integer);
@@ -67,8 +67,11 @@ begin
     ((Ord(S[Result]) and $C0) = $80) do Inc(Result);
 end;
 
-function FindTextMatchLengthAt(const Source, Query: string; ByteColumn: Integer): Integer;
+function FindTextMatchLengthAt(const Source, Query: string; ByteColumn: Integer;MatchCase,WholeWord:Boolean): Integer;
 var EndByte, I, QueryCharacters: Integer;
+  function WordAt(Index:Integer):Boolean;
+  begin Result:=(Index>=1) and (Index<=Length(Source)) and
+    ((Source[Index] in ['a'..'z','A'..'Z','0'..'9','_']) or (Ord(Source[Index])>=128));end;
 begin
   Result := 0;
   if (Query = '') or (ByteColumn < 1) or (ByteColumn > Length(Source)) then Exit;
@@ -80,12 +83,15 @@ begin
     if EndByte > Length(Source) then Exit;
     EndByte := NextCharacterByte(Source, EndByte);
   end;
-  if UTF8LowerCase(Copy(Source, ByteColumn, EndByte - ByteColumn)) =
+  if WholeWord and (WordAt(ByteColumn-1) or WordAt(EndByte)) then Exit;
+  if MatchCase then begin
+    if Copy(Source,ByteColumn,EndByte-ByteColumn)=Query then Result:=EndByte-ByteColumn;
+  end else if UTF8LowerCase(Copy(Source, ByteColumn, EndByte - ByteColumn)) =
     UTF8LowerCase(Query) then Result := EndByte - ByteColumn;
 end;
 
 function FindTextForward(const Source, Query: string; FirstByte, LastByte: Integer;
-  out MatchBytes: Integer): Integer;
+  out MatchBytes: Integer;MatchCase,WholeWord:Boolean): Integer;
 var I, N: Integer;
 begin
   Result := 0;
@@ -95,7 +101,7 @@ begin
   if LastByte > Length(Source) then LastByte := Length(Source);
   for I := FirstByte to LastByte do
   begin
-    N := FindTextMatchLengthAt(Source, Query, I);
+    N := FindTextMatchLengthAt(Source, Query, I,MatchCase,WholeWord);
     if N > 0 then
     begin
       MatchBytes := N;
@@ -105,7 +111,7 @@ begin
 end;
 
 function FindTextBackward(const Source, Query: string; FirstByte, LastByte: Integer;
-  out MatchBytes: Integer): Integer;
+  out MatchBytes: Integer;MatchCase,WholeWord:Boolean): Integer;
 var I, N: Integer;
 begin
   Result := 0;
@@ -115,7 +121,7 @@ begin
   if LastByte > Length(Source) then LastByte := Length(Source);
   for I := LastByte downto FirstByte do
   begin
-    N := FindTextMatchLengthAt(Source, Query, I);
+    N := FindTextMatchLengthAt(Source, Query, I,MatchCase,WholeWord);
     if N > 0 then
     begin
       MatchBytes := N;
@@ -125,7 +131,7 @@ begin
 end;
 
 function ReplaceTextMatches(const Source, Query, Replacement: string;
-  out MatchCount: Integer): string;
+  out MatchCount: Integer;MatchCase,WholeWord:Boolean): string;
 var StartByte, MatchByte, MatchBytes: Integer;
 begin
   Result := '';
@@ -133,7 +139,7 @@ begin
   StartByte := 1;
   if Query = '' then Exit(Source);
   repeat
-    MatchByte := FindTextForward(Source, Query, StartByte, Length(Source), MatchBytes);
+    MatchByte := FindTextForward(Source, Query, StartByte, Length(Source), MatchBytes,MatchCase,WholeWord);
     if MatchByte = 0 then Break;
     Result := Result + Copy(Source, StartByte, MatchByte - StartByte) + Replacement;
     Inc(MatchCount);

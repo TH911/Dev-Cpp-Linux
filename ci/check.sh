@@ -41,7 +41,7 @@ fpc -Fulinux-noi-lazarus -FU"$test_dir/profiles" -FE"$test_dir/profiles" \
 "$test_dir/profiles/compiler-profiles-test"
 bash tests/runtime-support-smoke.sh
 timeout 60s bash tests/gdb-session-smoke.sh
-for name in editor-actions editor-themes ui-language command-state classic-layout editor-preferences brackets shortcuts; do
+for name in editor-actions editor-themes ui-language command-state classic-layout editor-preferences brackets shortcuts document-kind syntax-preview format-settings sidebar-variables; do
   lazbuild --widgetset=gtk2 "tests/$name-test.lpi" > "$test_dir/$name-build.log" 2>&1 || {
     cat "$test_dir/$name-build.log" >&2; exit 1;
   }
@@ -64,3 +64,7 @@ timeout 120s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/bracket
 timeout 150s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/save-shortcuts-ui-smoke.sh
 
 timeout 120s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/tab-order-ui-smoke.sh
+
+timeout 30s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" bash tests/first-frame-smoke.sh
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 180s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" bash tests/search-ui-smoke.sh

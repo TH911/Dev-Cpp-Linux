@@ -15,10 +15,9 @@ type
     procedure Edit(Owner: TComponent; const Config: string);
   end;
 function EditSettingValues(Owner: TComponent; const Title: string; Values: TStrings): Boolean;
-function EditEnvironment(Owner: TComponent; var Language: string; var WatchFiles, ShowReports: Boolean): Boolean;
 implementation
 uses SysUtils, LCLProc, Controls, StdCtrls, Dialogs, ValEdit, Graphics, IniFiles,
-  ui_language, language_catalog, input_appearance;
+  ui_language, language_catalog, input_appearance, shortcut_dialog;
 
 type
   TSettingsForm = class(TForm)
@@ -58,33 +57,6 @@ begin
   finally D.Free; end;
 end;
 
-function EditEnvironment(Owner: TComponent; var Language: string; var WatchFiles, ShowReports: Boolean): Boolean;
-var D: TForm; L: TLabel; C: TComboBox; W, R: TCheckBox; B: TButton; I: Integer;
-begin
-  D := TForm.CreateNew(Owner);
-  try
-    D.Caption := Tr('Environment Options'); D.Position := poMainFormCenter;
-    D.BorderStyle := bsDialog; D.ClientWidth := 490; D.ClientHeight := 244;
-    L := TLabel.Create(D); L.Parent := D; L.SetBounds(16, 20, 160, 24); L.Caption := Tr('Language');
-    C := TComboBox.Create(D); C.Parent := D; C.SetBounds(180, 16, 290, 30); C.Style := csDropDownList;
-    for I := 0 to UiLanguageCount - 1 do begin
-      C.Items.Add(UiLanguageName(I)); if UiLanguageCode(I) = Language then C.ItemIndex := I;
-    end;
-    W := TCheckBox.Create(D); W.Parent := D; W.SetBounds(16, 68, 454, 28);
-    W.Caption := Tr('Detect external file changes'); W.Checked := WatchFiles;
-    R := TCheckBox.Create(D); R.Parent := D; R.SetBounds(16, 112, 454, 28);
-    R.Caption := Tr('Show report window'); R.Checked := ShowReports;
-    B := TButton.Create(D); B.Parent := D; B.SetBounds(272, 190, 90, 32);
-    B.Caption := Tr('OK'); B.ModalResult := mrOK; B.Default := True;
-    B := TButton.Create(D); B.Parent := D; B.SetBounds(378, 190, 96, 32);
-    B.Caption := Tr('Cancel'); B.ModalResult := mrCancel; B.Cancel := True;
-    PrepareInputAppearance(D); Result := D.ShowModal = mrOK;
-    if Result then begin
-      Language := UiLanguageCode(C.ItemIndex); WatchFiles := W.Checked; ShowReports := R.Checked;
-    end;
-  finally D.Free; end;
-end;
-
 {$I shortcut_legacy_keys.inc}
 function StableShortcutPath(Key: Word; const Fallback: string): string;
 var I: Integer;
@@ -96,7 +68,8 @@ end;
 procedure TMenuShortcuts.Collect(Item: TMenuItem; const Path: string);
 var I: Integer;
 begin
-  if (Item.ShortCut <> 0) or (Item.Name = 'CommandSaveAs') then begin
+  if Item.Name='DynamicRecent' then Exit;
+  if (Item.ShortCut<>0) or (Item.Name='CommandSaveAs') or ((Item.Count=0) and Assigned(Item.OnClick)) then begin
     FItems.Add(Item);
     { Configuration identities belong to commands, not their new default key. }
     if Item.Name = 'CommandSaveAs' then FPaths.Add('menu.0.3')
@@ -151,7 +124,7 @@ begin
   end;
 end;
 procedure TMenuShortcuts.Edit(Owner: TComponent; const Config: string);
-var Values, Used: TStringList; I: Integer; Sc: TShortCut; Key: Word;
+var Values, Used, Labels: TStringList; I: Integer; Sc: TShortCut; Key: Word;
   Shift: TShiftState; Ini: TIniFile; Valid: Boolean;
   function CommandLabel(Item: TMenuItem): string;
   begin
@@ -166,20 +139,20 @@ var Values, Used: TStringList; I: Integer; Sc: TShortCut; Key: Word;
   end;
 
 begin
-  Values := TStringList.Create; Used := TStringList.Create;
+  Values := TStringList.Create;Used := TStringList.Create;Labels:=TStringList.Create;
   try
     for I := 0 to FItems.Count - 1 do begin
       Sc := TMenuItem(FItems[I]).ShortCut;
       { LCL 2.0.6 renders zero as 'Unknown'; the editable disabled value is blank. }
-      if Sc = 0 then Values.Add(CommandLabel(TMenuItem(FItems[I])) + '=')
-      else Values.Add(CommandLabel(TMenuItem(FItems[I])) + '=' + ShortCutToText(Sc));
+      Labels.Add(CommandLabel(TMenuItem(FItems[I])));
+      if Sc=0 then Values.Add('') else Values.Add(ShortCutToText(Sc));
     end;
-    while EditSettingValues(Owner, 'Shortcut Options', Values) do begin
+    while EditShortcutValues(Owner,Labels,Values,FDefaults) do begin
       Used.Clear; Valid := Values.Count = FItems.Count;
       for I := 0 to Values.Count - 1 do begin
-        Sc := TextToShortCut(Trim(Values.ValueFromIndex[I]));
+        Sc := TextToShortCut(Trim(Values[I]));
         ShortCutToKey(Sc, Key, Shift);
-        if (Trim(Values.ValueFromIndex[I]) <> '') and
+        if (Trim(Values[I]) <> '') and
           ((Sc = 0) or (((Shift * [ssCtrl, ssAlt]) = []) and not (Key in [VK_F1..VK_F12]))) then Valid := False;
         if Sc <> 0 then begin
           if Used.IndexOf(IntToStr(Sc)) >= 0 then Valid := False;
@@ -193,13 +166,13 @@ begin
       Ini := TIniFile.Create(Config);
       try
         for I := 0 to FItems.Count - 1 do begin
-          Sc := TextToShortCut(Trim(Values.ValueFromIndex[I]));
+          Sc := TextToShortCut(Trim(Values[I]));
           TMenuItem(FItems[I]).ShortCut := Sc;
           Ini.WriteInteger('Shortcuts', FPaths[I], Sc);
         end;
       finally Ini.Free; end;
       Break;
     end;
-  finally Used.Free; Values.Free; end;
+  finally Labels.Free;Used.Free; Values.Free; end;
 end;
 end.

@@ -33,7 +33,7 @@ type
     FBreakpointLine: Integer;
     FBreakpointResume: Boolean;
     FBreakpointStarted: QWord;
-    FOnLog, FOnOutput, FOnError, FOnEvaluation: TGdbTextEvent;
+    FOnLog, FOnOutput, FOnError, FOnEvaluation, FOnVariables: TGdbTextEvent;
     FOnLocation: TGdbLocationEvent;
     FOnState: TNotifyEvent;
     procedure SetState(Value: TGdbState);
@@ -62,6 +62,7 @@ type
     procedure NextInstruction;
     procedure StepInstruction;
     procedure ConsoleCommand(const Text: string);
+    procedure RequestVariables;
     procedure Evaluate(const Expression: string);
     procedure SendInput(const Text: string);
     procedure ToggleBreakpoint(const FileName: string; Line: Integer);
@@ -75,10 +76,13 @@ type
     property OnLog: TGdbTextEvent read FOnLog write FOnLog;
     property OnOutput: TGdbTextEvent read FOnOutput write FOnOutput;
     property OnError: TGdbTextEvent read FOnError write FOnError;
+    property OnVariables: TGdbTextEvent read FOnVariables write FOnVariables;
     property OnEvaluation: TGdbTextEvent read FOnEvaluation write FOnEvaluation;
     property OnLocation: TGdbLocationEvent read FOnLocation write FOnLocation;
     property OnState: TNotifyEvent read FOnState write FOnState;
   end;
+
+procedure MIVariableRows(const RecordText:string;Rows:TStrings);
 
 function MIQuote(const S: string): string;
 function MIField(const RecordText, Name: string): string;
@@ -104,6 +108,7 @@ const
   cpBreakpointInterrupt = 4;
   cpBreakpointDelete = 5;
   cpBreakpointResume = 6;
+  cpVariables = 7;
 
 function OpenPTY(var Master, Slave: LongInt; Name: PChar;
   Termios, WinSize: Pointer): LongInt; cdecl; external 'util' name 'openpty';
@@ -182,6 +187,27 @@ begin
       end;
     end
     else Inc(P);
+  end;
+end;
+
+procedure MIVariableRows(const RecordText:string;Rows:TStrings);
+var P,Start,Depth:Integer;Item,Name,Value,Kind:string;
+begin
+  Rows.Clear;Rows.NameValueSeparator:=#1;P:=Pos('variables=[',RecordText);
+  if P=0 then Exit;Inc(P,Length('variables=['));
+  while P<=Length(RecordText) do begin
+    if RecordText[P]=']' then Break;
+    if RecordText[P]<>'{' then begin Inc(P);Continue;end;
+    Start:=P;Depth:=0;
+    repeat
+      if RecordText[P]='"' then begin MIDecode(RecordText,P);Continue;end;
+      if RecordText[P]='{' then Inc(Depth) else if RecordText[P]='}' then Dec(Depth);
+      Inc(P);
+    until (P>Length(RecordText)) or (Depth=0);
+    Item:=Copy(RecordText,Start,P-Start);Name:=MIField(Item,'name');
+    Value:=MIField(Item,'value');Kind:=MIField(Item,'type');
+    if (Value='') and (Kind<>'') then Value:='<'+Kind+'>';
+    if Name<>'' then Rows.Add(Name+#1+Value);
   end;
 end;
 
@@ -478,6 +504,8 @@ begin
         FBreakpointResume := False; FBreakpointStopRecord := '';
         NotifyBreakpointChange;
       end
+      else if (Item.Purpose = cpVariables) and Assigned(FOnVariables) and (FState=gsStopped) then
+        FOnVariables(Self,Body)
       else if (Item.Purpose = cpEvaluate) and Assigned(FOnEvaluation) then
         FOnEvaluation(Self, MIField(Body, 'value'));
     finally Item.Free; end;
@@ -582,6 +610,12 @@ procedure TGdbSession.ConsoleCommand(const Text:string);
 begin
   if (FState<>gsStopped) or ChangingBreakpoint or FStopping or (Trim(Text)='') then Exit;
   Queue('-interpreter-exec console '+MIQuote(Text));SendNext;
+end;
+
+procedure TGdbSession.RequestVariables;
+begin
+  if (FState<>gsStopped) or ChangingBreakpoint then Exit;
+  Queue('-stack-list-variables --simple-values',cpVariables);SendNext;
 end;
 
 procedure TGdbSession.Evaluate(const Expression: string);

@@ -43,6 +43,8 @@ try:
   open_options()
   for page in ['Basic','Display','Syntax','Code','Code completion','Auto save']:
    control('click',page);image('editor-'+page.lower().replace(' ','-')+'-en.png')
+  control('click','Code');control('click','Default insert');image('editor-default-code-en.png');control('click','Inserts');image('editor-inserts-en.png')
+  control('click','Code completion');control('click','Symbol completion');image('editor-symbol-completion-en.png')
   control('click','Display');control('entry','0','Consolas');control('entry','1','12')
   control('click','Use custom gutter font');control('entry','2','1');control('entry','3','Liberation Mono');control('entry','4','11')
   control('click','Syntax');control('list','0','4');control('click','Bold')

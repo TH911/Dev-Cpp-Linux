@@ -116,7 +116,9 @@ display=next(x for x in snapshot() if x['type']=='GtkLabel' and x['viewable'] an
 subprocess.run(['xdotool','mousemove','--sync',str(display['x']+display['width']//2),str(display['y']+display['height']//2),'click','1'],check=True)
 inputs('Editor Options',3)  # editable font combo and both spin edits
 focus(window('Editor Options')); keys('Escape')
-focus(main); keys('alt+x','End','Up','Return')
+focus(main);keys('alt+x')
+item=next(x for x in snapshot() if x['type']=='GtkLabel' and x['viewable'] and x['mapped'] and x['text'].replace('_','')=='Parameters...')
+subprocess.run(['xdotool','mousemove',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True)
 wait(lambda xs:any(x['type']=='GtkWindow' and x['visible'] and x['text']=='Execute Parameters' for x in xs),'parameters missing')
 inputs('Execute Parameters',1)
 keys('Escape')
@@ -129,6 +131,11 @@ subprocess.run(['xdotool','mousemove','--sync',str(info['x']+info['width']//2),s
 inputs(about['text'],1)
 keys('Escape')
 focus(main)
+# The debugger is now created on demand. Open its report page before checking
+# the inactive program input's native disabled appearance.
+debug=next(x for x in snapshot() if x['type']=='GtkLabel' and x['viewable'] and x['mapped'] and x['text']=='Debug')
+subprocess.run(['xdotool','mousemove',str(debug['x']+debug['width']//2),str(debug['y']+debug['height']//2),'click','1'],check=True)
+wait(lambda xs:any(x['type']=='GtkEntry' and not x['sensitive'] for x in xs),'deferred debugger input missing')
 inputs(main['text'],1)
 disabled=[x for x in snapshot() if x['type']=='GtkEntry' and not x['sensitive']]
 assert disabled and all(x['insensitive_text'] not in ('000000','ffffff') for x in disabled),disabled

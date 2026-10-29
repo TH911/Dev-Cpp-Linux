@@ -12,7 +12,7 @@ uses
   SynEditMarks, SynGutter, SynEditMarkupFoldColoring, SynEditMiscClasses, editor_actions,
   cppcompletion, ui_language, app_instance, document_files, runtime_support,
   editor_themes, compiler_profiles, options_dialogs, language_catalog, input_appearance, app_paths, startup_trace, classic_chrome, source_navigation, source_output,
-  gdb_session, debugger_panel, debug_icons, app_version, about_dialog, classic_settings, editor_preferences, editor_options_dialog, document_tabs;
+  gdb_session, debugger_panel, debug_icons, app_version, about_dialog, classic_settings, editor_preferences, editor_options_dialog, document_tabs, document_kind, search_dialog, format_dialog, environment_dialog;
 
 type
   TNoiCppSyn = cpp_highlighter.TNoiCppSyn;
@@ -22,7 +22,7 @@ type
   TNoiSynEdit = class(TSynEdit)
   private
     FHomeRepeat: Boolean;
-    FEnhancedHome: Boolean;
+    FEnhancedHome, FCodeFeatures: Boolean;
     FGutterPress: Boolean;
     FGutterPoint: TPoint;
     FGutterLine: Integer;
@@ -35,6 +35,7 @@ type
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer); override;
   public
+    property CodeFeatures: Boolean read FCodeFeatures write FCodeFeatures;
     property EnhancedHome: Boolean read FEnhancedHome write FEnhancedHome;
     property OnLineClick: TEditorLineClickEvent read FOnLineClick write FOnLineClick;
     constructor Create(AOwner:TComponent);override;
@@ -112,6 +113,13 @@ type
     FCompileLogRaw: string;
     FProjectTree: TTreeView;
     FLeftTabs: TPageControl;
+    FLeftHeader,FLeftContainer:TPanel;
+    FLeftButtons:array[0..2] of TButton;
+    FLeftStart:Integer;
+    procedure LeftHeaderClick(Sender:TObject);
+    procedure LeftHeaderScroll(Sender:TObject);
+    procedure UpdateLeftHeader;
+  private
     FLeftDebugTab: TTabSheet;
     FOutput: TMemo;
     FReportTabs: TPageControl;
@@ -120,10 +128,20 @@ type
     FCompilerList: TListView;
     FStatus: TStatusBar;
     FMainToolbar: TToolBar;
+    FWindowMenu:TMenuItem;
+    procedure PrepareWindowMenu(Sender:TObject);
+    procedure WindowDocumentClick(Sender:TObject);
+    procedure WindowListClick(Sender:TObject);
+    procedure ToggleToolbarClick(Sender:TObject);
+    procedure GotoBreakpointClick(Sender:TObject);
+  private
     FRecentFiles: TStringList;
     FRecentMenu: TMenuItem;
     FRecentMenuDirty: Boolean;
     FUiTimer: TTimer;
+    FCompletionTimer:TTimer;
+    procedure CompletionDelayed(Sender:TObject);
+  private
     FRefreshingCommands: Boolean;
     FDialogQueued: Boolean;
     FQueuedDialogAction: TNotifyEvent;
@@ -139,7 +157,7 @@ type
     FCompileDirectory: string;
     FInvalidExecutables: TStringList;
     FOptionsPath: string;
-    FLastDirectory: string;
+    FLastDirectory,FDefaultDirectory: string;
     FCCompiler: string;
     FCppCompiler: string;
     FCFlags: string;
@@ -147,6 +165,17 @@ type
     FLinkerFlags: string;
     FLoading: Boolean;
     FFindText: string;
+    FSearchSpec:TClassicSearchSpec;
+    FSearchInitialized,FSearchCancelled,FSearchFirst:Boolean;
+    FSearchScopeDoc:TDocument;
+    FSearchBegin,FSearchEnd:TPoint;
+    procedure SearchDialogAction(Mode:TSearchMode);
+    function SearchOffset(Doc:TDocument;P:TPoint):Integer;
+    function SearchPoint(Doc:TDocument;Offset:Integer):TPoint;
+    function LocateSearch(Doc:TDocument;Backward:Boolean):Boolean;
+    function ReplaceSearch(Doc:TDocument;All:Boolean):Integer;
+    procedure SearchFiles(Replacing:Boolean);
+  private
     FCompletionMemberName: string;
     FCompletionAfterMember: Boolean;
     FCompletionForm: TForm;
@@ -311,7 +340,8 @@ type
     procedure AddCompilerFlags(Args: TStrings; const FlagText: string);
     procedure CloseQueryHandler(Sender: TObject; var CanClose: Boolean);
     procedure OpenFile(const FileName: string);
-    procedure CreateDocument(AssignUntitledName: Boolean);
+    procedure CreateDocument(AssignUntitledName: Boolean; const InitialFileName: string = '');
+    function CodeDocument(Doc: TDocument): Boolean;
     procedure OpenProject(const FileName: string);
     procedure NewProjectClick(Sender: TObject);
     procedure AddProjectFileClick(Sender: TObject);
@@ -375,7 +405,7 @@ var
 
 implementation
 
-uses Clipbrd;
+uses Clipbrd, gdk2, DateUtils;
 
 {$IFDEF UNIX}
 function CompilerGetProcessGroup(Pid: LongInt): LongInt; cdecl;
@@ -388,10 +418,11 @@ function CompilerSignal(Pid, SignalNumber: LongInt): LongInt; cdecl;
 
 constructor TNoiSynEdit.Create(AOwner:TComponent);
 begin
-  inherited Create(AOwner);FEnhancedHome:=True;
+  inherited Create(AOwner);FEnhancedHome:=True;FCodeFeatures:=True;
   { SynEdit 2.0.6 treats zero as no history, not unlimited. Do not evict the
     oldest edit after its default 1024 actions. Both undo/redo use this bound. }
   MaxUndo:=High(Integer);
+  TextView.BlockSelection:=nil;
 end;
 
 procedure TNoiSynEdit.EnableIndentGuides;
@@ -499,6 +530,7 @@ function TNoiSynEdit.FindMatchingBracketLogical(LogicalStartBracket: TPoint;
 const Offsets:array[0..2] of Integer=(0,-1,1);
 var I,Last:Integer;Candidate,First,Final:TPoint;
 begin
+  if not FCodeFeatures then Exit(Point(-1,-1));
   Result:=Point(-1,-1);Last:=0;if StartIncludeNeighborChars then Last:=2;
   for I:=0 to Last do begin
     Candidate:=Point(LogicalStartBracket.X+Offsets[I],LogicalStartBracket.Y);
@@ -849,7 +881,7 @@ begin
   AddMenu(FileMenu, '&Print...', @PrintClick, ShortCut(Ord('P'), [ssCtrl]));
   AddMenu(FileMenu, 'Print Setup...', @PrintSetupClick);
   AddMenu(FileMenu, '-', nil);
-  FRecentMenu := AddMenu(FileMenu, 'Recent &Files / Projects', nil);
+  FRecentMenu := AddMenu(FileMenu, 'Recent &Files / Projects', nil);FRecentMenu.Name:='DynamicRecent';
   RebuildRecentMenu;
   AddMenu(FileMenu, '-', nil);
   AddMenu(FileMenu, 'E&xit', @ExitClick, ShortCut(VK_F4, [ssAlt]));
@@ -919,15 +951,15 @@ begin
     ShortCut(Ord('L'), [ssCtrl, ssAlt]));
   AddMenu(ViewMenu, 'Focus &Editor', @FocusEditorClick,
     ShortCut(Ord('E'), [ssCtrl, ssAlt]));
-  AddMenu(ViewMenu, '&Next Tab', @NextTabClick, ShortCut(VK_TAB, [ssCtrl]));
-  AddMenu(ViewMenu, '&Previous Tab', @PreviousTabClick,
-    ShortCut(VK_TAB, [ssCtrl, ssShift]));
+
   AddMenu(ViewMenu, 'Swap &Header/Source', @SwapHeaderSourceClick,
     ShortCut(Ord('Q'), [ssCtrl]));
   FStatusbarItem := AddMenu(ViewMenu, '&Statusbar', @StatusbarClick);
   FStatusbarItem.Checked := True;
-  FFullScreenItem := AddMenu(ViewMenu, '&Full screen mode', @FullScreenClick,
-    ShortCut(VK_F11, [ssCtrl]));
+  BookmarkItem:=AddMenu(ViewMenu,'&Toolbars',nil);
+  with AddMenu(BookmarkItem,'Main toolbar',@ToggleToolbarClick) do begin Tag:=0;Checked:=True;end;
+  with AddMenu(BookmarkItem,'File / class / scope bar',@ToggleToolbarClick) do begin Tag:=1;Checked:=True;end;
+  with AddMenu(BookmarkItem,'Compiler selector',@ToggleToolbarClick) do begin Tag:=2;Checked:=True;end;
   ProjectMenu := TMenuItem.Create(Self); ProjectMenu.Caption := Tr('&Project'); Bar.Items.Add(ProjectMenu);
   AddMenu(ProjectMenu, '&New project...', @NewProjectClick);
   AddMenu(ProjectMenu, '&Open project...', @OpenClick);
@@ -950,7 +982,8 @@ begin
     ShortCut(Ord('O'), [ssCtrl, ssAlt]));
   AddMenu(ExecuteMenu, '&Parameters...', @ExecuteParametersClick);
   AddMenu(ExecuteMenu, '-', nil);
-  DebugMenu := AddMenu(ExecuteMenu, '&Debug', nil);
+  DebugMenu:=ExecuteMenu;
+  AddMenu(DebugMenu,'Go to breakpoint'+#9+'F2',@GotoBreakpointClick);
   AddMenu(DebugMenu, '&Start Debugging', @DebugStartClick, ShortCut(VK_F5, []));
   AddMenu(DebugMenu, 'Toggle &Breakpoint', @DebugToggleBreakpointClick,
     ShortCut(VK_F4, []));
@@ -990,10 +1023,14 @@ begin
     ShortCut(Ord('A'), [ssCtrl, ssShift])).Name := 'CommandFormat';
   AddMenu(FormatMenu, 'Format options...', @FormatOptionsClick);
   WindowMenu := TMenuItem.Create(Self); WindowMenu.Caption := Tr('&Window'); Bar.Items.Add(WindowMenu);
-  AddMenu(WindowMenu, '&Next Tab', @NextTabClick);
-  AddMenu(WindowMenu, '&Previous Tab', @PreviousTabClick);
-  AddMenu(WindowMenu, '&Close', @CloseClick);
-  AddMenu(WindowMenu, 'Close &All', @CloseAllClick);
+  FWindowMenu:=WindowMenu;WindowMenu.OnClick:=@PrepareWindowMenu;
+  AddMenu(WindowMenu,'Close &All'+#9+'Shift+Ctrl+W',@CloseAllClick);
+  AddMenu(WindowMenu,'-',nil);
+  FFullScreenItem:=AddMenu(WindowMenu,'&Full screen mode',@FullScreenClick,ShortCut(VK_F11,[ssCtrl]));
+  AddMenu(WindowMenu,'-',nil);
+  AddMenu(WindowMenu,'&Next Tab',@NextTabClick,ShortCut(VK_TAB,[ssCtrl]));
+  AddMenu(WindowMenu,'&Previous Tab',@PreviousTabClick,ShortCut(VK_TAB,[ssCtrl,ssShift]));
+  AddMenu(WindowMenu,'-',nil);
   HelpMenu := TMenuItem.Create(Self); HelpMenu.Caption := Tr('&Help'); Bar.Items.Add(HelpMenu);
   AddMenu(HelpMenu, '&About Dev-C++', @AboutClick);
 
@@ -1112,10 +1149,12 @@ begin
   Workspace.BevelOuter := bvNone;
   LeftTabs := TPageControl.Create(Self);
   FLeftTabs := LeftTabs;
-  LeftTabs.Parent := Workspace;
-  LeftTabs.Align := alLeft;
+  FLeftContainer:=TPanel.Create(Self);FLeftContainer.Parent:=Workspace;FLeftContainer.Align:=alLeft;FLeftContainer.Width:=160;FLeftContainer.BevelOuter:=bvNone;LeftTabs.Parent:=FLeftContainer;
+  LeftTabs.Align := alClient;
   LeftTabs.Width := 160;
   LeftTabs.TabHeight := 22;
+  LeftTabs.ShowTabs:=False;
+  FLeftHeader:=TPanel.Create(Self);FLeftHeader.Parent:=FLeftContainer;FLeftHeader.Align:=alTop;FLeftHeader.Height:=24;FLeftHeader.BevelOuter:=bvNone;
   LeftProjectTab := TTabSheet.Create(LeftTabs);
   LeftProjectTab.PageControl := LeftTabs;
   LeftProjectTab.Caption := Tr('Project Manager');
@@ -1129,7 +1168,20 @@ begin
   FLeftDebugTab := TTabSheet.Create(LeftTabs);
   FLeftDebugTab.PageControl := LeftTabs;
   FLeftDebugTab.Caption := Tr('Debug');
-  FLeftDebugTab.TabVisible := False;
+  FLeftDebugTab.TabVisible := True;
+  for ArgIndex:=0 to 2 do begin
+    FLeftButtons[ArgIndex]:=TButton.Create(Self);FLeftButtons[ArgIndex].Parent:=FLeftHeader;
+    FLeftButtons[ArgIndex].Tag:=ArgIndex;FLeftButtons[ArgIndex].OnClick:=@LeftHeaderClick;
+  end;
+  FLeftButtons[0].Caption:=Tr('Project Manager');FLeftButtons[1].Caption:=Tr('Classes');FLeftButtons[2].Caption:=Tr('Debug');
+  for ArgIndex:=0 to 1 do begin
+    with TButton.Create(Self) do begin
+      Parent:=FLeftHeader;SetBounds(126+ArgIndex*16,1,16,22);Tag:=ArgIndex;
+      if ArgIndex=0 then Caption:='<' else Caption:='>';
+      OnClick:=@LeftHeaderScroll;Hint:=Tr('Scroll sidebar tabs');ShowHint:=True;
+    end;
+  end;
+  UpdateLeftHeader;
   LeftTabs.ActivePage := LeftProjectTab;
   FProjectTree := TTreeView.Create(Self);
   FProjectTree.Parent := LeftProjectTab;
@@ -1276,13 +1328,12 @@ begin
   FInstanceTimer.Interval := 150;
   FInstanceTimer.OnTimer := @InstanceTick;
   FInstanceTimer.Enabled := True;
+  FCompletionTimer:=TTimer.Create(Self);FCompletionTimer.Enabled:=False;FCompletionTimer.OnTimer:=@CompletionDelayed;
   FUiTimer := TTimer.Create(Self);
   FUiTimer.Interval := 100;
   FUiTimer.OnTimer := @RefreshCommandStates;
   FUiTimer.Enabled := True;
-  StartupMark('widgets constructed');
-  InitializeDebugger;
-  StartupMark('debugger constructed');
+  StartupMark('widgets constructed; debugger deferred');
   if StartupFiles <> nil then
   for ArgIndex := 0 to StartupFiles.Count - 1 do
   begin
@@ -1317,6 +1368,7 @@ begin
   FreeAndNil(FSymbols);
   FreeAndNil(FEditorPreferences);
   ShutdownDebugger;
+  if FCompletionTimer<>nil then FCompletionTimer.Enabled:=False;
   if FUiTimer <> nil then FUiTimer.Enabled := False;
   if FInstanceTimer <> nil then FInstanceTimer.Enabled := False;
   if FFileWatchTimer <> nil then FFileWatchTimer.Enabled := False;
@@ -1394,7 +1446,8 @@ begin
     Exit(not FCompileActive and InEditor and (not DebuggerActive or
       ((FDebugger.Session.State in [gsStopped, gsRunning]) and
         not FDebugger.Session.ChangingBreakpoint)));
-  if IsCommand(@DebugStopClick) then Exit(DebuggerActive);
+  if IsCommand(@DebugStopClick) then Exit(FCompileActive or DebuggerActive);
+  if IsCommand(@GotoBreakpointClick) then Exit((FDebugger<>nil) and (FDebugger.Session.Breakpoints.Count>0));
   if IsCommand(@DebugContinueClick) or IsCommand(@DebugStepIntoClick) or
     IsCommand(@DebugStepOverClick) or IsCommand(@DebugEvaluateClick) then
     Exit(DebuggerStopped and not FCompileActive and
@@ -1616,6 +1669,7 @@ begin
   end;
   Result := FLastDirectory;
   if DirectoryExists(Result) then Exit;
+  Result:=FDefaultDirectory;if DirectoryExists(Result) then Exit;
   Result := GetUserDir;
   if not DirectoryExists(Result) then Result := GetCurrentDir;
 end;
@@ -1726,6 +1780,7 @@ end;
 procedure TMainForm.FormShown(Sender: TObject);
 begin
   StartupMark('window shown');
+  gdk_notify_startup_complete;
   RebuildNavigation;
   if (CurrentDoc <> nil) and CurrentDoc.Editor.CanFocus then
     CurrentDoc.Editor.SetFocus;
@@ -1771,6 +1826,26 @@ begin
   FCompletionList.Invalidate;
   if FDebugger <> nil then FDebugger.RefreshBreakpoints;
   UpdateStatus;
+end;
+
+procedure TMainForm.UpdateLeftHeader;
+var I,X:Integer;
+begin
+  X:=0;
+  for I:=0 to 2 do begin
+    FLeftButtons[I].Visible:=(I>=FLeftStart) and (I<FLeftStart+2);
+    FLeftButtons[I].SetBounds(X,1,63,22);
+    if FLeftButtons[I].Visible then Inc(X,63);
+  end;
+end;
+procedure TMainForm.LeftHeaderScroll(Sender:TObject);
+begin
+  FLeftStart:=TControl(Sender).Tag;UpdateLeftHeader;
+end;
+procedure TMainForm.LeftHeaderClick(Sender:TObject);
+begin
+  if TControl(Sender).Tag=2 then InitializeDebugger;
+  FLeftTabs.ActivePageIndex:=TControl(Sender).Tag;
 end;
 
 procedure TMainForm.DocumentTabsMoved(Sender: TObject);
@@ -2065,8 +2140,10 @@ begin
     if (Trigger = '>') and (SourceLine[LogicalCol - 2] <> '-') then Exit;
     if (Trigger = ':') and (SourceLine[LogicalCol - 2] <> ':') then Exit;
   end;
-  ShowCompletion(Doc, True);
+  FCompletionTimer.Enabled:=False;FCompletionTimer.Interval:=FEditorPreferences.CompletionDelay;FCompletionTimer.Enabled:=True;
 end;
+procedure TMainForm.CompletionDelayed(Sender:TObject);
+begin FCompletionTimer.Enabled:=False;if (FDocumentDialogs=0) and (Application.ModalLevel=0) then ShowCompletion(CurrentDoc,True);end;
 
 procedure TMainForm.EditorMouseWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
@@ -2120,6 +2197,7 @@ begin
   if FMenuShortcuts <> nil then begin
     ShortcutItem := FMenuShortcuts.Match(Key, Modifiers, Suppress);
     if ShortcutItem <> nil then begin
+      if (Key=VK_F2) and (Modifiers=[]) and not FCompileActive and SameHandler(ShortcutItem.OnClick,@AbortCompileClick) then begin Dispatch(@GotoBreakpointClick);Exit;end;
       if CommandAvailable(ShortcutItem.OnClick) then ShortcutItem.Click;
       Key := 0; Exit;
     end;
@@ -2185,7 +2263,7 @@ begin
   else if Modifiers = [] then
   begin
     case Key of
-      VK_F2: Dispatch(@AbortCompileClick);
+      VK_F2: if FCompileActive then Dispatch(@AbortCompileClick) else Dispatch(@GotoBreakpointClick);
       VK_F4: Dispatch(@DebugToggleBreakpointClick);
       VK_F5: Dispatch(@DebugStartClick);
       VK_F6: Dispatch(@DebugStopClick);
@@ -2505,10 +2583,10 @@ begin
     TrimmedSuffix := TrimLeft(Suffix);
     BaseIndent := TabIndentOf(Prefix);
     NewIndent := BaseIndent;
-    if (efAddIndent in FEditorPreferences.Flags) and (Length(TrimmedPrefix) > 0) and
+    if CodeDocument(Doc) and (efAddIndent in FEditorPreferences.Flags) and (Length(TrimmedPrefix) > 0) and
       (TrimmedPrefix[Length(TrimmedPrefix)] = '{') then
       NewIndent := NewIndent + #9;
-    if (efAddIndent in FEditorPreferences.Flags) and (Length(TrimmedPrefix) > 0) and
+    if CodeDocument(Doc) and (efAddIndent in FEditorPreferences.Flags) and (Length(TrimmedPrefix) > 0) and
       (TrimmedPrefix[Length(TrimmedPrefix)] = ':') and
       ((Copy(TrimLeft(TrimmedPrefix), 1, 5) = 'case ') or
        (Copy(TrimLeft(TrimmedPrefix), 1, 5) = 'case'#9) or
@@ -2528,6 +2606,7 @@ begin
       Doc.Editor.SelText := LineEnding + NewIndent;
     Exit;
   end;
+  if not CodeDocument(Doc) or not FEditorPreferences.DeletePairs then Exit;
   if Command = ecDeleteLastWord then
   begin
     if (P.X > 1) and (P.X <= Length(LineText)) and
@@ -2577,9 +2656,10 @@ var
   PosBefore: TPoint;
   LineText, SelectedText, ClosingText, IncludePrefix: string;
   Context: TCppEditContext;
-  SlashColumn, SlashCount: Integer;
+  SlashColumn, SlashCount, PairIndex: Integer;
 begin
   Doc := CurrentDoc;
+  if not CodeDocument(Doc) then Exit;
   if (Doc = nil) or (Doc.Editor <> Sender) then Exit;
   if Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
   begin
@@ -2594,6 +2674,16 @@ begin
     Key := #0;
     Exit;
   end;
+  if not FEditorPreferences.PairSymbols then Exit;
+  if (Key='*') and ((FEditorPreferences.PairMask and 16)<>0) then begin
+    PosBefore:=Doc.Editor.LogicalCaretXY;LineText:=Doc.Editor.Lines[PosBefore.Y-1];
+    if (PosBefore.X>1) and (LineText[PosBefore.X-1]='/') and
+      (CppContextAt(Doc.Editor,Point(PosBefore.X-1,PosBefore.Y))=cecCode) then begin
+      Doc.Editor.SelText:='**/';Doc.Editor.LogicalCaretXY:=Point(PosBefore.X+1,PosBefore.Y);Key:=#0;Exit;
+    end;
+  end;
+  PairIndex:=-1;case Key of '{','}':PairIndex:=0;'(',')':PairIndex:=1;'<','>':PairIndex:=2;'[',']':PairIndex:=3;#39:PairIndex:=5;'"':PairIndex:=6;end;
+  if (PairIndex>=0) and ((FEditorPreferences.PairMask and (1 shl PairIndex))=0) then Exit;
   if not (Key in ['(', '[', '{', '<', '''', '"', ')', ']', '}', '>']) then Exit;
   Closing := #0;
   PosBefore := Doc.Editor.LogicalCaretXY;
@@ -2694,12 +2784,13 @@ var
   P: TPoint;
 begin
   if not (efCompletion in FEditorPreferences.Flags) then Exit;
-  if (Doc = nil) or Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
+  if not CodeDocument(Doc) or Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
   begin
     HideCompletion;
     Exit;
   end;
   HideFunctionTip;
+  FCompletionForm.Color:=FEditorPreferences.CompletionColor;FCompletionList.Color:=FEditorPreferences.CompletionColor;
   FCompletionDoc := Doc;
   Prefix := '';
   FCompletionMemberName := '';
@@ -2765,7 +2856,7 @@ var
   Keywords: TStringList;
   Members: TStringList;
   SourceLine, Candidate: string;
-  I, J, StartPos: Integer;
+  I, J, StartPos: Integer;HeaderSource:string;
 
   procedure AddCandidate(const Value, Kind: string);
   var DisplayValue, DisplayKind: string;
@@ -2797,6 +2888,7 @@ var
 begin
   Doc := FCompletionDoc;
   if Doc = nil then Exit;
+  HeaderSource:='';if FEditorPreferences.ScanLocalHeaders then HeaderSource:=Doc.FileName;
   Candidates := TStringList.Create;
   Keywords := TStringList.Create;
   Members := TStringList.Create;
@@ -2809,7 +2901,7 @@ begin
     begin
       if FCompletionMemberName <> '' then
         CollectCppMembers(Doc.Editor.Lines.Text, FCompletionMemberName,
-          Members, Doc.FileName);
+          Members, HeaderSource);
       for I := 0 to Members.Count - 1 do
         AddCandidate(Members.Names[I], Members.ValueFromIndex[I]);
     end
@@ -2854,12 +2946,13 @@ begin
 end;
 
 procedure TMainForm.EnsureFunctionSignatures(Doc: TDocument);
+var HeaderSource:string;
 begin
-  if Doc = nil then Exit;
+  if not CodeDocument(Doc) then Exit;
   if FTipDoc = Doc then Exit;
-  FTipDoc := Doc;
+  FTipDoc := Doc;HeaderSource:='';if FEditorPreferences.ScanLocalHeaders then HeaderSource:=Doc.FileName;
   CollectCppFunctionSignatures(Doc.Editor.Lines.Text, FTipSignatures,
-    Doc.FileName);
+    HeaderSource);
 end;
 
 procedure TMainForm.HideFunctionTip;
@@ -2874,7 +2967,7 @@ var
   CaretPos, ScreenPos: TPoint;
 begin
   if not (efFunctionHints in FEditorPreferences.Flags) then begin HideFunctionTip; Exit; end;
-  if (Doc = nil) or FCompletionForm.Visible then
+  if not CodeDocument(Doc) or FCompletionForm.Visible then
   begin
     HideFunctionTip;
     Exit;
@@ -3032,7 +3125,7 @@ begin
   end
   else
   begin
-    FCompletionList.Canvas.Brush.Color := clWindow;
+    FCompletionList.Canvas.Brush.Color := FEditorPreferences.CompletionColor;
     if (KindName = 'function') or (KindName = 'function0') then
       FCompletionList.Canvas.Font.Color := clGreen
     else if KindName = 'type' then
@@ -3061,7 +3154,7 @@ var
   StartPos, OpenParenPos, NameStart: Integer;
 begin
   Doc := FCompletionDoc;
-  if (Doc = nil) or (FCompletionList.ItemIndex < 0) then Exit;
+  if not CodeDocument(Doc) or (FCompletionList.ItemIndex < 0) then Exit;
   if Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then
   begin
     HideCompletion;
@@ -3227,10 +3320,11 @@ begin
   UpdateStatus;
 end;
 
-procedure TMainForm.CreateDocument(AssignUntitledName: Boolean);
+procedure TMainForm.CreateDocument(AssignUntitledName: Boolean; const InitialFileName: string);
 var Doc: TDocument;
 begin
   Doc := TDocument.Create;
+  Doc.FileName:=InitialFileName;
   Doc.ErrorLine := -1;
   if AssignUntitledName then
   begin
@@ -3310,12 +3404,13 @@ begin
     RememberRecentPath(Doc.FileName);
     Exit;
   end;
-  CreateDocument(False);
+  CreateDocument(False,ExpandFileName(FileName));
   Doc := CurrentDoc;
   FLoading := True;
   try
     try
       LoadDocumentLines(Doc.Editor.Lines, FileName, Doc.DiskSnapshot);
+      Doc.CachedLength:=UTF8Length(Doc.Editor.Lines.Text);
       Doc.SeenDiskSnapshot := Doc.DiskSnapshot;
       Doc.FileName := ExpandFileName(FileName);
       UpdateDebugMarkers(Doc);
@@ -3674,6 +3769,7 @@ end;
 procedure TMainForm.ProjectManagerClick(Sender: TObject);
 var ProjectTab: TTabSheet;
 begin
+  FLeftContainer.Show;FLeftStart:=0;UpdateLeftHeader;
   ProjectTab := TTabSheet(FProjectTree.Parent);
   ProjectTab.PageControl.ActivePage := ProjectTab;
   FProjectTree.SetFocus;
@@ -3726,7 +3822,7 @@ begin
 end;
 
 procedure TMainForm.LoadCompilerSettings;
-var Ini: TIniFile;
+var Ini: TIniFile;NeedProfileSave:Boolean;
 begin
   FOptionsPath := ApplicationConfigFile(True);
   FCompilerProfiles := TCompilerProfiles.Create;
@@ -3735,8 +3831,10 @@ begin
   ForceDirectories(ExtractFileDir(FOptionsPath));
   Ini := TIniFile.Create(FOptionsPath);
   try
+    NeedProfileSave:=not Ini.SectionExists('CompilerProfiles');
     FCompilerProfiles.Load(Ini);
     if not Ini.ReadBool('CompilerProfiles','NativePresetsV1',False) then begin
+      NeedProfileSave:=True;
       if (FCompilerProfiles.Count=1) and (FCompilerProfiles[0].Name='Default') and
         (FCompilerProfiles[0].CCompiler='gcc') and (FCompilerProfiles[0].CppCompiler='g++') and
         (FCompilerProfiles[0].CFlags='-g -O2 -Wall -Wextra') and
@@ -3748,7 +3846,7 @@ begin
     end;
     FEditorPreferences.Load(Ini);
     { Persist migration before editing, leaving the legacy [Compiler] intact. }
-    FCompilerProfiles.Save(Ini);
+    if NeedProfileSave then FCompilerProfiles.Save(Ini);
     FEditorFontName := Ini.ReadString('Editor', 'FontName', FEditorFontName);
     if Trim(FEditorFontName) = '' then FEditorFontName := DefaultEditorFontName;
     FEditorThemeName := EditorThemeName(EditorThemeIndex(
@@ -3835,6 +3933,9 @@ begin
   SaveEditorSettings;
 end;
 
+function TMainForm.CodeDocument(Doc:TDocument):Boolean;
+begin Result:=(Doc<>nil) and IsCodeFile(Doc.FileName,FEditorPreferences.SyntaxExtensions);end;
+
 procedure TMainForm.ApplyDocumentEditorSettings(Doc: TDocument);
 begin
   Doc.Editor.Font.Name := ResolveEditorFontName(FEditorFontName);
@@ -3846,7 +3947,13 @@ begin
     Doc.Syntax.CharacterAttri,
     FEditorThemeName, Doc.ThemeColors, Doc.Syntax.FloatAttri,
     Doc.Syntax.HexAttri, Doc.Syntax.OctalAttri);
-  FEditorPreferences.Apply(Doc.Editor, Doc.Syntax);
+  FEditorPreferences.Apply(Doc.Editor,Doc.Syntax,CodeDocument(Doc));
+  FEditorPreferences.ApplySpecial(Doc.Editor,Doc.ThemeColors);
+  TNoiSynEdit(Doc.Editor).CodeFeatures:=CodeDocument(Doc);
+  if not CodeDocument(Doc) then begin
+    Doc.Editor.Highlighter:=nil;
+    if Doc.Editor.Gutter.CodeFoldPart<>nil then Doc.Editor.Gutter.CodeFoldPart.Visible:=False;
+  end;
   TNoiSynEdit(Doc.Editor).EnhancedHome := efEnhanceHome in FEditorPreferences.Flags;
 end;
 
@@ -4118,6 +4225,7 @@ begin
       end;
       { Commit the editor identity only after the file and project write succeed. }
       Doc.FileName := SelectedPath;
+      ApplyDocumentEditorSettings(Doc);
       if FDebugger <> nil then
       begin
         FDebugger.Session.RenameBreakpoints(OldName, SelectedPath);
@@ -4384,6 +4492,7 @@ begin
   if (Doc = nil) or (FDocs.IndexOf(Doc) < 0) then Exit;
   HideCompletion;
   HideFunctionTip;
+  if FSearchScopeDoc=Doc then begin FSearchScopeDoc:=nil;FSearchSpec.SelectedOnly:=False;end;
   if FCompletionDoc = Doc then FCompletionDoc := nil;
   if FTipDoc = Doc then FTipDoc := nil;
   for I := FCompilerList.Items.Count - 1 downto 0 do
@@ -4477,245 +4586,7 @@ end;
 procedure TMainForm.CompletionClick(Sender: TObject);
 begin ShowCompletion(CurrentDoc, False); end;
 
-procedure TMainForm.FindClick(Sender: TObject);
-var Query: string; Doc: TDocument;
-begin
-  if Sender is TMenuItem then
-  begin QueueMenuDialog(@FindClick); Exit; end;
-  Query := FFindText;
-  Doc := CurrentDoc;
-  if Doc = nil then Exit;
-  if efFindAtCursor in FEditorPreferences.Flags then Query := Doc.Editor.GetWordAtRowCol(Doc.Editor.LogicalCaretXY);
-  if Doc.Editor.SelAvail and (Pos(#10, Doc.Editor.SelText) = 0) and
-    (Pos(#13, Doc.Editor.SelText) = 0) then Query := Doc.Editor.SelText;
-  if UiInputQuery(Tr('Find'), Tr('Find:'), Query) and (Query <> '') then
-  begin FFindText := Query; FindNextClick(Self); end;
-end;
-
-procedure TMainForm.FindNextClick(Sender: TObject);
-var
-  Doc: TDocument;
-  SourceLine: string;
-  Pass, Row, Column, StartRow, StartCol, LastRow, FirstByte, LastByte,
-    MatchBytes: Integer;
-begin
-  if Sender is TMenuItem then
-  begin QueueMenuDialog(@FindNextClick); Exit; end;
-  Doc := CurrentDoc;
-  if (Doc = nil) or (FFindText = '') or (Doc.Editor.Lines.Count = 0) then Exit;
-  StartRow := Max(1, Min(Doc.Editor.CaretY, Doc.Editor.Lines.Count));
-  StartCol := Doc.Editor.LogicalCaretXY.X;
-  for Pass := 0 to 1 do
-  begin
-    if Pass = 0 then LastRow := Doc.Editor.Lines.Count
-    else LastRow := StartRow;
-    if Pass = 0 then Row := StartRow else Row := 1;
-    while Row <= LastRow do
-    begin
-      SourceLine := Doc.Editor.Lines[Row - 1];
-      FirstByte := 1;
-      LastByte := Length(SourceLine);
-      if (Pass = 0) and (Row = StartRow) then FirstByte := StartCol;
-      if (Pass = 1) and (Row = StartRow) then LastByte := StartCol - 1;
-      Column := FindTextForward(SourceLine, FFindText, FirstByte, LastByte, MatchBytes);
-      if Column > 0 then
-      begin
-        Doc.Editor.LogicalCaretXY := Point(Column + MatchBytes, Row);
-        Doc.Editor.BlockBegin := Point(Column, Row);
-        Doc.Editor.BlockEnd := Point(Column + MatchBytes, Row);
-        Doc.Editor.SetFocus;
-        Exit;
-      end;
-      Inc(Row);
-    end;
-  end;
-  SetStatusMessage(Format(Tr('Text not found: %s'), [FFindText]));
-end;
-
-procedure TMainForm.FindAllClick(Sender: TObject);
-var
-  Query, SourceLine: string;
-  Doc: TDocument;
-  Entry: TListItem;
-  DocIndex, Row, FoundAt, Offset, MatchBytes: Integer;
-begin
-  if Sender is TMenuItem then
-  begin QueueMenuDialog(@FindAllClick); Exit; end;
-  if FCompileActive then Exit;
-  Query := FFindText;
-  Doc := CurrentDoc;
-  if (Doc <> nil) and Doc.Editor.SelAvail and
-    (Pos(#10, Doc.Editor.SelText) = 0) and
-    (Pos(#13, Doc.Editor.SelText) = 0) then Query := Doc.Editor.SelText;
-  if not UiInputQuery(Tr('Find All'), Tr('Find:'), Query) or (Query = '') then Exit;
-  FFindText := Query;
-  FSearchList.Items.BeginUpdate;
-  try
-    FSearchList.Items.Clear;
-    for DocIndex := 0 to FDocs.Count - 1 do
-    begin
-      Doc := TDocument(FDocs[DocIndex]);
-      for Row := 0 to Doc.Editor.Lines.Count - 1 do
-      begin
-        SourceLine := Doc.Editor.Lines[Row];
-        Offset := 1;
-        while Offset <= Length(SourceLine) do
-        begin
-          FoundAt := FindTextForward(SourceLine, Query, Offset, Length(SourceLine), MatchBytes);
-          if FoundAt = 0 then Break;
-          Entry := FSearchList.Items.Add;
-          Entry.Caption := IntToStr(Row + 1);
-          Entry.SubItems.Add(IntToStr(FoundAt));
-          if Doc.FileName <> '' then Entry.SubItems.Add(Doc.FileName)
-          else Entry.SubItems.Add(Doc.UntitledName);
-          Entry.SubItems.Add(Trim(SourceLine));
-          Entry.SubItems.Add(IntToStr(MatchBytes));
-          Entry.Data := Pointer(Doc);
-          Offset := FoundAt + MatchBytes;
-        end;
-      end;
-    end;
-  finally
-    FSearchList.Items.EndUpdate;
-  end;
-  FBottomPanel.Show; FReportSplitter.Show;
-  FReportTabs.ActivePage := FSearchTab;
-  SetStatusMessage(Format(Tr('%d matches for %s'), [FSearchList.Items.Count, Query]));
-end;
-
-procedure TMainForm.FindPreviousClick(Sender: TObject);
-var
-  Doc: TDocument;
-  SourceLine: string;
-  Pass, Row, Column, StartRow, StartCol, FirstByte, LastByte, MatchBytes: Integer;
-begin
-  if Sender is TMenuItem then
-  begin QueueMenuDialog(@FindPreviousClick); Exit; end;
-  Doc := CurrentDoc;
-  if (Doc = nil) or (FFindText = '') or (Doc.Editor.Lines.Count = 0) then Exit;
-  StartRow := Max(1, Min(Doc.Editor.CaretY, Doc.Editor.Lines.Count));
-  StartCol := Doc.Editor.LogicalCaretXY.X;
-  if Doc.Editor.SelAvail then
-  begin
-    StartRow := Doc.Editor.BlockBegin.Y;
-    StartCol := Doc.Editor.BlockBegin.X;
-  end;
-  for Pass := 0 to 1 do
-  begin
-    if Pass = 0 then Row := StartRow else Row := Doc.Editor.Lines.Count;
-    while (Row >= 1) and ((Pass = 0) or (Row >= StartRow)) do
-    begin
-      SourceLine := Doc.Editor.Lines[Row - 1];
-      FirstByte := 1;
-      LastByte := Length(SourceLine);
-      if (Pass = 0) and (Row = StartRow) then LastByte := StartCol - 1;
-      if (Pass = 1) and (Row = StartRow) then FirstByte := StartCol;
-      Column := FindTextBackward(SourceLine, FFindText, FirstByte, LastByte, MatchBytes);
-      if Column > 0 then
-      begin
-        Doc.Editor.LogicalCaretXY := Point(Column + MatchBytes, Row);
-        Doc.Editor.BlockBegin := Point(Column, Row);
-        Doc.Editor.BlockEnd := Point(Column + MatchBytes, Row);
-        Doc.Editor.SetFocus;
-        Exit;
-      end;
-      Dec(Row);
-    end;
-  end;
-  SetStatusMessage(Format(Tr('Text not found: %s'), [FFindText]));
-end;
-
-procedure TMainForm.ReplaceClick(Sender: TObject);
-var
-  Doc: TDocument;
-  Query, Replacement, OriginalText, NewText: string;
-  Answer, MatchCount, SelectedBytes: Integer;
-  OriginalCaret, OriginalStart, OriginalEnd: TPoint;
-
-  function ClampPoint(P: TPoint): TPoint;
-  begin
-    if Doc.Editor.Lines.Count = 0 then Exit(Point(1, 1));
-    P.Y := Max(1, Min(P.Y, Doc.Editor.Lines.Count));
-    P.X := Max(1, Min(P.X, Length(Doc.Editor.Lines[P.Y - 1]) + 1));
-    { Do not restore a caret into the middle of a multi-byte character. }
-    while (P.X > 1) and (P.X <= Length(Doc.Editor.Lines[P.Y - 1])) and
-      ((Ord(Doc.Editor.Lines[P.Y - 1][P.X]) and $C0) = $80) do Dec(P.X);
-    Result := P;
-  end;
-
-  function SelectionMatches: Boolean;
-  begin
-    SelectedBytes := Length(Doc.Editor.SelText);
-    Result := (SelectedBytes > 0) and
-      (FindTextMatchLengthAt(Doc.Editor.SelText, Query, 1) = SelectedBytes);
-  end;
-begin
-  if Sender is TMenuItem then
-  begin QueueMenuDialog(@ReplaceClick); Exit; end;
-  Doc := CurrentDoc;
-  if (Doc = nil) or FCompileActive or Doc.Editor.ReadOnly then Exit;
-  Query := FFindText;
-  if Doc.Editor.SelAvail and (Pos(#10, Doc.Editor.SelText) = 0) and
-    (Pos(#13, Doc.Editor.SelText) = 0) then Query := Doc.Editor.SelText;
-  if not UiInputQuery(Tr('Replace'), Tr('Find:'), Query) or (Query = '') then Exit;
-  Replacement := '';
-  if not UiInputQuery(Tr('Replace'), Tr('Replace with:'), Replacement) then Exit;
-  FFindText := Query;
-  if Sender = nil then Answer := mrYes
-  else Answer := UiMessageDlg(Tr('Replace all occurrences?' + LineEnding +
-    'Yes: replace all    No: replace next'), mtConfirmation,
-    [mbYes, mbNo, mbCancel], 0);
-  if Answer = mrCancel then Exit;
-  if (FDocs.IndexOf(Doc) < 0) or FCompileActive then Exit;
-  if Answer = mrYes then
-  begin
-    OriginalCaret := Doc.Editor.LogicalCaretXY;
-    OriginalStart := Doc.Editor.BlockBegin;
-    OriginalEnd := Doc.Editor.BlockEnd;
-    Doc.Editor.BeginUndoBlock;
-    try
-      Doc.Editor.SelectAll;
-      OriginalText := Doc.Editor.SelText;
-      NewText := ReplaceTextMatches(OriginalText, Query, Replacement, MatchCount);
-      if MatchCount > 0 then Doc.Editor.SelText := NewText;
-      Doc.Editor.LogicalCaretXY := ClampPoint(OriginalCaret);
-      if (OriginalCaret.Y = OriginalStart.Y) and (OriginalCaret.X = OriginalStart.X) then
-      begin
-        Doc.Editor.BlockBegin := ClampPoint(OriginalEnd);
-        Doc.Editor.BlockEnd := ClampPoint(OriginalStart);
-      end
-      else
-      begin
-        Doc.Editor.BlockBegin := ClampPoint(OriginalStart);
-        Doc.Editor.BlockEnd := ClampPoint(OriginalEnd);
-      end;
-    finally
-      Doc.Editor.EndUndoBlock;
-    end;
-    Doc.Editor.SetFocus;
-  end
-  else
-  begin
-    if not SelectionMatches then FindNextClick(Self);
-    if SelectionMatches then
-    begin
-      Doc.Editor.BeginUndoBlock;
-      try
-        Doc.Editor.SelText := Replacement;
-      finally
-        Doc.Editor.EndUndoBlock;
-      end;
-      FindNextClick(Self);
-    end;
-  end;
-end;
-
-procedure TMainForm.ReplaceAllClick(Sender: TObject);
-begin
-  if Sender is TMenuItem then
-  begin QueueMenuDialog(@ReplaceAllClick); Exit; end;
-  ReplaceClick(nil);
-end;
+{$I mainform_search.inc}
 
 procedure TMainForm.GotoClick(Sender: TObject);
 var Doc: TDocument; LineInput: string; Row: Integer;
@@ -5337,6 +5208,7 @@ begin
   end;
   FDebugger := TDebuggerPanel.Create(Self);
   FDebugger.Parent := FDebugTab; FDebugger.Align := alClient;
+  RefreshInputAppearance(FDebugger);
   FDebugger.AttachSidebar(FLeftDebugTab);
   FDebugger.Session.OnLocation := @DebugLocation;
   FDebugger.OnStateChange := @DebugStateChange;
@@ -5361,8 +5233,8 @@ end;
 procedure TMainForm.DebugStateChange(Sender: TObject);
 var I: Integer;
 begin
-  FLeftDebugTab.TabVisible := DebuggerActive;
-  if DebuggerActive then begin FBottomPanel.Show; FReportSplitter.Show; end;
+  FLeftDebugTab.TabVisible := True;
+  if DebuggerActive then begin FLeftTabs.ActivePage:=FLeftDebugTab;FLeftStart:=1;UpdateLeftHeader;FBottomPanel.Show; FReportSplitter.Show; end;
   if not DebuggerStopped then begin FDebugLine := 0; FDebugFile := ''; end;
   if FDocs <> nil then
     for I := 0 to FDocs.Count - 1 do
@@ -5515,7 +5387,7 @@ begin if FDebugger <> nil then FDebugger.Session.StepInto; end;
 procedure TMainForm.DebugStepOverClick(Sender: TObject);
 begin if FDebugger <> nil then FDebugger.Session.StepOver; end;
 procedure TMainForm.DebugStopClick(Sender: TObject);
-begin if FDebugger <> nil then FDebugger.Session.Stop; end;
+begin if FCompileActive then AbortCompileClick(Sender) else if FDebugger<>nil then FDebugger.Session.Stop;end;
 procedure TMainForm.DebugEvaluateClick(Sender: TObject);
 begin
   if FDebugger = nil then Exit;

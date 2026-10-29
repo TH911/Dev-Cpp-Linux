@@ -6,8 +6,8 @@ function EditAdvancedEditor(AOwner: TComponent; Preferences: TEditorPreferences;
   var ThemeName, FontName: string; var FontSize, TabWidth: Integer): Boolean;
 implementation
 uses SysUtils, Math, Types, LazUTF8, LCLType, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Spin,
-  Graphics, Dialogs, ColorBox, SynEdit, SynEditHighlighter, cpp_highlighter,
-  editor_themes, ui_language, input_appearance;
+  Graphics, Dialogs, ColorBox, SynEdit, SynEditHighlighter, SynGutterLineNumber, cpp_highlighter,
+  editor_themes, ui_language, input_appearance, font_match;
 type
   TEditorOptionsForm = class(TForm)
   private
@@ -20,10 +20,20 @@ type
     FAttributes, FSnippets: TListBox;
     FDefaultCode, FSnippetCode: TSynEdit;
     FPreview: TSynEdit;
+    FPreviewColors:TEditorThemeColors;
+    FSpecial:array[0..5] of TSynHighlighterAttributes;
+    FExtensions:TEdit;
+    FCompletionDelay:TSpinEdit;
+    FPairEnable,FDeletePairs,FLocalHeaders:TCheckBox;
+    FPairs:array[0..6] of TCheckBox;
+    FRecoveryScope,FRecoveryNaming:TRadioGroup;
+    FCompletionColor:TColorBox;
     FSyntax: TNoiCppSyn;
     FStyles: array[0..2] of TCheckBox;
     FUpdating: Boolean;
     FSelectedSnippet: Integer;
+    procedure PreviewLine(Sender:TObject;Line:Integer;var Special:Boolean;var FG,BG:TColor);
+    procedure UpdateSpecialAttributes;
     procedure DialogKeyDown(Sender:TObject; var Key:Word; Shift:TShiftState);
     procedure RefreshPreview(Sender: TObject);
     procedure ThemeChanged(Sender: TObject);
@@ -78,12 +88,14 @@ begin
 end;
 constructor TEditorOptionsForm.CreateSettings(AOwner:TComponent;Preferences:TEditorPreferences;
   const ThemeName,FontName:string;FontSize,TabWidth:Integer);
-var Basic, DisplayTab, SyntaxTab, CodeTab, CompletionTab, RecoveryTab:TTabSheet;
+const SpecialNames:array[0..5] of string=('Selected text','Breakpoints','Active breakpoints','Error line','Gutter','Fold markers');
+var Basic, DisplayTab, SyntaxTab, CodeTab, CompletionTab, RecoveryTab,InsertTab,DefaultTab,EngineTab,SymbolsTab:TTabSheet;
+  SubPages:TPageControl;
   P:TGroupBox;
   G:TGroupBox; Buttons:TPanel; B:TButton; I:Integer; F:TEditorFlag;
   procedure FontCombo(C:TComboBox;const AName:string);
   begin
-    C.Style:=csOwnerDrawEditableFixed;C.Items.Assign(Screen.Fonts);C.Text:=AName;
+    C.Style:=csOwnerDrawEditableFixed;ListFontFamilies(C.Items);C.Text:=AName;
     C.ItemHeight:=32;C.OnDrawItem:=@DrawFont;
   end;
 begin
@@ -129,31 +141,64 @@ begin
   FPreview:=TSynEdit.Create(Self);FPreview.Parent:=SyntaxTab;FPreview.SetBounds(174,12,408,394);FPreview.ReadOnly:=True;
   FPreview.Font.Name:=ResolveEditorFontName(FontName);FPreview.Font.Size:=FontSize;FPreview.RightEdge:=0;
   FSyntax:=TNoiCppSyn.Create(Self);FPreview.Highlighter:=FSyntax;
-  FPreview.Lines.Text:='#include <iostream>'+LineEnding+'int main(int argc, char **argv) {'+LineEnding+'    // syntax preview'+LineEnding+'    double number = 1e5;'+LineEnding+'    char letter = ''A'';'+LineEnding+'    std::cout << "total: " << number;'+LineEnding+'    return 0;'+LineEnding+'}';
+  FPreview.Lines.Text:='#include <iostream>'+LineEnding+'#include <conio.h>'+LineEnding+''+LineEnding+'int main(int argc, char **argv)'+LineEnding+'{'+LineEnding+'    int numbers[20];'+LineEnding+'    float average, total; //breakpoint'+LineEnding+'    for (int i = 0; i <= 19; i++)'+LineEnding+'    { // active breakpoint'+LineEnding+'        numbers[i] = i;'+LineEnding+'        Total += i; // error line'+LineEnding+'    }'+LineEnding+'    average = total / 20; // comment'+LineEnding+'    cout << "total: " << total << "\nAverage: " << average;'+LineEnding+'    getch();'+LineEnding+'}';
+  FPreview.OnSpecialLineColors:=@PreviewLine;
   for I:=0 to FSyntax.AttrCount-1 do FAttributes.Items.AddObject(FSyntax.Attribute[I].Name,FSyntax.Attribute[I]);
-  FTheme:=Combo(SyntaxTab,'Preset',174,418,408);FTheme.Style:=csDropDownList;
+  for I:=0 to 5 do begin
+    FSpecial[I]:=TSynHighlighterAttributes.Create(SpecialNames[I],SpecialNames[I]);
+    FAttributes.Items.AddObject(FSpecial[I].Name,FSpecial[I]);
+  end;
+  FTheme:=Combo(SyntaxTab,'Preset',10,454,152);FTheme.Style:=csDropDownList;
   for I:=0 to EditorThemeCount-1 do FTheme.Items.Add(EditorThemeName(I));FTheme.ItemIndex:=EditorThemeIndex(ThemeName);FTheme.OnChange:=@ThemeChanged;
-  Flag(SyntaxTab,efSyntax,174,476,408);
-  P:=Group(CodeTab,'Inserts',10,10,200,488);
-  FSnippets:=TListBox.Create(Self);FSnippets.Parent:=P;FSnippets.SetBounds(10,22,180,170);FSnippets.OnSelectionChange:=@SnippetChanged;
-  FSnippetCode:=TSynEdit.Create(Self);FSnippetCode.Parent:=P;FSnippetCode.SetBounds(10,238,180,236);FSnippetCode.ScrollBars:=ssAutoBoth;FSnippetCode.Font.Name:=DefaultEditorFontName;FSnippetCode.Font.Size:=10;FSnippetCode.RightEdge:=0;
-  B:=TButton.Create(Self);B.Parent:=P;B.SetBounds(10,200,84,30);B.Caption:=Tr('Add');B.OnClick:=@AddSnippet;
-  B:=TButton.Create(Self);B.Parent:=P;B.SetBounds(102,200,88,30);B.Caption:=Tr('Remove');B.OnClick:=@RemoveSnippet;
+  Flag(SyntaxTab,efSyntax,174,434,408);
+  FExtensions:=TEdit.Create(Self);FExtensions.Parent:=SyntaxTab;FExtensions.SetBounds(174,466,408,28);FExtensions.Text:=FWorking.SyntaxExtensions;
+  SubPages:=TPageControl.Create(Self);SubPages.Parent:=CodeTab;SubPages.Align:=alClient;
+  InsertTab:=TTabSheet.Create(Self);InsertTab.PageControl:=SubPages;InsertTab.Caption:=Tr('Inserts');
+  DefaultTab:=TTabSheet.Create(Self);DefaultTab.PageControl:=SubPages;DefaultTab.Caption:=Tr('Default insert');
+  P:=Group(InsertTab,'Inserts',6,4,572,460);
+  FSnippets:=TListBox.Create(Self);FSnippets.Parent:=P;FSnippets.SetBounds(10,22,440,164);FSnippets.OnSelectionChange:=@SnippetChanged;
+  FSnippetCode:=TSynEdit.Create(Self);FSnippetCode.Parent:=P;FSnippetCode.SetBounds(10,204,548,240);FSnippetCode.ScrollBars:=ssAutoBoth;FSnippetCode.Font.Name:=DefaultEditorFontName;FSnippetCode.Font.Size:=10;FSnippetCode.RightEdge:=0;
+  B:=TButton.Create(Self);B.Parent:=P;B.SetBounds(464,30,94,30);B.Caption:=Tr('Add');B.OnClick:=@AddSnippet;
+  B:=TButton.Create(Self);B.Parent:=P;B.SetBounds(464,70,94,30);B.Caption:=Tr('Remove');B.OnClick:=@RemoveSnippet;
   for I:=0 to FWorking.Snippets.Count-1 do FSnippets.Items.Add(FWorking.Snippets.Names[I]);
-  P:=Group(CodeTab,'Default insert',220,10,362,488);Flag(P,efDefaultCode,10,22,340);
-  FDefaultCode:=TSynEdit.Create(Self);FDefaultCode.Parent:=P;FDefaultCode.SetBounds(10,62,342,412);FDefaultCode.Lines.Text:=FWorking.DefaultCode;FDefaultCode.ScrollBars:=ssAutoBoth;FDefaultCode.Font.Name:=DefaultEditorFontName;FDefaultCode.Font.Size:=10;FDefaultCode.RightEdge:=0;
-  G:=Group(CompletionTab,'Code completion',10,12,572,150);Flag(G,efCompletion,12,26,548);
-  LabelAt(G,'Ctrl+Space invokes completion; automatic member completion uses the current source and local headers.',12,66,548,68);
-  LabelAt(CompletionTab,'Function hints and editor hints are configured on the Basic page.',22,188,548,58);
-  G:=Group(RecoveryTab,'Auto save',10,12,572,192);Flag(G,efAutoSave,12,26,548);
-  FSeconds:=Spin(G,'Interval (seconds)',12,74,230,10,3600,FWorking.AutoSaveSeconds);
-  LabelAt(RecoveryTab,'Recovery copies keep unsaved buffers without overwriting source files. They are stored under ~/.cache/dev-cpp/autosave/.',22,236,548,96);
+  P:=Group(DefaultTab,'Default insert',6,4,572,460);Flag(P,efDefaultCode,10,22,548);
+  FDefaultCode:=TSynEdit.Create(Self);FDefaultCode.Parent:=P;FDefaultCode.SetBounds(10,62,548,382);FDefaultCode.Lines.Text:=FWorking.DefaultCode;FDefaultCode.ScrollBars:=ssAutoBoth;FDefaultCode.Font.Name:=DefaultEditorFontName;FDefaultCode.Font.Size:=10;FDefaultCode.RightEdge:=0;
+  SubPages:=TPageControl.Create(Self);SubPages.Parent:=CompletionTab;SubPages.Align:=alClient;
+  EngineTab:=TTabSheet.Create(Self);EngineTab.PageControl:=SubPages;EngineTab.Caption:='Code Completion';
+  SymbolsTab:=TTabSheet.Create(Self);SymbolsTab.PageControl:=SubPages;SymbolsTab.Caption:=Tr('Symbol completion');
+  Flag(EngineTab,efCompletion,12,12,548);
+  G:=Group(EngineTab,'Engine options',12,54,550,88);
+  FLocalHeaders:=TCheckBox.Create(Self);FLocalHeaders.Parent:=G;FLocalHeaders.SetBounds(12,24,524,24);
+  FLocalHeaders.Caption:=Tr('Scan local headers');FLocalHeaders.Checked:=FWorking.ScanLocalHeaders;
+  FCompletionDelay:=Spin(EngineTab,'Delay (milliseconds)',12,160,230,1,2000,FWorking.CompletionDelay);
+  FCompletionColor:=Color(EngineTab,'Background',320,160,240,FWorking.CompletionColor);
+  LabelAt(EngineTab,'Completion scans the current source and local headers on demand. System-header indexing is not available.',12,238,548,70);
+  FPairEnable:=TCheckBox.Create(Self);FPairEnable.Parent:=SymbolsTab;FPairEnable.SetBounds(12,12,548,24);
+  FPairEnable.Caption:=Tr('Enable symbol completion');FPairEnable.Checked:=FWorking.PairSymbols;
+  G:=Group(SymbolsTab,'Symbol completion',12,54,550,240);
+  for I:=0 to 6 do begin
+    FPairs[I]:=TCheckBox.Create(Self);FPairs[I].Parent:=G;FPairs[I].SetBounds(12,22+I*29,524,24);
+    FPairs[I].Checked:=(FWorking.PairMask and (1 shl I))<>0;
+  end;
+  FPairs[0].Caption:=Tr('Pair braces {}');FPairs[1].Caption:=Tr('Pair parentheses ()');
+  FPairs[2].Caption:=Tr('Pair include delimiters');FPairs[3].Caption:=Tr('Pair square brackets []');
+  FPairs[4].Caption:=Tr('Pair block comments /**/');FPairs[5].Caption:=Tr('Pair single quotes');FPairs[6].Caption:=Tr('Pair double quotes');
+  FDeletePairs:=TCheckBox.Create(Self);FDeletePairs.Parent:=SymbolsTab;FDeletePairs.SetBounds(12,316,548,24);
+  FDeletePairs.Caption:=Tr('Delete the closing symbol with its opening symbol');FDeletePairs.Checked:=FWorking.DeletePairs;
+  Flag(RecoveryTab,efAutoSave,12,10,548);
+  FSeconds:=Spin(RecoveryTab,'Interval (seconds)',20,54,260,10,3600,FWorking.AutoSaveSeconds);
+  FRecoveryScope:=TRadioGroup.Create(Self);FRecoveryScope.Parent:=RecoveryTab;FRecoveryScope.SetBounds(20,120,550,126);FRecoveryScope.Caption:=Tr('Files');
+  FRecoveryScope.Items.Add(Tr('Current file'));FRecoveryScope.Items.Add(Tr('All open files'));FRecoveryScope.Items.Add(Tr('Project files'));FRecoveryScope.ItemIndex:=FWorking.AutoSaveScope;
+  FRecoveryNaming:=TRadioGroup.Create(Self);FRecoveryNaming.Parent:=RecoveryTab;FRecoveryNaming.SetBounds(20,260,550,126);FRecoveryNaming.Caption:=Tr('Filename');
+  FRecoveryNaming.Items.Add(Tr('Replace recovery copy'));FRecoveryNaming.Items.Add(Tr('Append UNIX timestamp'));FRecoveryNaming.Items.Add(Tr('Append formatted timestamp'));FRecoveryNaming.ItemIndex:=FWorking.AutoSaveNaming;
+  LabelAt(RecoveryTab,'Recovery copies keep unsaved buffers without overwriting source files. They are stored under ~/.cache/dev-cpp/autosave/.',22,410,548,80);
   FPages.ActivePage:=Basic;FUpdating:=False;RefreshPreview(Self);
   if FAttributes.Count>0 then begin FAttributes.ItemIndex:=0;AttributeChanged(Self);end;
   PrepareInputAppearance(Self);
 end;
 destructor TEditorOptionsForm.Destroy;
-begin FUpdating:=True;FWorking.Free;inherited Destroy;end;
+var I:Integer;
+begin FUpdating:=True;for I:=0 to 5 do FSpecial[I].Free;FWorking.Free;inherited Destroy;end;
 procedure TEditorOptionsForm.DialogKeyDown(Sender:TObject;var Key:Word;Shift:TShiftState);
 begin
   if (Key=VK_ESCAPE) and (Shift=[]) then begin ModalResult:=mrCancel;Key:=0;Exit;end;
@@ -170,14 +215,17 @@ begin
   C.Canvas.TextOut(ARect.Left+4,ARect.Top+Max(0,(ARect.Bottom-ARect.Top-C.Canvas.TextHeight(S)) div 2),S);
 end;
 procedure TEditorOptionsForm.ReadControls;
-var F:TEditorFlag;
+var F:TEditorFlag;I:Integer;
 begin
   for F:=Low(F) to High(F) do if FFlags[F]<>nil then
     if FFlags[F].Checked then Include(FWorking.Flags,F) else Exclude(FWorking.Flags,F);
   FWorking.GutterFont:=FGutterFont.Text;FWorking.GutterSize:=FGutterSize.Value;FWorking.GutterSpacing:=FSpacing.Value;
   FWorking.MarginWidth:=FMargin.Value;FWorking.MarginColor:=FMarginColor.Selected;FWorking.CurrentLineColor:=FLineColor.Selected;
   FWorking.InsertCaret:=FInsertCaret.ItemIndex;FWorking.OverwriteCaret:=FOverwriteCaret.ItemIndex;
-  FWorking.AutoSaveSeconds:=FSeconds.Value;
+  FWorking.AutoSaveSeconds:=FSeconds.Value;FWorking.AutoSaveScope:=FRecoveryScope.ItemIndex;FWorking.AutoSaveNaming:=FRecoveryNaming.ItemIndex;
+  FWorking.CompletionDelay:=FCompletionDelay.Value;FWorking.CompletionColor:=FCompletionColor.Selected;
+  FWorking.ScanLocalHeaders:=FLocalHeaders.Checked;FWorking.PairSymbols:=FPairEnable.Checked;FWorking.DeletePairs:=FDeletePairs.Checked;
+  FWorking.PairMask:=0;for I:=0 to 6 do if FPairs[I].Checked then FWorking.PairMask:=FWorking.PairMask or (1 shl I);
 end;
 procedure TEditorOptionsForm.RefreshPreview(Sender:TObject);
 var C:TEditorThemeColors;
@@ -189,7 +237,30 @@ begin
     FPreview.Font.Name:=ResolveEditorFontName(FFont.Text);FPreview.Font.Size:=FSize.Value;FPreview.TabWidth:=FTabs.Value;
     ApplyEditorTheme(FPreview,FSyntax,FSyntax.BracketAttri,FSyntax.CharacterAttri,EditorThemeName(FTheme.ItemIndex),C,FSyntax.FloatAttri,FSyntax.HexAttri,FSyntax.OctalAttri);
     FWorking.Apply(FPreview,FSyntax);
+    FWorking.ApplySpecial(FPreview,C);FPreviewColors:=C;UpdateSpecialAttributes;
   finally FUpdating:=False;end;
+end;
+procedure TEditorOptionsForm.UpdateSpecialAttributes;
+  procedure SetAttr(Index:Integer;FG,BG:TColor);
+  begin FSpecial[Index].Foreground:=FG;FSpecial[Index].Background:=BG;end;
+begin
+  SetAttr(0,FPreview.SelectedColor.Foreground,FPreview.SelectedColor.Background);
+  SetAttr(1,FPreviewColors.BreakpointForeground,FPreviewColors.BreakpointBackground);
+  SetAttr(2,FPreviewColors.DebugForeground,FPreviewColors.DebugBackground);
+  SetAttr(3,FPreviewColors.ErrorForeground,FPreviewColors.ErrorBackground);
+  SetAttr(4,FPreview.Gutter.Parts.ByClass[TSynGutterLineNumber,0].MarkupInfo.Foreground,FPreview.Gutter.Color);
+  SetAttr(5,FPreview.Gutter.CodeFoldPart.MarkupInfo.Foreground,FPreview.Gutter.CodeFoldPart.MarkupInfo.Background);
+end;
+procedure TEditorOptionsForm.PreviewLine(Sender:TObject;Line:Integer;var Special:Boolean;var FG,BG:TColor);
+begin
+  Special:=True;
+  case Line of
+    7: begin FG:=FPreviewColors.BreakpointForeground;BG:=FPreviewColors.BreakpointBackground;end;
+    9: begin FG:=FPreviewColors.DebugForeground;BG:=FPreviewColors.DebugBackground;end;
+    11:begin FG:=FPreviewColors.ErrorForeground;BG:=FPreviewColors.ErrorBackground;end;
+    15:begin FG:=FPreview.SelectedColor.Foreground;BG:=FPreview.SelectedColor.Background;end;
+    else Special:=False;
+  end;
 end;
 procedure TEditorOptionsForm.ThemeChanged(Sender:TObject);
 begin if FUpdating then Exit;FWorking.Colors.Clear;RefreshPreview(Self);AttributeChanged(Self);end;
@@ -200,6 +271,7 @@ begin
   try
     A:=TSynHighlighterAttributes(FAttributes.Items.Objects[FAttributes.ItemIndex]);
     FForeground.Selected:=A.Foreground;FBackground.Selected:=A.Background;
+    FStyles[0].Enabled:=FAttributes.ItemIndex<FSyntax.AttrCount;FStyles[1].Enabled:=FStyles[0].Enabled;FStyles[2].Enabled:=FStyles[0].Enabled;
     FStyles[0].Checked:=fsBold in A.Style;FStyles[1].Checked:=fsItalic in A.Style;FStyles[2].Checked:=fsUnderline in A.Style;
   finally FUpdating:=False;end;
 end;
@@ -236,7 +308,7 @@ end;
 procedure TEditorOptionsForm.Accept(Sender:TObject);
 begin
   if Trim(FFont.Text)='' then begin UiMessageDlg(Tr('Font name cannot be empty.'),mtError,[mbOK],0);Exit;end;
-  ReadControls;FWorking.DefaultCode:=FDefaultCode.Lines.Text;
+  ReadControls;FWorking.SyntaxExtensions:=FExtensions.Text;FWorking.DefaultCode:=FDefaultCode.Lines.Text;
   if FSelectedSnippet>=0 then FWorking.Snippets.ValueFromIndex[FSelectedSnippet]:=FSnippetCode.Lines.Text;
   ModalResult:=mrOK;
 end;

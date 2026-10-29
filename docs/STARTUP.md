@@ -2,9 +2,9 @@
 
 ## 中文
 
-界面名称为 **Dev-C++**，主命令和 Debian 包名为 `dev-cpp`。当前测试版本为 `1.3.1~beta4`，GitHub 标签和下载文件名为 `v1.3.1-beta4`、`dev-cpp_1.3.1-beta4_amd64.deb`。界面仍在按原版 Dev-C++ 5.11 逐步移植，beta 不代表 UI 已完全还原。
+界面名称为 **Dev-C++**，主命令和 Debian 包名为 `dev-cpp`。当前测试版本为 `1.3.1~beta5`，GitHub 标签和下载文件名为 `v1.3.1-beta5`、`dev-cpp_1.3.1-beta5_amd64.deb`。界面仍在按原版 Dev-C++ 5.11 逐步移植，beta 不代表 UI 已完全还原。
 
-从旧的 `dev-cpp-linux` 或 `devcpp-noi` 安装包更新时，使用普通的 `sudo apt install ./dev-cpp_1.3.1-beta4_amd64.deb`。APT 会以新包替换旧包，无需先手工卸载。`1.3.1~beta4` 的 Debian 版本顺序高于已经发行的 `1.3.0`，避免把更新误判为降级。已发表的历史标签和附件保持不变。
+从旧的 `dev-cpp-linux` 或 `devcpp-noi` 安装包更新时，使用普通的 `sudo apt install ./dev-cpp_1.3.1-beta5_amd64.deb`。APT 会以新包替换旧包，无需先手工卸载。`1.3.1~beta5` 的 Debian 版本顺序高于已经发行的 `1.3.0`，避免把更新误判为降级。已发表的历史标签和附件保持不变。
 
 首次运行优先读取上一版 `~/.config/dev-cpp-linux.ini`，否则读取 `~/.config/devcpp-noi.ini`，并将其 复制到 `~/.config/dev-cpp.ini`；已有新配置不会被覆盖，旧文件保留。旧命令 `/usr/bin/dev-cpp-linux`、`/usr/bin/devcpp-noi`、旧桌面 ID 和 MIME 关联只作为兼容转发，均启动新版。可识别的历史自动生成入口会备份后修复，自定义入口保持不变。
 
@@ -16,7 +16,7 @@
 bash run.sh
 ```
 
-首次运行或源码有变化时才编译，后续启动直接运行已有程序。`.pas`、`.lpr`、`.lpi`、`.inc`、版本标记和构建脚本的变更都会触发重建。需要强制重建时运行 `bash build.sh`。
+首次运行或源码有变化时才编译，后续启动直接运行已有程序。`.pas`、`.lpr`、`.lpi`、`.inc`、`.py`、版本标记和构建脚本的变更都会触发重建。需要强制重建时运行 `bash build.sh`。
 
 源码版不再在每次启动时重写桌面配置。需要加入应用菜单或“打开方式”时，在源码目录运行一次：
 
@@ -34,15 +34,25 @@ DEV_CPP_STARTUP_TRACE=1 dev-cpp --new-window
 
 终端将显示 GTK、配置、菜单、窗口构建等阶段的毫秒计时；正常启动不输出这些诊断。该计时不等于用户机器上的保证速度。仓库的 `tests/startup-smoke.py` 另外测量从启动进程到真实 GTK 窗口可见的时间，并检查重复源码启动不会编译。硬件、磁盘、字体缓存和桌面会影响结果；没有在用户设备上与 Geany 做同机比较。
 
-在本次 Ubuntu 20.04 容器的 6 次测试中（中英各 3 次，字体缓存已存在），从进程启动到窗口可见的中位耗时由约 0.49 秒降至 0.11 秒。这不代表用户设备的实测结果。
+此前 beta2 在 Ubuntu 20.04 容器的 6 次测试中（中英各 3 次，字体缓存已存在），从进程启动到窗口可见的中位耗时由约 0.49 秒降至 0.11 秒。这不代表用户设备的实测结果。
 
 本次把语言目录的反复线性查找改为索引查找，保留 33 种原版语言资源与语言切换。工具菜单恢复编译选项、环境选项、编辑器选项、快捷键选项、配置工具和 Package Manager 的顺序及图标。快捷键可编辑并保存；配置工具提供一个直接运行的外部程序，可在参数中使用 `%FILE%` 和 `%DIR%`，参数不会经 shell 执行。Package Manager 将所选 `.deb` 交给系统安装器，不安装 Windows DevPak。主题与语言的快速菜单移至“查看”，也可在编辑器和环境选项中设置。
 
+### beta5 的进一步修正
+
+用户报告的场景是应用列表启动安装版、没有打开大文件，仍需约 20 秒。定位到 Lazarus 2.0.6 的 SynEdit 初始化函数在主入口前调用 `Screen.Fonts`，枚举所有 Pango 字体族及字体样式。`build.sh` 现在通过 `prepare-synedit.py` 在忽略的 `lib/synedit-fast/` 中生成局部兼容修正，只将这个初始默认字体设为 `Monospace`。每个实际编辑器随后应用用户设置／字体回退，设置窗口用 Fontconfig 列出字体。系统 Lazarus 文件保持完整；源码构建需要 Python 3 和 `lazarus-src-2.0`。修正基于 Ubuntu 的 Lazarus 2.0.6 源码，保留 SynEdit 原有 MPL/GPL 许可头，可从构建脚本重现。
+
+另外，调试组件延后到用户启用调试时创建；配置未迁移时不重复保存编译器列表；源码启动不再额外启动一个 GTK 程序来尝试转发。发布程序使用优化构建并移除调试符号；用户 C/C++ 程序的 GDB 调试选项不受影响。窗口显示时完成 GNOME 的启动通知。
+
+`tests/first-frame-smoke.sh` 人为给全字体枚举增加 5 秒延迟：旧 beta4 首窗被阻塞，新版通过，开发容器单次测得约 0.11 秒。这个对照证明已移除该阻塞路径，**不能保证用户设备也在 0.11 秒启动**。请保存文件、关闭旧窗口后测试安装版。
+
+不使用命令行也可查看诊断：“帮助 → 关于 Dev-C++ → 构建与安装信息”包含当前进程各启动阶段的毫秒记录。终端诊断变量仍可使用。记录从 Pascal 运行时开始，不包含系统启动进程前的等待。
+
 ## English
 
-The display name is **Dev-C++**; the primary command and Debian package are `dev-cpp`. The beta version is `1.3.1~beta4`; the GitHub tag and public Debian filename use `v1.3.1-beta4` and `dev-cpp_1.3.1-beta4_amd64.deb`. UI restoration remains ongoing.
+The display name is **Dev-C++**; the primary command and Debian package are `dev-cpp`. The beta version is `1.3.1~beta5`; the GitHub tag and public Debian filename use `v1.3.1-beta5` and `dev-cpp_1.3.1-beta5_amd64.deb`. UI restoration remains ongoing.
 
-Upgrade with `sudo apt install ./dev-cpp_1.3.1-beta4_amd64.deb`. APT replaces the old `dev-cpp-linux` or `devcpp-noi` package; no manual uninstall is needed. Debian orders `1.3.1~beta4` after the already published `1.3.0`. Historical tags and assets are preserved.
+Upgrade with `sudo apt install ./dev-cpp_1.3.1-beta5_amd64.deb`. APT replaces the old `dev-cpp-linux` or `devcpp-noi` package; no manual uninstall is needed. Debian orders `1.3.1~beta5` after the already published `1.3.0`. Historical tags and assets are preserved.
 
 On first launch, `~/.config/dev-cpp-linux.ini` (or the older `~/.config/devcpp-noi.ini` when absent) is copied to `~/.config/dev-cpp.ini` if the new file does not exist. The old file is retained. Old command and desktop IDs remain hidden compatibility redirects to the new application; existing MIME defaults are preserved. Recognized generated launchers are backed up and repaired; custom entries are retained.
 
@@ -50,6 +60,16 @@ The installed launcher executes the prebuilt binary without compiling or waiting
 
 Run `DEV_CPP_STARTUP_TRACE=1 dev-cpp --new-window` for optional stage timings. `tests/startup-smoke.py` separately measures process-to-visible-window startup and verifies cached source launches. Timings depend on hardware, disk, font caches and desktop state; no same-device Geany comparison has been performed on the user's machine.
 
-On the test Ubuntu 20.04 container, six runs (three per language, with an existing font cache) reduced median process-to-visible-window time from about 0.49 s to 0.11 s. These are not measurements from the user’s machine.
+Earlier beta2 tests on an Ubuntu 20.04 container, six runs (three per language, with an existing font cache) reduced median process-to-visible-window time from about 0.49 s to 0.11 s. These are not measurements from the user’s machine.
 
 Language lookups now use an index, retaining the 33 upstream language catalogs. Tools restores the original command order and icons. Shortcut Options supports editing and persistence; Configure Tools supports one external executable with literal arguments and `%FILE%`/`%DIR%` substitutions. Package Manager opens a Debian package with the system installer; Windows DevPak installation is unsupported. Quick theme/language menus are under View, with the same settings available in Editor/Environment Options.
+
+### Further fixes in beta5
+
+The reported 20-second delay occurs when launching the installed app from the application list with no large files. Lazarus 2.0.6 SynEdit calls `Screen.Fonts` before the program entry point, enumerating every Pango font family and face. `build.sh` now runs `prepare-synedit.py` to generate an isolated startup compatibility fix under ignored `lib/synedit-fast/`: only the initial default font becomes `Monospace`. Actual editors then apply user preferences/fallbacks; the font picker uses Fontconfig. Installed Lazarus sources remain intact. Source builds need Python 3 and `lazarus-src-2.0`; the generated SynEdit source retains its MPL/GPL header and can be reproduced from the build script.
+
+Debugger widgets are deferred, unchanged compiler profiles are not rewritten, and source startup avoids a separate GTK forwarding process. Release IDE binaries are optimized and stripped; user C/C++ GDB options remain available. The first window completes GNOME startup notification.
+
+`tests/first-frame-smoke.sh` injects five seconds of full-enumeration latency: beta4 is blocked while beta5 passes, with one development-container run around 0.11 seconds. This demonstrates removal of that blocking path, not a timing guarantee for the user's machine. Save and close old windows before testing the installed update.
+
+For graphical diagnostics, Help → About Dev-C++ → Build and installation includes this process’s startup-stage timings. The terminal trace remains available. Records begin with the Pascal runtime and exclude delays before process startup.

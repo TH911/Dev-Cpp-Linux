@@ -69,6 +69,7 @@ var
 function UiText(const EnglishText: string): string;
 var I: Integer; Phrase: TPhrase;
 begin
+  I:=Pos(#9,EnglishText);if I>0 then Exit(UiText(Copy(EnglishText,1,I-1))+Copy(EnglishText,I,MaxInt));
   Result := EnglishText;
   { Match the original Simplified Chinese Tools menu label. }
   if (SelectedLanguage = ulChinese) and (EnglishText = 'Package Manager') then Exit;
@@ -96,6 +97,7 @@ end;
 function CanonicalUiText(const Text: string): string;
 var I: Integer;
 begin
+  I:=Pos(#9,Text);if I>0 then Exit(CanonicalUiText(Copy(Text,1,I-1))+Copy(Text,I,MaxInt));
   Result := TranslateEnglish(Text);
   if (Result = Text) and (ReversePhrases <> nil) then
   begin

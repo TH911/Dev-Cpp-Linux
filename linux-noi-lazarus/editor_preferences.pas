@@ -1,7 +1,7 @@
 unit editor_preferences;
 {$mode objfpc}{$H+}
 interface
-uses Classes, SysUtils, IniFiles, Graphics, SynEdit, SynEditHighlighter, cpp_highlighter;
+uses Classes, SysUtils, IniFiles, Graphics, SynEdit, SynEditHighlighter, cpp_highlighter, editor_themes;
 type
   TEditorFlag = (efAutoIndent, efAddIndent, efInsertMode, efFindAtCursor,
     efGroupUndo, efDropInsert, efSpecialChars, efTrimSpaces, efEnhanceHome,
@@ -16,16 +16,19 @@ type
     Flags: TEditorFlags;
     GutterFont: string;
     GutterSize, GutterSpacing, MarginWidth, InsertCaret, OverwriteCaret,
-      AutoSaveSeconds: Integer;
+      AutoSaveSeconds, AutoSaveScope, AutoSaveNaming, CompletionDelay, PairMask: Integer;
+    PairSymbols, DeletePairs, ScanLocalHeaders: Boolean;
+    CompletionColor:TColor;
     MarginColor, CurrentLineColor: TColor;
-    DefaultCode: string;
+    DefaultCode, SyntaxExtensions: string;
     Colors, Snippets: TStringList;
     constructor Create;
     destructor Destroy; override;
     procedure Assign(Source: TEditorPreferences);
     procedure Load(Ini: TCustomIniFile);
     procedure Save(Ini: TCustomIniFile);
-    procedure Apply(Editor: TSynEdit; Syntax: TNoiCppSyn);
+    procedure ApplySpecial(Editor:TSynEdit;var ThemeColors:TEditorThemeColors);
+    procedure Apply(Editor: TSynEdit; Syntax: TNoiCppSyn;Code:Boolean=True);
   end;
 const
   EditorFlagNames: array[TEditorFlag] of string = ('AutoIndent', 'AddIndent', 'InsertMode',
@@ -60,6 +63,9 @@ begin
     efMatchBrackets, efHighlightLine, efSyntax, efCompletion, efGutterVisible,
     efLineNumbers, efGutterAuto];
   GutterSize := 14; GutterSpacing := 4; MarginWidth := 80; AutoSaveSeconds := 60;
+  AutoSaveScope:=1;AutoSaveNaming:=0;CompletionDelay:=1;PairMask:=111;
+  PairSymbols:=True;DeletePairs:=True;ScanLocalHeaders:=True;CompletionColor:=clWhite;
+  SyntaxExtensions:='c;cpp;h;hpp;cc;cxx;cp;hp;rh;fx;inl;tcc;win';
   InsertCaret := 0; OverwriteCaret := 1;
   MarginColor := clSilver; CurrentLineColor := clNone;
   Colors := TStringList.Create; Snippets := TStringList.Create;
@@ -70,6 +76,10 @@ destructor TEditorPreferences.Destroy;
 begin Colors.Free; Snippets.Free; inherited Destroy; end;
 procedure TEditorPreferences.Assign(Source: TEditorPreferences);
 begin
+  AutoSaveScope:=Source.AutoSaveScope;AutoSaveNaming:=Source.AutoSaveNaming;
+  CompletionDelay:=Source.CompletionDelay;PairMask:=Source.PairMask;PairSymbols:=Source.PairSymbols;
+  DeletePairs:=Source.DeletePairs;ScanLocalHeaders:=Source.ScanLocalHeaders;CompletionColor:=Source.CompletionColor;
+  SyntaxExtensions:=Source.SyntaxExtensions;
   Flags := Source.Flags; GutterFont := Source.GutterFont; GutterSize := Source.GutterSize;
   GutterSpacing := Source.GutterSpacing; MarginWidth := Source.MarginWidth;
   InsertCaret := Source.InsertCaret; OverwriteCaret := Source.OverwriteCaret;
@@ -91,6 +101,15 @@ begin
   InsertCaret := EnsureRange(Ini.ReadInteger('Editor.Display','InsertCaret',0),0,3);
   OverwriteCaret := EnsureRange(Ini.ReadInteger('Editor.Display','OverwriteCaret',1),0,3);
   AutoSaveSeconds := EnsureRange(Ini.ReadInteger('Editor.Recovery','Seconds',60),10,3600);
+  AutoSaveScope:=EnsureRange(Ini.ReadInteger('Editor.Recovery','Scope',1),0,2);
+  AutoSaveNaming:=EnsureRange(Ini.ReadInteger('Editor.Recovery','Naming',0),0,2);
+  CompletionDelay:=EnsureRange(Ini.ReadInteger('Editor.Completion','Delay',1),1,2000);
+  PairMask:=Ini.ReadInteger('Editor.Completion','Pairs',111) and 127;
+  PairSymbols:=Ini.ReadBool('Editor.Completion','PairSymbols',True);
+  DeletePairs:=Ini.ReadBool('Editor.Completion','DeletePairs',True);
+  ScanLocalHeaders:=Ini.ReadBool('Editor.Completion','LocalHeaders',True);
+  CompletionColor:=Ini.ReadInteger('Editor.Completion','Background',clWhite);
+  SyntaxExtensions:=Ini.ReadString('Editor','SyntaxExtensions',SyntaxExtensions);
   DefaultCode := Ini.ReadString('Editor.Code','Default','');
   if Ini.ReadString('Editor.Code','Encoding','')='base64' then DefaultCode:=DecodeStored(DefaultCode)
   else DefaultCode := StringReplace(DefaultCode, '<LF>', LineEnding, [rfReplaceAll]);
@@ -116,6 +135,11 @@ begin
   Ini.WriteInteger('Editor.Display','InsertCaret',InsertCaret);
   Ini.WriteInteger('Editor.Display','OverwriteCaret',OverwriteCaret);
   Ini.WriteInteger('Editor.Recovery','Seconds',AutoSaveSeconds);
+  Ini.WriteInteger('Editor.Recovery','Scope',AutoSaveScope);Ini.WriteInteger('Editor.Recovery','Naming',AutoSaveNaming);
+  Ini.WriteInteger('Editor.Completion','Delay',CompletionDelay);Ini.WriteInteger('Editor.Completion','Pairs',PairMask);
+  Ini.WriteBool('Editor.Completion','PairSymbols',PairSymbols);Ini.WriteBool('Editor.Completion','DeletePairs',DeletePairs);
+  Ini.WriteBool('Editor.Completion','LocalHeaders',ScanLocalHeaders);Ini.WriteInteger('Editor.Completion','Background',CompletionColor);
+  Ini.WriteString('Editor','SyntaxExtensions',SyntaxExtensions);
   Ini.WriteString('Editor.Code','Encoding','base64');
   Ini.WriteString('Editor.Code','Default',EncodeStringBase64(DefaultCode));
   Ini.EraseSection('Editor.Colors');
@@ -126,7 +150,7 @@ begin
     Ini.WriteString('Editor.Snippets','Code'+IntToStr(I),EncodeStringBase64(Snippets.ValueFromIndex[I]));
   end;
 end;
-procedure TEditorPreferences.Apply(Editor: TSynEdit; Syntax: TNoiCppSyn);
+procedure TEditorPreferences.Apply(Editor: TSynEdit; Syntax: TNoiCppSyn;Code:Boolean);
 const Carets: array[0..3] of TSynEditCaretType = (ctVerticalLine, ctBlock, ctHorizontalLine, ctHalfBlock);
 var Opt: TSynEditorOptions; Part: TClassicLineNumbers; Old: TSynGutterPartBase;
   I, Bits: Integer; A: TSynHighlighterAttributes; Key: string;
@@ -163,7 +187,7 @@ begin
   Part.Visible := efLineNumbers in Flags; Part.AutoSize := efGutterAuto in Flags;
   if not Part.AutoSize then Part.Width := Editor.CharWidth * 5;
   Part.ZeroStart := efZeroStart in Flags; Part.LeadingZeros := efLeadingZeros in Flags;
-  if efSyntax in Flags then Editor.Highlighter := Syntax else Editor.Highlighter := nil;
+  if Code and (efSyntax in Flags) then Editor.Highlighter := Syntax else Editor.Highlighter := nil;
   for I := 0 to Syntax.AttrCount-1 do begin
     A := Syntax.Attribute[I]; Key := A.Name;
     if Colors.Values[Key+'.Foreground'] <> '' then A.Foreground := StrToIntDef(Colors.Values[Key+'.Foreground'],A.Foreground);
@@ -176,4 +200,27 @@ begin
     end;
   end;
 end;
+procedure TEditorPreferences.ApplySpecial(Editor:TSynEdit;var ThemeColors:TEditorThemeColors);
+  procedure ReadColor(const Name:string;var FG,BG:TColor);
+  begin
+    FG:=StrToIntDef(Self.Colors.Values[Name+'.Foreground'],FG);
+    BG:=StrToIntDef(Self.Colors.Values[Name+'.Background'],BG);
+  end;
+var FG,BG:TColor;
+begin
+  ReadColor('Breakpoints',ThemeColors.BreakpointForeground,ThemeColors.BreakpointBackground);
+  ReadColor('Active breakpoints',ThemeColors.DebugForeground,ThemeColors.DebugBackground);
+  ReadColor('Error line',ThemeColors.ErrorForeground,ThemeColors.ErrorBackground);
+  FG:=Editor.SelectedColor.Foreground;BG:=Editor.SelectedColor.Background;
+  ReadColor('Selected text',FG,BG);Editor.SelectedColor.Foreground:=FG;Editor.SelectedColor.Background:=BG;
+  FG:=Editor.Gutter.Parts.ByClass[TSynGutterLineNumber,0].MarkupInfo.Foreground;BG:=Editor.Gutter.Color;
+  ReadColor('Gutter',FG,BG);Editor.Gutter.Color:=BG;
+  Editor.Gutter.Parts.ByClass[TSynGutterLineNumber,0].MarkupInfo.Foreground:=FG;
+  Editor.Gutter.Parts.ByClass[TSynGutterLineNumber,0].MarkupInfo.Background:=BG;
+  if Editor.Gutter.CodeFoldPart<>nil then begin
+    FG:=Editor.Gutter.CodeFoldPart.MarkupInfo.Foreground;BG:=Editor.Gutter.CodeFoldPart.MarkupInfo.Background;
+    ReadColor('Fold markers',FG,BG);Editor.Gutter.CodeFoldPart.MarkupInfo.Foreground:=FG;Editor.Gutter.CodeFoldPart.MarkupInfo.Background:=BG;
+  end;
+end;
+
 end.

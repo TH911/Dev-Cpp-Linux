@@ -15,11 +15,10 @@ begin
     FClassTree.Items.Clear;
     FScopeCombo.Items.Clear;
     FScopeCombo.Items.Add('(globals)');
-    FScopeCombo.Enabled := Doc <> nil;
-    FFunctionCombo.Enabled := Doc <> nil;
-    if Doc <> nil then
+    FScopeCombo.Enabled := CodeDocument(Doc);
+    FFunctionCombo.Enabled := CodeDocument(Doc);
+    if CodeDocument(Doc) then
     begin
-      Doc.CachedLength := UTF8Length(Doc.Editor.Lines.Text);
       CollectSourceSymbols(Doc.Editor.Lines, FSymbols);
     end;
     for I := 0 to FSymbols.Count - 1 do
@@ -101,6 +100,7 @@ end;
 
 procedure TMainForm.ReportChanged(Sender: TObject);
 begin
+  if FReportTabs.ActivePage=FDebugTab then InitializeDebugger;
   if (FCloseReportTab <> nil) and (FReportTabs.ActivePage = FCloseReportTab) then
     Application.QueueAsyncCall(@HideReportAsync, 0)
   else FLastReportTab := FReportTabs.ActivePage;
@@ -164,47 +164,24 @@ begin
 end;
 
 procedure TMainForm.FormatOptionsClick(Sender: TObject);
-var Ini: TIniFile; Style: string;
+var Source:string;
 begin
-  if Sender is TMenuItem then begin QueueMenuDialog(@FormatOptionsClick); Exit; end;
-  Ini := TIniFile.Create(FOptionsPath);
-  try
-    Style := Ini.ReadString('AStyle', 'Style', 'allman');
-    if not UiInputQuery('AStyle', Tr('Style (allman, java, kr, stroustrup, gnu, linux):'), Style) then Exit;
-    Style := LowerCase(Trim(Style));
-    if (Style <> 'allman') and (Style <> 'java') and (Style <> 'kr') and
-      (Style <> 'stroustrup') and (Style <> 'gnu') and (Style <> 'linux') then
-      raise Exception.Create(Tr('Unknown formatting style.'));
-    Ini.WriteString('AStyle', 'Style', Style);
-  finally Ini.Free; end;
+  if Sender is TMenuItem then begin QueueMenuDialog(@FormatOptionsClick);Exit;end;
+  Source:='int main(){return 0;}';if CurrentDoc<>nil then Source:=CurrentDoc.Editor.Text;
+  EditFormatOptions(Self,FOptionsPath,Source);
 end;
-
-procedure TMainForm.FormatClick(Sender: TObject);
-var Doc: TDocument; Ini: TIniFile; Style, Temporary, Output: string; Lines: TStringList;
+procedure TMainForm.FormatClick(Sender:TObject);
+var Doc:TDocument;Formatted:string;
 begin
-  if Sender is TMenuItem then begin QueueMenuDialog(@FormatClick); Exit; end;
-  Doc := CurrentDoc;
-  if (Doc = nil) or Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then Exit;
-  if not FileExists('/usr/bin/astyle') then
-  begin UiMessageDlg(Tr('Install the optional astyle package to format source code.'), mtInformation, [mbOK], 0); Exit; end;
-  Ini := TIniFile.Create(FOptionsPath);
-  try Style := Ini.ReadString('AStyle', 'Style', 'allman'); finally Ini.Free; end;
-  Temporary := GetTempFileName(GetTempDir(False), 'devcpp-format-');
-  Lines := TStringList.Create;
+  if Sender is TMenuItem then begin QueueMenuDialog(@FormatClick);Exit;end;
+  Doc:=CurrentDoc;if not CodeDocument(Doc) or Doc.Editor.ReadOnly or FCompileActive or DebuggerActive then Exit;
   try
-    Lines.Text := Doc.Editor.Text;
-    Lines.SaveToFile(Temporary);
-    if not Process.RunCommand('/usr/bin/astyle', ['--mode=c', '--style=' + Style,
-      '--suffix=none', '--quiet', Temporary], Output) then
-      raise Exception.Create(Output);
-    Lines.LoadFromFile(Temporary);
-    if Lines.Text <> Doc.Editor.Text then
-    begin
+    Formatted:=FormatSource(Doc.Editor.Text,FormatArguments(FOptionsPath));
+    if Formatted<>Doc.Editor.Text then begin
       Doc.Editor.BeginUndoBlock;
-      try Doc.Editor.SelectAll; Doc.Editor.SelText := Lines.Text;
-      finally Doc.Editor.EndUndoBlock; end;
+      try Doc.Editor.SelectAll;Doc.Editor.SelText:=Copy(Formatted,1,Length(Formatted)-Length(LineEnding));finally Doc.Editor.EndUndoBlock;end;
     end;
-  finally Lines.Free; DeleteFile(Temporary); end;
+  except on E:Exception do UiMessageDlg(E.Message,mtError,[mbOK],0);end;
 end;
 
 procedure TMainForm.PrintClick(Sender: TObject);
@@ -345,6 +322,9 @@ var Ini: TIniFile;
 begin
   Ini := TIniFile.Create(FOptionsPath);
   try
+    FDefaultDirectory:=Ini.ReadString('Interface','DefaultDirectory','');
+    Font.Name:=Ini.ReadString('Interface','Font','Sans');Font.Size:=EnsureRange(Ini.ReadInteger('Interface','FontSize',9),7,24);
+    if Ini.ReadBool('Interface','ReportTabsBottom',False) then FReportTabs.TabPosition:=tpBottom else FReportTabs.TabPosition:=tpTop;
     FFileWatchTimer.Enabled := Ini.ReadBool('Interface', 'WatchFiles', True);
     FBottomPanel.Visible := Ini.ReadBool('Interface', 'ShowReports', True);
     FReportSplitter.Visible := FBottomPanel.Visible;
@@ -358,12 +338,14 @@ var Language: string; WatchFiles, Reports: Boolean; Ini: TIniFile; I: Integer;
 begin
   if Sender is TMenuItem then begin QueueMenuDialog(@EnvironmentOptionsClick); Exit; end;
   Language := CurrentUiLanguage; WatchFiles := FFileWatchTimer.Enabled; Reports := FBottomPanel.Visible;
-  if not EditEnvironment(Self, Language, WatchFiles, Reports) then Exit;
+  if not EditClassicEnvironment(Self,FOptionsPath,Language,FEditorThemeName,WatchFiles,Reports) then Exit;
   Ini := TIniFile.Create(FOptionsPath);
   try
+    Ini.WriteString('Editor','Theme',FEditorThemeName);
     Ini.WriteBool('Interface', 'WatchFiles', WatchFiles);
     Ini.WriteBool('Interface', 'ShowReports', Reports);
   finally Ini.Free; end;
+  LoadEnvironmentSettings;ApplyAllEditorSettings;
   SetUiLanguage(Language); ApplyUiLanguage(Self);
   for I := 0 to FLanguageMenu.Count - 1 do
     FLanguageMenu.Items[I].Checked := CurrentUiLanguage = UiLanguageCode(FLanguageMenu.Items[I].Tag);
@@ -472,7 +454,7 @@ begin if CurrentDoc<>nil then CurrentDoc.Editor.FoldAll;end;
 procedure TMainForm.UnfoldAllClick(Sender:TObject);
 begin if CurrentDoc<>nil then CurrentDoc.Editor.UnfoldAll;end;
 procedure TMainForm.SaveRecoveryCopies;
-var I:Integer;Doc:TDocument;Folder,BaseName:string;ID:TGUID;Snapshot:TFileSnapshot;
+var I:Integer;Doc:TDocument;Folder,BaseName,RecoveryFile,Extension:string;ID:TGUID;Snapshot:TFileSnapshot;
 begin
   if (FEditorPreferences=nil) or not (efAutoSave in FEditorPreferences.Flags) or
     FLoading or FCompileActive or DebuggerActive or (FDocumentDialogs<>0) or
@@ -485,11 +467,63 @@ begin
     if not ForceDirectories(Folder) then raise Exception.Create('Cannot create recovery directory.');
     for I:=0 to FDocs.Count-1 do begin
       Doc:=TDocument(FDocs[I]);if not Doc.Dirty then Continue;
+      if (FEditorPreferences.AutoSaveScope=0) and (Doc<>CurrentDoc) then Continue;
+      if (FEditorPreferences.AutoSaveScope=2) and (FProjectFiles.IndexOf(Doc.FileName)<0) then Continue;
       if Doc.RecoveryPath='' then begin
         CreateGUID(ID);BaseName:=ChangeFileExt(ExtractFileName(Doc.FileName),'');if BaseName='' then BaseName:=Doc.UntitledName;
-        Doc.RecoveryPath:=Folder+BaseName+'-'+GUIDToString(ID)+'.cpp';
+        Extension:=ExtractFileExt(Doc.FileName);if Extension='' then Extension:='.cpp';
+        Doc.RecoveryPath:=Folder+BaseName+'-'+GUIDToString(ID)+Extension;
       end;
-      AtomicSaveDocumentChecked(Doc.Editor.Lines,Doc.RecoveryPath,CaptureFileSnapshot(Doc.RecoveryPath),Snapshot);
+      RecoveryFile:=Doc.RecoveryPath;
+      if FEditorPreferences.AutoSaveNaming=1 then RecoveryFile:=ChangeFileExt(RecoveryFile,'')+'-'+IntToStr(DateTimeToUnix(LocalTimeToUniversal(Now)))+'-'+IntToStr(GetTickCount64)+ExtractFileExt(RecoveryFile);
+      if FEditorPreferences.AutoSaveNaming=2 then RecoveryFile:=ChangeFileExt(RecoveryFile,'')+'-'+FormatDateTime('yyyymmdd-hhnnss-zzz',Now)+ExtractFileExt(RecoveryFile);
+      AtomicSaveDocumentChecked(Doc.Editor.Lines,RecoveryFile,CaptureFileSnapshot(RecoveryFile),Snapshot);
     end;
   except on E:Exception do SetStatusMessage(Tr('Recovery copy failed: ')+E.Message);end;
+end;
+
+procedure TMainForm.ToggleToolbarClick(Sender:TObject);
+var Item:TMenuItem;
+begin
+  Item:=TMenuItem(Sender);Item.Checked:=not Item.Checked;
+  case Item.Tag of 0:FMainToolbar.Visible:=Item.Checked;1:FNavigationBar.Visible:=Item.Checked;2:FCompilerProfileCombo.Visible:=Item.Checked;end;
+end;
+procedure TMainForm.PrepareWindowMenu(Sender:TObject);
+var I:Integer;Item:TMenuItem;Doc:TDocument;NameText:string;
+begin
+  while FWindowMenu.Count>7 do FWindowMenu.Items[FWindowMenu.Count-1].Free;
+  for I:=0 to FDocs.Count-1 do begin
+    Doc:=TDocument(FDocs[I]);NameText:=Doc.FileName;if NameText='' then NameText:=Doc.UntitledName;
+    Item:=TMenuItem.Create(Self);Item.Name:='UserText_Window'+IntToStr(I);
+    Item.Caption:=IntToStr(I)+' '+StringReplace(NameText,'&','&&',[rfReplaceAll]);Item.Tag:=PtrInt(Doc);
+    Item.OnClick:=@WindowDocumentClick;Item.Checked:=Doc=CurrentDoc;FWindowMenu.Add(Item);
+  end;
+  Item:=TMenuItem.Create(Self);Item.Caption:=Tr('List...');Item.OnClick:=@WindowListClick;FWindowMenu.Add(Item);
+end;
+procedure TMainForm.WindowDocumentClick(Sender:TObject);
+var Doc:TDocument;
+begin
+  Doc:=TDocument(TMenuItem(Sender).Tag);if FDocs.IndexOf(Doc)<0 then Exit;
+  FPages.ActivePage:=Doc.Tab;Doc.Editor.SetFocus;
+end;
+procedure TMainForm.WindowListClick(Sender:TObject);
+var D:TForm;List:TListBox;B:TButton;I:Integer;Doc:TDocument;NameText:string;
+begin
+  if Sender is TMenuItem then begin QueueMenuDialog(@WindowListClick);Exit;end;
+  D:=TForm.CreateNew(Self);Inc(FDocumentDialogs);
+  try
+    D.Caption:=Tr('Open files');D.Position:=poMainFormCenter;D.BorderStyle:=bsDialog;D.ClientWidth:=600;D.ClientHeight:=360;
+    List:=TListBox.Create(D);List.Parent:=D;List.SetBounds(10,10,580,300);
+    for I:=0 to FDocs.Count-1 do begin Doc:=TDocument(FDocs[I]);NameText:=Doc.FileName;if NameText='' then NameText:=Doc.UntitledName;List.Items.AddObject(NameText,Doc);if Doc=CurrentDoc then List.ItemIndex:=I;end;
+    B:=TButton.Create(D);B.Parent:=D;B.SetBounds(390,320,94,28);B.Caption:=Tr('OK');B.ModalResult:=mrOK;B.Default:=True;
+    B:=TButton.Create(D);B.Parent:=D;B.SetBounds(494,320,96,28);B.Caption:=Tr('Cancel');B.ModalResult:=mrCancel;B.Cancel:=True;
+    if (D.ShowModal=mrOK) and (List.ItemIndex>=0) then begin Doc:=TDocument(List.Items.Objects[List.ItemIndex]);FPages.ActivePage:=Doc.Tab;Doc.Editor.SetFocus;end;
+  finally Dec(FDocumentDialogs);D.Free;end;
+end;
+procedure TMainForm.GotoBreakpointClick(Sender:TObject);
+var BP:TGdbBreakpoint;Doc:TDocument;
+begin
+  if (FDebugger=nil) or (FDebugger.Session.Breakpoints.Count=0) then Exit;
+  BP:=TGdbBreakpoint(FDebugger.Session.Breakpoints[0]);OpenFile(BP.FileName);Doc:=FindDoc(BP.FileName);
+  if Doc<>nil then begin Doc.Editor.CaretXY:=Point(1,BP.Line);Doc.Editor.EnsureCursorPosVisible;Doc.Editor.SetFocus;end;
 end;

@@ -22,6 +22,22 @@ static void json_string(FILE *out, const char *text) {
     fputc('"', out);
 }
 
+static gboolean inspect_tree_row(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
+    (void)path;
+    GString *result = data;
+    for (int col = 0; col < gtk_tree_model_get_n_columns(model); ++col) {
+        GValue value = G_VALUE_INIT;
+        gtk_tree_model_get_value(model, iter, col, &value);
+        if (G_VALUE_HOLDS_STRING(&value)) {
+            const char *text = g_value_get_string(&value);
+            if (text) { g_string_append(result, text); g_string_append_c(result, '\t'); }
+        }
+        g_value_unset(&value);
+    }
+    g_string_append_c(result, '\n');
+    return FALSE;
+}
+
 static void inspect_widget(GtkWidget *widget, gpointer data) {
     FILE *out = data;
     char *owned_text = NULL;
@@ -37,10 +53,19 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
         owned_text = gtk_text_buffer_get_text(buffer, &start, &end, TRUE);
         text = owned_text;
     }
+    if (GTK_IS_TREE_VIEW(widget)) {
+        GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
+        if (model) {
+            GString *rows = g_string_new("");
+            gtk_tree_model_foreach(model, inspect_tree_row, rows);
+            owned_text = g_string_free(rows, FALSE); text = owned_text;
+        }
+    }
     if (!first) fputc(',', out);
     first = 0;
     fprintf(out, "{\"id\":\"%p\",\"type\":", (void *)widget);
     json_string(out, G_OBJECT_TYPE_NAME(widget));
+    fprintf(out, ",\"grab\":%s", widget == gtk_grab_get_current() ? "true" : "false");
     fputs(",\"text\":", out); json_string(out, text);
     if (GTK_IS_FILE_CHOOSER(widget)) {
         char *folder = gtk_file_chooser_get_current_folder(GTK_FILE_CHOOSER(widget));

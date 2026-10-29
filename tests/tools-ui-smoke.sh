@@ -31,7 +31,7 @@ def keys(*args):subprocess.run(['xdotool','key','--clearmodifiers','--delay','80
 def click(text):
  items=wait(lambda xs:any(x['type'] in ['GtkLabel','GtkButton'] and x['viewable'] and x['visible'] and x['mapped'] and x['width']>0 and x['text'].replace('_','')==text for x in xs),'missing '+text)
  item=next(x for x in items if x['type'] in ['GtkLabel','GtkButton'] and x['viewable'] and x['visible'] and x['mapped'] and x['width']>0 and x['text'].replace('_','')==text)
- subprocess.run(['xdotool','mousemove','--sync',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True);time.sleep(.2)
+ subprocess.run(['xdotool','mousemove',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True);time.sleep(.2)
 def window(title):return wait(lambda xs:any(x['type']=='GtkWindow' and x['viewable'] and x['text']==title for x in xs),'missing dialog '+title)
 def image(name):
  (folder/'current.png').unlink(missing_ok=True);(folder/'current.png.request').touch()
@@ -48,19 +48,28 @@ try:
   keys('ctrl+n');assert not any('Untitled' in x['text'] for x in state() if x['type']=='GtkWindow')
   keys('ctrl+alt+n');wait(lambda xs:any('Untitled1' in x['text'] for x in xs if x['type']=='GtkWindow'),'configured shortcut did not run')
   keys('alt+t');click('Environment Options...');window('Environment Options')
-  click('Show report window');click('OK');assert not read_config().getboolean('Interface','ShowReports')
+  for page in ['Basic','Files and folders','External programs','File associations']:
+   click(page);image('environment-'+page.lower().replace(' ','-')+'-en.png')
+  click('Basic');click('Show report window');click('OK');assert not read_config().getboolean('Interface','ShowReports')
   keys('alt+t');click('Environment Options...');window('Environment Options');click('Show report window');click('OK')
   assert read_config().getboolean('Interface','ShowReports')
   keys('alt+t');click('Shortcut Options...');window('Shortcut Options')
-  items=wait(lambda xs:any(x['type']=='GtkEntry' and x['viewable'] and x['text']=='Ctrl+Alt+N' for x in xs),'shortcut value editor not exposed')
-  entry=next(x for x in items if x['type']=='GtkEntry' and x['viewable'] and x['text']=='Ctrl+Alt+N')
-  assert entry['normal_text']=='000000' and entry['normal_base']=='ffffff',entry
-  subprocess.run(['xdotool','mousemove','--sync',str(entry['x']+entry['width']//2),str(entry['y']+entry['height']//2),'click','1'],check=True)
-  keys('ctrl+a');subprocess.run(['xdotool','type','--clearmodifiers','Ctrl+Alt+B'],check=True);keys('Tab');click('OK')
+  # Native shortcut capture: first source command is the second supported action.
+  tree=next(x for x in state() if x['type']=='GtkTreeView' and x['viewable'] and x['width']>500)
+  subprocess.run(['xdotool','mousemove',str(tree['x']+80),str(tree['y']+40),'click','1'],check=True)
+  keys('Home','Down','ctrl+alt+b');click('OK')
   wait(lambda xs:not any(x['type']=='GtkWindow' and x['viewable'] and x['text']=='Shortcut Options' for x in xs),'shortcut edit did not accept')
   assert read_config().getint('Shortcuts','menu.0.0.1')==66+16384+32768
   keys('ctrl+n');assert not any('Untitled2' in x['text'] for x in state() if x['type']=='GtkWindow')
   keys('ctrl+alt+b');wait(lambda xs:any('Untitled2' in x['text'] for x in xs if x['type']=='GtkWindow'),'edited shortcut did not run')
+  # The restored formatter accepts real arguments and renders a native preview.
+  keys('ctrl+alt+e');subprocess.run(['xdotool','type','--clearmodifiers','int main(){return 0;}'],check=True)
+  click('AStyle');click('Format options...');window('Formatting options');image('classic-format-options-en.png')
+  subprocess.run(['python3',str(root/'tests/gtk-control.py'),str(folder/'state.json'),'Formatting options','textview','0','--style=java --indent=spaces=2'],check=True)
+  wait(lambda xs:not any(x['type']=='GtkTextView' and x.get('grab') for x in xs),'memo selection grab remained after input')
+  subprocess.run(['python3',str(root/'tests/gtk-control.py'),str(folder/'state.json'),'Formatting options','button','OK'],check=True)
+  wait(lambda xs:not any(x['type']=='GtkWindow' and x['text']=='Formatting options' and x['viewable'] for x in xs),'format options did not accept')
+  assert read_config().get('AStyle','Arguments')=='--style=java --indent=spaces=2'
   keys('alt+t');click('Configure Tools...');window('Configure Tools');keys('Escape')
   keys('alt+t');click('Fixture tool')
   wait(lambda xs:(folder/'tool-output').exists(),'external tool did not execute')

@@ -4,23 +4,27 @@
 
 基准是 Orwell Dev-C++ **5.11** 官方提交 [`0e4d598b172efd7df97b7ecc941d6aa08340cd70`](https://sourceforge.net/p/orwelldevcpp/code/ci/0e4d598b172efd7df97b7ecc941d6aa08340cd70/tree/) 的 `Source/main.dfm`、`Source/README.txt`、`Source/main.pas` 和 SynEdit 默认键表。以下逐项记录带快捷键的 Action/菜单定义；表中的“绑定一致”表示默认键一致，不表示整个功能已完整移植。
 
-`v1.3.1-beta4` 恢复 **Ctrl+Shift+S → 全部保存**、**Ctrl+Shift+A → AStyle 格式化当前文件**。**另存为**按原版没有默认快捷键，从“文件 → 另存为”进入，也可在“工具 → 快捷键选项”自行指定。格式化需要可选的系统 `astyle` 软件包，未安装时会提示。F2 可在编译时中止编译；Alt+F4 对应退出。
+`v1.3.1-beta4` 恢复 **Ctrl+Shift+S → 全部保存**、**Ctrl+Shift+A → AStyle 格式化当前文件**。**另存为**按原版没有默认快捷键，从“文件 → 另存为”进入，也可在“工具 → 快捷键选项”自行指定。格式化需要可选的系统 `astyle` 软件包，未安装时会提示。F2 可在编译时中止编译，其他时候跳到已有断点；Alt+F4 对应退出。
 
 旧设置第一次载入时，只迁移能识别的旧默认值：另存为的 Ctrl+Shift+S 清空，全部保存的 Ctrl+Shift+A 改为 Ctrl+Shift+S。其他自定义或禁用设置保留。若自定义绑定占用了 Ctrl+Shift+A，格式化不会抢占该键；可在快捷键选项中调整。自定义值恰好等于旧默认值时，无法判断设置意图，将按旧默认值迁移。
 
 新建源码第一次保存默认进入**最近一次成功打开或保存源码/项目的目录**。文件名仍由用户决定；Ctrl+Shift+S 遇到多个未命名且有修改的文件时逐个询问文件名，取消后停止后续保存。目录在重启后保留。已有源码“另存为”优先使用它所在的目录；仅在文件对话框中浏览、取消或保存失败不会修改记忆目录。记忆目录已被删除时回退到用户主目录。中文与含空格的路径使用无损编码保存。
 
-仍有差异：Find All 只搜索已打开文档，Replace All 只作用于当前文档；F12 目前与 F9 一样全量编译；F6 只能停止受控 GDB 会话，外部普通运行终端尚不能由它终止。Ctrl+I 增量搜索、Ctrl+Shift+G 函数跳转、Ctrl+M 双编辑区、Ctrl+T TODO、Ctrl+F12 全屏工具栏、F1 帮助及项目树 F2 重命名仍未完整移植。Ctrl+T/M/I 在源码区保留给原版功能，不允许回退为 SynEdit 的删词/换行等其他操作；自定义绑定仍优先。Ctrl+F2 测试动作也尚未移植。
+beta5 的搜索／文件搜索和替换／文件替换共用四标签窗口，范围可选当前、已打开、项目文件；跨文件替换可分别撤销，不自动保存。快捷键窗口支持直接按键捕获及重置。
+
+仍有差异：F12 目前与 F9 一样全量编译；F6 可中止编译或停止受控 GDB 会话，外部普通运行终端尚不能由它终止。Ctrl+I 增量搜索、Ctrl+Shift+G 函数跳转、Ctrl+M 双编辑区、Ctrl+T TODO、Ctrl+F12 全屏工具栏、F1 帮助及项目树 F2 重命名仍未完整移植。Ctrl+T/M/I 在源码区保留给原版功能，不允许回退为 SynEdit 的删词/换行等其他操作；自定义绑定仍优先。Ctrl+F2 测试动作也尚未移植。
 
 ## English
 
 The reference is the immutable official Orwell Dev-C++ **5.11** commit linked above, including `main.dfm`, `README.txt`, `main.pas` and SynEdit defaults. The table audits every explicit shortcut-bearing Action/menu definition. “Binding matches” describes the default key, not complete feature parity.
 
-**Ctrl+Shift+S saves all files**; **Ctrl+Shift+A formats the current file** using optional system `astyle`. **Save As has no default key**, matching 5.11; use File → Save As or assign a custom shortcut. F2 aborts an active compilation; Alt+F4 exits. Known old factory values migrate once, while other custom/disabled values remain. A custom assignment takes precedence over the new format default. An intentional custom value identical to an old factory value cannot be distinguished and migrates as a factory value.
+**Ctrl+Shift+S saves all files**; **Ctrl+Shift+A formats the current file** using optional system `astyle`. **Save As has no default key**, matching 5.11; use File → Save As or assign a custom shortcut. F2 aborts an active compilation or jumps to an existing breakpoint while idle/paused; Alt+F4 exits. Known old factory values migrate once, while other custom/disabled values remain. A custom assignment takes precedence over the new format default. An intentional custom value identical to an old factory value cannot be distinguished and migrates as a factory value.
 
 A new source file's first save starts in the **last successfully opened/saved source or project directory**. Save All prompts for each modified unnamed file and stops on Cancel. The directory persists across restarts. Save As for a named source starts beside that source. Browsing, cancellation and failed saves do not change the remembered directory; a deleted directory falls back to the user's home. UTF-8 paths and spaces are preserved.
 
-Remaining differences: Find All searches open buffers; Replace All changes the active buffer; F12 currently rebuilds the same scope as F9. F6 stops managed GDB sessions, not ordinary external terminal processes. Incremental search, function-jump shortcut, split editor, TODO, fullscreen bars, F1 help and project-tree F2 rename remain incomplete. In the source editor Ctrl+T/M/I are reserved rather than falling through to unrelated SynEdit word deletion/newline commands; custom assignments still take priority. The original Ctrl+F2 test action is also pending.
+Beta5 unifies four Search/Find in Files/Replace/Replace in Files pages with current/open/project scopes. Cross-file replacements are undoable per buffer and do not save automatically. Shortcut Options captures keys directly and provides reset buttons.
+
+Remaining differences: F12 currently rebuilds the same scope as F9. F6 aborts compilation or stops managed GDB sessions, not ordinary external terminal processes. Incremental search, function-jump shortcut, split editor, TODO, fullscreen bars, F1 help and project-tree F2 rename remain incomplete. In the source editor Ctrl+T/M/I are reserved rather than falling through to unrelated SynEdit word deletion/newline commands; custom assignments still take priority. The original Ctrl+F2 test action is also pending.
 
 ## Action 对照 / Action audit
 

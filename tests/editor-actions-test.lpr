@@ -54,6 +54,9 @@ begin
     'an empty query must not loop or change text');
   Check(MatchCount = 0, 'empty-query match count');
 
+  Check(FindTextForward('int integer INT int_', 'int',1,20,MatchBytes,True,True)=1,'case-sensitive whole word');
+  Check(FindTextForward('integer INT int_', 'int',1,20,MatchBytes,True,True)=0,'whole word rejects suffixes and case changes');
+  Check(FindTextForward('integer INT int_', 'int',1,20,MatchBytes,False,True)=9,'whole word can fold case');
   Form := TForm.CreateNew(nil);
   try
     Editor := TSynEdit.Create(Form);

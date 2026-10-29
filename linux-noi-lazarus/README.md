@@ -4,7 +4,7 @@
 
 ## 中文
 
-这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta4**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta4)。
+这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta5**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta5)。
 
 在此目录打开终端，运行：
 
@@ -14,6 +14,8 @@ bash run.sh
 bash run.sh /path/to/main.cpp
 bash run.sh /path/to/project.dev
 ```
+
+源码构建还需要 Python 3 和 Lazarus 2.0.6 的源码（`lazarus-src-2.0`）。构建脚本在 `lib/` 内生成 SynEdit 启动兼容修正，不修改系统 Lazarus。
 
 首次运行会编译程序，后续可用 `bash launch.sh` 启动；源码变动后会重新编译。请保留旁边的脚本、`icons/`、`profiles/` 和 `languages/`。编译错误保存到 `~/.cache/dev-cpp/launch-build.log`，运行错误保存到 `~/.cache/dev-cpp/runtime.log`。
 
@@ -27,7 +29,7 @@ bash run.sh /path/to/project.dev
 `.deb` 安装版无需 Lazarus/FPC。更新时先保存代码并关闭旧窗口，然后在安装包所在目录运行（替换为实际文件名）：
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta4_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta5_amd64.deb
 /usr/bin/dev-cpp --version
 /usr/bin/dev-cpp --new-window
 ```
@@ -37,6 +39,8 @@ sudo apt install --reinstall ./dev-cpp_1.3.1-beta4_amd64.deb
 当前仍有移植范围限制，包括完整模板向导、增量项目构建、完整 C++ 语义解析、第二编辑视图及高级调试功能。完整检查使用 Ubuntu 20.04 对应工具链、Xvfb 和 XTerm；NOI Linux 原版 GNOME 桌面上的焦点、缩放和终端行为仍需实机验收。代码与原始资源按 GPL-2.0-or-later 提供，见 `COPYING.txt`。
 
 启动优化、名称与旧版本迁移见 [双语说明](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/STARTUP.md)。源码菜单注册请运行 `bash register-desktop.sh --register`，普通启动不再自动重写桌面入口。
+
+本轮 UI／搜索／纯文本模式说明见[双语说明](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/UI-RESTORATION.md)。
 
 v1.3.0 恢复双排工具栏、函数导航、折叠和全宽输出页；提供基础打印、文本导出和可选 AStyle 格式化。已有字体设置保留。
 
@@ -56,9 +60,9 @@ are retained; new editor configurations use size 14.
 The application supports installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.3.1~beta4** (published as Pre-release `v1.3.1-beta4`). Future development pushes to `beta` publish a
+This beta build is **1.3.1~beta5** (published as Pre-release `v1.3.1-beta5`). Future development pushes to `beta` publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.3.1-beta4](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta4).
+and directory source archives. See [v1.3.1-beta5](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta5).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0).
 
@@ -71,17 +75,15 @@ bash run.sh [source.cpp | project.dev]
 The terminal launcher builds with the preinstalled `lazbuild`; desktop icons
 and file association use `launch.sh` to start an up-to-date binary immediately.
 If no binary exists or sources are newer, the desktop launcher builds once and saves any build error
-to `~/.cache/dev-cpp/launch-build.log`. No network access or additional
-packages are needed.
-The build explicitly selects the GTK2 widget set used by NOI Linux 2.0.
+to `~/.cache/dev-cpp/launch-build.log`. The build uses no network access. Install the listed build/source prerequisites first if your image lacks them.
+The build needs Python 3 and the Lazarus 2.0.6 source package (`lazarus-src-2.0`). It generates an isolated SynEdit startup fix under `lib/` without changing system Lazarus files, and selects GTK2.
 It links to `dev-cpp.build`, then atomically moves the successful
 output to `dev-cpp`. A build lock serializes builders. This avoids Linux's
 `Text file busy` error when an earlier IDE executable is still running.
 Normal launches forward file paths to an existing window using FPC SimpleIPC,
 which is part of the preinstalled Free Pascal libraries. The UI polls requests
 without creating a background GUI thread. If no window exists, a window starts.
-The desktop launcher attempts forwarding before checking whether a build is
-needed. Instance forwarding is now separated by executable path and version, so an
+After checking the build timestamp, the binary forwards to an existing instance without a separate GTK launch. Instance forwarding is now separated by executable path and version, so an
 installed release does not activate a running source build or another version.
 Close earlier windows when upgrading to avoid confusing them with the new IDE.
 `bash launch.sh --new-window file.cpp` explicitly starts a new window. Desktop
@@ -95,11 +97,11 @@ number increases during the current application run. Ctrl+N/O/S/W/F/G and
 Ctrl+Shift+S Save All, Ctrl+Shift+A AStyle Format Current File, Ctrl+B Open Containing Folder,
 Ctrl+Y redo, Ctrl+R replace, Ctrl+H project options, Ctrl+/ toggle line
 comment, Ctrl+; toggle inline comment, Ctrl+Shift+F Find All,
-Ctrl+Shift+R Replace All in the active file, Ctrl+Tab/Shift+Ctrl+Tab tab
+Ctrl+Shift+R Replace in Files, Ctrl+Tab/Shift+Ctrl+Tab tab
 switching, and Ctrl+Shift+W close all work while the editor has focus. Ctrl+1..9 toggles
 numbered bookmarks, Alt+1..9 jumps to them, and Ctrl+Shift+Up/Down moves the
-current line or selection as one undoable action. View includes full screen
-(Ctrl+F11), status-bar visibility, compiler log (Ctrl+Alt+L), and editor focus
+current line or selection as one undoable action. Window includes full screen
+(Ctrl+F11); View includes status-bar visibility, compiler log (Ctrl+Alt+L), and editor focus
 (Ctrl+Alt+E). File > Recent Files / Recent Projects retains the last ten entries;
 Close Project supports saving or cancelling before closing project documents.
 F3 searches from the caret and wraps without moving the caret if nothing is
@@ -307,3 +309,5 @@ See [classic UI behavior](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/
 源码标签页可左右拖动排序，未保存文件也保留内容和未保存状态。Source tabs support drag reordering while retaining document identity and unsaved edits. See [shortcuts, folders and tabs](../docs/SHORTCUTS.md).
 
 源码撤销与重做不再使用默认的 1024 条操作上限，保存仍保留历史。Source Undo/Redo no longer use the default 1024-action cap; Save retains history. Details: [undo history](../docs/SHORTCUTS.md).
+
+See the [bilingual beta5 interface notes](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/UI-RESTORATION.md) for search, plain-text files, sidebar locals, settings and remaining gaps.

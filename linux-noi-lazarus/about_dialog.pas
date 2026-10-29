@@ -11,7 +11,7 @@ procedure ShowAboutDialog(AOwner: TComponent);
 implementation
 
 uses SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Graphics,
-  Dialogs, LCLIntf, LCLType, ui_language, app_version, input_appearance, app_paths;
+  Dialogs, LCLIntf, LCLType, ui_language, app_version, input_appearance, app_paths, startup_trace;
 
 type
   TAboutDialog = class(TForm)
@@ -121,6 +121,7 @@ begin
   DetailsMemo.ScrollBars := ssAutoBoth;
   DetailsMemo.WordWrap := True;
   DetailsMemo.BorderSpacing.Around := 8;
+  FDetails:=FDetails+LineEnding+LineEnding+'Startup timing (this process):'+LineEnding+StartupReport;
   DetailsMemo.Text := FDetails;
 
   Button := TButton.Create(Self);

@@ -17,7 +17,9 @@ type
     FStart, FAddWatch, FCPU, FOut, FNextIns, FStepIns: TButton;
     FCPUWindow: TForm;
     FCPUMemo: TMemo;
-    FWatched, FWatchQueue: TStringList;
+    FWatched, FWatchQueue, FLocals: TStringList;
+    procedure VariablesText(Sender:TObject;const AText:string);
+  private
     FCanStart: Boolean;
     FOnStartRequested: TNotifyEvent;
     FStatus: TLabel;
@@ -101,12 +103,14 @@ begin
   inherited Create(AOwner);
   BevelOuter := bvNone;
   Font.Size := 9;
+  FLocals:=TStringList.Create;FLocals.NameValueSeparator:=#1;
   FWatched:=TStringList.Create;FWatchQueue:=TStringList.Create;FWatched.CaseSensitive:=True;FWatchQueue.CaseSensitive:=True;
   FSession := TGdbSession.Create;
   FSession.OnLog := @LogText;
   FSession.OnOutput := @ProgramText;
   FSession.OnError := @ErrorText;
   FSession.OnEvaluation := @EvaluationText;
+  FSession.OnVariables := @VariablesText;
   FSession.OnState := @StateChange;
 
   { dev-cpp 5.11 keeps debugger commands and evaluation on the left of its
@@ -227,7 +231,7 @@ begin
   FSession.OnState := nil;
   FSession.OnLocation := nil;
   FSession.Free;
-  FWatchQueue.Free;FWatched.Free;
+  FLocals.Free;FWatchQueue.Free;FWatched.Free;
   inherited Destroy;
 end;
 
@@ -344,7 +348,7 @@ begin
   FCommand.Enabled:=Paused;FExpression.Enabled:=True;
   FPages.ShowTabs:=FSession.Active;
   if not FSession.Active then FPages.ActivePage:=FLogTab;
-  if not Paused then FWatchQueue.Clear;
+  if not Paused then begin FWatchQueue.Clear;FLocals.Clear;end;
   FContinue.Enabled := Paused;
   FInto.Enabled := Paused;
   FOver.Enabled := Paused;
@@ -354,7 +358,7 @@ begin
   FStatus.Hint := FStatus.Caption;
   RefreshSidebar;
   if Assigned(FOnStateChange) then FOnStateChange(Self);
-  if Paused then begin FWatchQueue.Assign(FWatched);NextWatch;end;
+  if Paused then begin FSession.RequestVariables;FWatchQueue.Assign(FWatched);NextWatch;end;
 end;
 
 procedure TDebuggerPanel.RefreshSidebar;
@@ -364,6 +368,9 @@ begin
   FSidebar.Items.BeginUpdate;
   try
     FSidebar.Items.Clear;
+    Root := FSidebar.Items.Add(nil, Tr('Local variables'));
+    for I:=0 to FLocals.Count-1 do FSidebar.Items.AddChild(Root,FLocals.Names[I]+' = '+FLocals.ValueFromIndex[I]);
+    Root.Expand(False);
     Root := FSidebar.Items.Add(nil, Tr('Evaluated expressions'));
     for I := 0 to FValues.Items.Count - 1 do
       FSidebar.Items.AddChild(Root, FValues.Items[I].Caption + ' = ' +
@@ -379,6 +386,11 @@ begin
     end;
     Root.Expand(False);
   finally FSidebar.Items.EndUpdate; end;
+end;
+
+procedure TDebuggerPanel.VariablesText(Sender:TObject;const AText:string);
+begin
+  MIVariableRows(AText,FLocals);RefreshSidebar;
 end;
 
 procedure TDebuggerPanel.RefreshBreakpoints;
@@ -418,9 +430,10 @@ procedure TDebuggerPanel.SidebarDoubleClick(Sender: TObject);
 var Node: TTreeNode;
 begin
   Node := FSidebar.Selected;
-  if (Node = nil) or (Node.Parent = nil) or
-    (Node.Parent.Index <> 0) or (Node.Index >= FValues.Items.Count) then Exit;
-  FExpression.Text := FValues.Items[Node.Index].Caption;
+  if (Node=nil) or (Node.Parent=nil) then Exit;
+  if (Node.Parent.Index=0) and (Node.Index<FLocals.Count) then FExpression.Text:=FLocals.Names[Node.Index]
+  else if (Node.Parent.Index=1) and (Node.Index<FValues.Items.Count) then FExpression.Text:=FValues.Items[Node.Index].Caption
+  else Exit;
   FocusExpression;
 end;
 

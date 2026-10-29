@@ -36,7 +36,7 @@ begin
 end;
 procedure Check(Value: Boolean; const MessageText: string);
 begin if not Value then raise Exception.Create(MessageText); end;
-var Session: TGdbSession; Observer: TObserver; Arguments: TStringList;
+var Session: TGdbSession; Observer: TObserver; Arguments,Variables: TStringList;
   Started: QWord; Inferior: LongInt; Source, Executable, OldSource: string;
   P, LocationsBeforeEdit: Integer;
 procedure Pump;
@@ -90,7 +90,10 @@ begin
   Session := TGdbSession.Create; Observer := TObserver.Create;
   Observer.Session := Session;
   Arguments := TStringList.Create;
+  Variables:=TStringList.Create;
   try
+    MIVariableRows('^done,variables=[{name="n",type="int",value="7"},{name="s",type="char *",value="\"a}b\""},{name="v",type="vector<int>"}]',Variables);
+    Check((Variables.Count=3) and (Variables.Values['n']='7') and (Variables.Values['s']='"a}b"') and (Variables.Values['v']='<vector<int>>'),'MI locals decode scalars, quoted braces and aggregates.');
     Source := ExpandFileName(ParamStr(1)); Executable := ExpandFileName(ParamStr(2));
     P := 1;
     Check(MIDecode('"quoted\" path\\file\n\344\270\255"', P) =
@@ -228,5 +231,5 @@ begin
     repeat Pump until (Session.State = gsInactive) and not Session.Active;
     Check(not FileExists(ExtractFilePath(Executable) + 'must-not-exist'), 'Arguments invoked a shell.');
     WriteLn('PASS: MI strings, literal argv, breakpoint add/delete while running and paused/Save As migration, source stop, step over/into/finish/instructions, literal GDB console, expression evaluation, PTY stdin/stdout, exit/restart, stop during breakpoint edit, real-stop race and stop cleanup.');
-  finally Arguments.Free; Session.Free; Observer.Free; end;
+  finally Variables.Free;Arguments.Free; Session.Free; Observer.Free; end;
 end.

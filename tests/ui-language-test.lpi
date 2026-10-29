@@ -22,7 +22,7 @@
       <Filename Value="../linux-noi-lazarus/lib/ui-language-test"/>
     </Target>
     <SearchPaths>
-      <OtherUnitFiles Value="../linux-noi-lazarus"/>
+      <OtherUnitFiles Value="../linux-noi-lazarus/lib/synedit-fast;../linux-noi-lazarus"/>
       <UnitOutputDirectory Value="../linux-noi-lazarus/lib/ui-language-test-units"/>
     </SearchPaths>
   </CompilerOptions>
