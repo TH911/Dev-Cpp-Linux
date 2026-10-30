@@ -10,7 +10,7 @@ source /etc/os-release
 export DEBIAN_FRONTEND=noninteractive
 apt-get -o Acquire::Retries=3 update
 apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-  git ca-certificates make binutils python3 dpkg-dev appstream desktop-file-utils \
+  git ca-certificates make binutils astyle python3 dpkg-dev appstream desktop-file-utils \
   lcl-utils-2.0 lcl-gtk2-2.0 lcl-units-2.0 lazarus-src-2.0 \
   fp-compiler fp-utils fp-units-fcl fp-units-gfx fp-units-misc \
   libgtk2.0-dev libx11-dev gcc g++ \
@@ -18,4 +18,5 @@ apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
   gcc-9=9.3.0-10ubuntu2 g++-9=9.3.0-10ubuntu2 \
   libgcc-9-dev=9.3.0-10ubuntu2 libstdc++-9-dev=9.3.0-10ubuntu2 \
   libasan5=9.3.0-10ubuntu2 gdb=9.1-0ubuntu1 \
-  xvfb xauth xdotool xterm xfonts-base fonts-dejavu-core fonts-wqy-zenhei
+  xvfb xauth xdotool xterm xfonts-base fonts-dejavu-core fonts-wqy-zenhei \
+  ibus-gtk ibus ibus-libpinyin gvfs dbus

@@ -92,12 +92,11 @@ F11 编译运行、关闭和重新打开项目，以及 Ctrl+N 新建源码；�
 
 对照 `main.dfm` 的 `tbCompile`、`DebugStartPanel` 和 `AboutFrm.dfm`，移除顶部新增的 Continue、Step over、Step into、Toggle Breakpoint，以及 Evaluate、Send input、Copy details 按钮。原版已有的 Debug/Stop、底部继续/步进/停止与编译器选择保留；求值和程序输入用 Enter，关于详情用 Ctrl+A/C。
 
-源码与安装版的桌面名称、主标题统一为 Dev-Cpp，图标使用原版 ICO 原字节；Debug/Stop 使用原版 newlook BMP 原字节。源码运行脚本在构建后读取实际程序版本，兼容版本标记也纳入一致性检查，避免再次显示旧的 v1.0.0。
+源码与安装版的桌面名称、主标题统一为 Dev-C++，图标使用原版 ICO 原字节；Debug/Stop 使用原版 newlook BMP 原字节。源码运行脚本在构建后读取实际程序版本，兼容版本标记也纳入一致性检查，避免再次显示旧的 v1.0.0。
 
 ## 有意保留的差异
 
-- 当前项目既定 **Ctrl+Shift+S = Save As、Ctrl+Shift+A = Save All**，本轮继续保留。
-  原版快捷键表为 Ctrl+Shift+S = Save All，Ctrl+Shift+A = AStyle Format Current File；以后添加格式化时需选择其他键或允许配置。
+- `v1.3.1-beta4` 已恢复原版 **Ctrl+Shift+S = Save All、Ctrl+Shift+A = AStyle Format Current File**；另存为不设默认键。逐项绑定核对、自定义迁移与尚未移植的键见 [快捷键审计](SHORTCUTS.md)。
 - GTK2/LCL 控件、Linux 终端与路径处理服务于 NOI Linux 2.0。功能语义应对齐，不能以 Windows 像素布局、Win32 专用选项是否照搬来判断可用性。
 - 本轮对原版功能的验收要求包括取消、撤销、焦点、跨文档和跨项目状态；仅新增同名菜单不算完成。
 
@@ -152,3 +151,15 @@ F11 编译运行、关闭和重新打开项目，以及 Ctrl+N 新建源码；�
 ### v1.2.0 输入框可读性
 
 编译器/编辑器选项、运行参数、编译日志、调试输入和关于详情使用黑字白底；原生选区和禁用配色保留。窗口显示时重新应用颜色，覆盖 GTK 模态窗口重建控件的情况。`tests/input-colors-ui-smoke.sh` 使用普通文字为灰色的 GTK2 测试主题，验证实际鼠标聚焦、Ctrl+A 选区、控件敏感状态及对比度，旧版在编译器选项处不能通过该检查。
+
+### v1.3.0 截图布局对齐
+
+恢复原版双排工具栏、菜单图标、作用域/函数导航、类树、窄侧栏、全宽六页输出区、七栏状态信息及修改标签。新增基础打印、文本导出、可选 AStyle 格式化和独立搜索结果。使用随发行版提供的 Lazarus 2.0.6 C++ lexer（保留 MPL/GPL 双许可证声明）补上真实花括号折叠、折叠状态序列化和灰色缩进虚线；`noi_syn_cpp.pas` 的修改不是独立重写词法器。轻量导航不提供完整 C++ 语义、重载解析或模板解析；Windows 工程导入、资源编译、性能分析等尚未完成，未用假按钮替代。GTK2 的窗口边框及字体渲染仍取决于桌面。
+
+`tests/classic-layout-test.lpr` 验证真实折叠/展开、注释与字符串排除、函数/成员跳转、导出转义和 AStyle 一次撤销；`classic-ui-smoke.sh` 使用真实鼠标/键盘操作验证函数选择、编译摘要、输出区关闭恢复，并保存四张原生 GTK 截图。
+
+## v1.3.1-beta2：设置和调试面板 / Preferences and debugging
+
+按用户的 5.11 截图恢复编辑菜单分组、六页编辑器属性、两排调试动作和 GDB 命令框。加入真实 Linux GCC Release/Debug/Profiling 配置、可配置行号字体/栏距、语法预览与样式、插入片段及恢复副本。界面显示 Dev-C++，命令及安装包使用 `dev-cpp`，保留两代旧名称的升级兼容。具体行为及尚未完成的部分见 [CLASSIC-UI.md](CLASSIC-UI.md)。
+
+The beta restores Edit groups, six editor-property pages, two debugger action rows and a GDB command field from the supplied 5.11 references. It adds actual Linux GCC profiles, gutter/font controls, syntax previews, snippets and recovery copies. The display name is Dev-C++; command/package naming is `dev-cpp`, retaining both legacy upgrade paths. See [CLASSIC-UI.md](CLASSIC-UI.md) for tested behavior and remaining gaps.

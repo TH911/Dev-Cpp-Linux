@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Discover the installed application as a software panel does, then load its icon."""
 import ctypes
+import sys
 from ctypes.util import find_library
 from pathlib import Path
 
@@ -43,20 +44,21 @@ try:
         shown = bool(gio.g_app_info_should_show(app))
         if shown and name:
             visible_names.append(name.decode())
-        if desktop_id == b'devcpp-noi-installed.desktop':
+        if desktop_id == b'dev-cpp-installed.desktop':
             assert shown, 'The installed application is hidden from application menus'
-            assert name == b'Dev-Cpp', name
+            assert name == b'Dev-C++', name
             icon = gio.g_app_info_get_icon(app)
             assert icon, 'The installed application has no icon'
             icon_text = gio.g_icon_to_string(icon)
             try:
-                assert ctypes.string_at(icon_text) == b'/usr/share/pixmaps/devcpp-noi.ico'
+                assert ctypes.string_at(icon_text) == b'/usr/share/pixmaps/dev-cpp.ico'
             finally:
                 glib.g_free(icon_text)
             found = True
         node = node.contents.next
     assert found, 'The application is absent from GIO application discovery'
-    assert visible_names.count('Dev-Cpp') == 1, 'Ambiguous duplicate Dev-Cpp menu entries'
+    if '--allow-legacy' not in sys.argv:
+        assert visible_names.count('Dev-C++') == 1, 'Ambiguous duplicate Dev-C++ menu entries'
 finally:
     node = apps
     while node:
@@ -64,10 +66,10 @@ finally:
         node = node.contents.next
     glib.g_list_free(apps)
 
-icon_path = Path('/usr/share/pixmaps/devcpp-noi.ico')
-assert icon_path.read_bytes() == Path('/usr/lib/devcpp-noi/devcpp.ico').read_bytes(), \
+icon_path = Path('/usr/share/pixmaps/dev-cpp.ico')
+assert icon_path.read_bytes() == Path('/usr/lib/dev-cpp/devcpp.ico').read_bytes(), \
     'Desktop and program icons differ'
 image = pixbuf.gdk_pixbuf_new_from_file(bytes(icon_path), None)
 assert image, 'The original icon cannot be loaded by the desktop image loader'
 gobject.g_object_unref(image)
-print('PASS: GIO discovers one visible Dev-Cpp application with the unchanged, loadable original icon')
+print('PASS: GIO discovers the visible Dev-C++ application with the unchanged, loadable original icon' + (' (legacy entries await first-launch repair)' if '--allow-legacy' in sys.argv else ' and no duplicate entries'))

@@ -1,0 +1,55 @@
+{
+  "reference": "Orwell Dev-C++ 5.11, commit 0e4d598b172efd7df97b7ecc941d6aa08340cd70",
+  "source": "Source/DataFrm.dfm:ClassImages",
+  "source_sha256": "5fff78fa99a688cc4f0a32bebae9cc82478bf68cdaf2d0cea45c7322753076af",
+  "icons": {
+    "browser-0.bmp": {
+      "index": 0,
+      "sha256": "c29af2f9857ff4e74a776f32d9e199f5d9b9ada80d3c7ae390310c583b9ee9f8"
+    },
+    "browser-1.bmp": {
+      "index": 1,
+      "sha256": "90bccb4147cf3a741825e419814e7a062d5a0cfcdfad2cb58036dbb8d831742c"
+    },
+    "browser-2.bmp": {
+      "index": 2,
+      "sha256": "4dc7e448381093e611be0c9fdaaae6676da37d9b7d6de4cd672f15f8b22a8103"
+    },
+    "browser-3.bmp": {
+      "index": 3,
+      "sha256": "41008f53e620b3ca8d0cedd60114ce58f3fc1393501edb2a3e24b81468ae7e8a"
+    },
+    "browser-4.bmp": {
+      "index": 4,
+      "sha256": "c29bd8704f518cccdc450e754e1f00e897ed6168ff35f14627dd5ff6689a6e5d"
+    },
+    "browser-5.bmp": {
+      "index": 5,
+      "sha256": "a8df07a3d9081d38df4b6c457df5b2cf5608c4358e6a4d613a3b031b8f732dc9"
+    },
+    "browser-6.bmp": {
+      "index": 6,
+      "sha256": "82cda5e945c364d09b73a1735b7fd77eb918e298e26f161ee2b3ef0b097dcdf1"
+    },
+    "browser-7.bmp": {
+      "index": 7,
+      "sha256": "a2c927539b0aee63b8776611f628ef8cf57f1ab31ae6a3c6a05d4057cdb7785f"
+    },
+    "browser-8.bmp": {
+      "index": 8,
+      "sha256": "3d39a7178a411ee4359278d2fe96e6da2dcada59384e0a172d8f88f99c376a8a"
+    },
+    "browser-9.bmp": {
+      "index": 9,
+      "sha256": "5f4ec476be85cdbd35a5337686a50afd84a6f03eead212e2e966c88b61e99778"
+    },
+    "browser-10.bmp": {
+      "index": 10,
+      "sha256": "993e15ea5efe92a03c481a66c2b99272965b9b450b9f2b9a32ab804c1bfdd702"
+    },
+    "browser-11.bmp": {
+      "index": 11,
+      "sha256": "fad951e05e475fb550de4d82a595ca216ce5da1b7c3bc6d6887755ae439a784f"
+    }
+  }
+}

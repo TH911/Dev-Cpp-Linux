@@ -4,6 +4,7 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 test_dir=$(mktemp -d)
 trap 'rm -rf -- "$test_dir"' EXIT
 export LANG=C.UTF-8
+# Keep the virtual desktop alive when a regression closes/restarts its last app.
 python3 tests/launcher-migration-test.py
 python3 - <<'PY'
 from pathlib import Path
@@ -19,9 +20,9 @@ PY
 lazbuild --version | grep '^2\.0\.6'
 gdb --version | sed -n '1p' | grep '9\.1'
 bash linux-noi-lazarus/build.sh
-env -u DISPLAY linux-noi-lazarus/devcpp-noi --version | grep -F "$(cat VERSION)"
+env -u DISPLAY linux-noi-lazarus/dev-cpp --version | grep -F "$(cat VERSION)"
 env -u DISPLAY bash linux-noi-lazarus/run.sh --version > "$test_dir/source-version.log" 2>&1
-grep -Fx "Dev-Cpp $(cat VERSION)" "$test_dir/source-version.log"
+grep -Fx "dev-cpp $(cat VERSION)" "$test_dir/source-version.log"
 if grep -F 'v1.0.0' "$test_dir/source-version.log"; then
   echo 'Source launcher printed an obsolete release version.' >&2
   exit 1
@@ -40,12 +41,37 @@ fpc -Fulinux-noi-lazarus -FU"$test_dir/profiles" -FE"$test_dir/profiles" \
 "$test_dir/profiles/compiler-profiles-test"
 bash tests/runtime-support-smoke.sh
 timeout 60s bash tests/gdb-session-smoke.sh
-for name in editor-actions editor-themes ui-language command-state; do
+# Unit executables live in lib/; expose the same real icon resources as the IDE.
+ln -sfn ../icons linux-noi-lazarus/lib/icons
+for name in editor-actions editor-themes ui-language command-state classic-layout editor-preferences brackets shortcuts document-kind syntax-preview format-settings sidebar-variables; do
   lazbuild --widgetset=gtk2 "tests/$name-test.lpi" > "$test_dir/$name-build.log" 2>&1 || {
     cat "$test_dir/$name-build.log" >&2; exit 1;
   }
-  timeout 60s xvfb-run -a "linux-noi-lazarus/lib/$name-test"
+  timeout 60s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" "linux-noi-lazarus/lib/$name-test"
 done
 for name in noi-linux ui-interaction runtime-ui gdb-ui preferences-ui input-colors-ui about-ui project-ui; do
-  timeout 180s xvfb-run -a bash "tests/$name-smoke.sh"
+  timeout 180s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" bash "tests/$name-smoke.sh"
 done
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 100s xvfb-run -a -s "-screen 0 1440x1080x24 -noreset" bash tests/heritage-ui-smoke.sh
+HERITAGE_HOSTILE_THEME=1 CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview/theme-stress" timeout 100s xvfb-run -a -s "-screen 0 1440x1080x24 -noreset" bash tests/heritage-ui-smoke.sh
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 90s xvfb-run -a -s "-screen 0 1920x1080x24 -noreset" bash tests/classic-ui-smoke.sh
+
+timeout 60s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" python3 tests/startup-smoke.py
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 90s xvfb-run -a -s "-screen 0 1920x1080x24 -noreset" bash tests/tools-ui-smoke.sh
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 100s xvfb-run -a -s "-screen 0 1920x1080x24 -noreset" bash tests/editor-options-ui-smoke.sh
+
+timeout 120s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/brackets-ui-smoke.sh
+
+timeout 150s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/save-shortcuts-ui-smoke.sh
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 120s xvfb-run -a -s "-screen 0 1600x1000x24 -noreset" bash tests/tab-order-ui-smoke.sh
+
+timeout 30s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" bash tests/first-frame-smoke.sh
+timeout 30s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" python3 tests/ibus-startup-smoke.py
+timeout 60s dbus-run-session -- xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" python3 tests/ibus-input-smoke.py
+
+CLASSIC_UI_ARTIFACT_DIR="$PWD/dist/ui-preview" timeout 180s xvfb-run -a -s "-screen 0 1280x1024x24 -noreset" bash tests/search-ui-smoke.sh

@@ -1,14 +1,15 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Dev-Cpp
+Name=Dev-C++
+Name[zh_CN]=Dev-C++
 Comment=Dev-C++ for NOI Linux
 Comment[zh_CN]=适用于 NOI Linux 的 Dev-C++
-Exec=/usr/bin/devcpp-noi %F
-Icon=/usr/share/pixmaps/devcpp-noi.ico
+Exec=/usr/bin/dev-cpp %F
+Icon=/usr/share/pixmaps/dev-cpp.ico
 Terminal=false
-StartupWMClass=DevCppNoiInstalled
-NoDisplay=true
+StartupWMClass=DevCppInstalled
+Keywords=dev-cpp;Dev-C++;C++;C;IDE;
 Categories=Development;IDE;
 MimeType=text/x-c++src;text/x-csrc;text/x-c++hdr;text/x-chdr;
 Actions=NewWindow;
@@ -16,4 +17,4 @@ Actions=NewWindow;
 [Desktop Action NewWindow]
 Name=Open in New Window
 Name[zh_CN]=在新窗口打开
-Exec=/usr/bin/devcpp-noi --new-window %F
+Exec=/usr/bin/dev-cpp --new-window %F

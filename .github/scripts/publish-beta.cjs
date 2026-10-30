@@ -10,14 +10,14 @@ module.exports = async function publishBeta({github, context, core, root = proce
     throw new Error('Pre-releases require a beta push or an explicit manual publish_beta run.');
   }
   const version = fs.readFileSync(path.join(root, 'VERSION'), 'utf8').trim();
-  if (!/^\d+\.\d+\.\d+~beta[1-9]\d*$/.test(version)) {
-    throw new Error('A beta requires a VERSION such as 1.1.3~beta1.');
+  if (!/^\d+\.\d+\.\d+(?:~beta[1-9]\d*)?$/.test(version)) {
+    throw new Error('Pre-release VERSION must be x.y.z or x.y.z~betaN.');
   }
   const tag = `v${version.replace('~', '-')}`;
   const names = [
     `linux-noi-lazarus-${version}-src.tar.gz`,
     `linux-noi-lazarus-${version}-src.zip`,
-    `devcpp-noi_${version}_amd64.deb`
+    `dev-cpp_${version}_amd64.deb`
   ];
   // Read every asset before creating a public tag or a draft release.
   // GitHub rewrites '~' in uploaded asset names. Choose a stable public name
@@ -53,7 +53,7 @@ module.exports = async function publishBeta({github, context, core, root = proce
   if (!release) {
     ({data: release} = await github.rest.repos.createRelease({
       owner, repo, tag_name: tag, target_commitish: context.sha,
-      name: `Dev-Cpp ${tag}`, draft: true, prerelease: true, make_latest: 'false',
+      name: `Dev-C++ ${tag}`, draft: true, prerelease: true, make_latest: 'false',
       body: `beta 分支测试版，版本 ${version}。\n\n` +
         `源码提交：${context.sha}\n\n` +
         `已通过 Ubuntu 20.04 / NOI Linux 2.0 工具链的构建、GTK2 回归与安装检查：` +

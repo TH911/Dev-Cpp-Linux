@@ -16,7 +16,7 @@ if [ "$1" = configure ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; 
         user_uid=$(printf '%s\n' "$account" | cut -d: -f3)
         if [ "$user_uid" != 0 ] && [ -d "$user_home" ] && [ ! -L "$user_home" ]; then
             runuser -u "$SUDO_USER" -- env -u XDG_DATA_HOME HOME="$user_home" \
-                /usr/lib/devcpp-noi/migrate-launchers.py || true
+                /usr/lib/dev-cpp/migrate-launchers.py || true
         fi
     fi
 fi

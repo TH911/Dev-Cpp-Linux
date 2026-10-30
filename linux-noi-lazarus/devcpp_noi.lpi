@@ -6,7 +6,7 @@
     <General>
       <Flags>
         <MainUnitHasCreateFormStatements Value="True"/>
-        <MainUnitHasTitleStatement Value="False"/>
+        <MainUnitHasTitleStatement Value="True"/>
       </Flags>
       <MainUnit Value="0"/>
     </General>
@@ -88,22 +88,25 @@
         <IsPartOfProject Value="True"/>
       </Unit18>
     </Units>
-    <RequiredPackages Count="2">
+    <RequiredPackages Count="3">
       <Item1>
         <PackageName Value="SynEdit"/>
       </Item1>
       <Item2>
         <PackageName Value="LCL"/>
       </Item2>
+      <Item3><PackageName Value="Printer4Lazarus"/></Item3>
     </RequiredPackages>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <Target>
-      <Filename Value="devcpp-noi.build"/>
+      <Filename Value="dev-cpp.build"/>
     </Target>
+    <CodeGeneration><Optimizations><OptimizationLevel Value="1"/></Optimizations></CodeGeneration>
+    <Linking><Debugging><GenerateDebugInfo Value="False"/><UseLineInfoUnit Value="False"/><StripSymbols Value="True"/></Debugging></Linking>
     <SearchPaths>
-      <OtherUnitFiles Value="."/>
+      <OtherUnitFiles Value="lib/synedit-fast;."/>
     </SearchPaths>
   </CompilerOptions>
 </CONFIG>

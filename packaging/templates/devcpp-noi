@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# Installed entry: repair our historical launchers, then execute the package.
-set -euo pipefail
-/usr/lib/devcpp-noi/migrate-launchers.py || true
-if [[ ${1:-} == --repair-launchers ]]; then exit 0; fi
-exec /usr/lib/devcpp-noi/devcpp-noi "$@"

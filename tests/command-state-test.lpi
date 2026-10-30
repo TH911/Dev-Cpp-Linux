@@ -11,9 +11,10 @@
         <IsPartOfProject Value="True"/>
       </Unit0>
     </Units>
-    <RequiredPackages Count="2">
+    <RequiredPackages Count="3">
       <Item1><PackageName Value="SynEdit"/></Item1>
       <Item2><PackageName Value="LCL"/></Item2>
+      <Item3><PackageName Value="Printer4Lazarus"/></Item3>
     </RequiredPackages>
   </ProjectOptions>
   <CompilerOptions>
@@ -22,7 +23,7 @@
       <Filename Value="../linux-noi-lazarus/lib/command-state-test"/>
     </Target>
     <SearchPaths>
-      <OtherUnitFiles Value="../linux-noi-lazarus"/>
+      <OtherUnitFiles Value="../linux-noi-lazarus/lib/synedit-fast;../linux-noi-lazarus"/>
       <UnitOutputDirectory Value="../linux-noi-lazarus/lib/command-state-test-units"/>
     </SearchPaths>
   </CompilerOptions>

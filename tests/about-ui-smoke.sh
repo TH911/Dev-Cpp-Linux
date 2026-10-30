@@ -67,7 +67,7 @@ snapshot() {
 }
 
 mkdir -p "$test_dir/home/.config" "$test_dir/bin"
-printf '[Interface]\nLanguage=en\n' > "$test_dir/home/.config/devcpp-noi.ini"
+printf '[Interface]\nLanguage=en\n' > "$test_dir/home/.config/dev-cpp.ini"
 cat > "$test_dir/bin/xdg-open" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "$ABOUT_BROWSER_LOG"
@@ -92,11 +92,11 @@ env HOME="$test_dir/home" XDG_CACHE_HOME="$test_dir/home/.cache" \
   PATH="$test_dir/bin:$PATH" ABOUT_BROWSER_LOG="$test_dir/browser-url" \
   LD_PRELOAD="$test_dir/gtk-state-probe.so" DEVC_GTK_STATE="$test_dir/state.json" \
   DEVC_GTK_SCREENSHOT="$test_dir/current.png" \
-  "$app_dir/devcpp-noi" --new-window > "$test_dir/runtime.log" 2>&1 &
+  "$app_dir/dev-cpp" --new-window > "$test_dir/runtime.log" 2>&1 &
 app_pid=$!
 window=''
 for i in {1..100}; do
-  window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C' 2>/dev/null | head -1) || true
+  window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C\+\+' 2>/dev/null | head -1) || true
   [[ -z $window ]] || break
   alive; sleep 0.1
 done
@@ -105,10 +105,10 @@ for attempt in {1..10}; do
   xdotool windowfocus "$window"
   click_text Help
   started=$(date +%s%3N)
-  click_text 'About Dev-Cpp'
+  click_text 'About Dev-C++'
   dialog=''
   for poll in {1..40}; do
-    dialog=$(xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-Cpp$' 2>/dev/null | head -1) || true
+    dialog=$(xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-C\+\+.*$' 2>/dev/null | head -1) || true
     [[ -z $dialog ]] || break
     alive; sleep 0.02
   done
@@ -118,12 +118,12 @@ for attempt in {1..10}; do
   echo "About single mouse click $attempt: ${elapsed}ms"
   xdotool windowfocus "$dialog" key --clearmodifiers Escape
   sleep 0.15
-  if xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-Cpp$' >/dev/null 2>&1; then
+  if xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-C\+\+.*$' >/dev/null 2>&1; then
     fail 'About remained open after Escape or a duplicate request opened another window'
   fi
 done
 xdotool windowfocus "$window" key --clearmodifiers --delay 80 alt+h a
-wait_text 'About Dev-Cpp'
+wait_text 'About Dev-C++'
 version=$(tr -d '\r\n' < "$source_root/VERSION")
 wait_text "Version $version"
 wait_text 'Orwell Dev-C++ 5.11'
@@ -135,10 +135,10 @@ for i in {1..100}; do [[ ! -s "$test_dir/browser-url" ]] || break; alive; sleep 
 [[ $(cat "$test_dir/browser-url") == 'https://github.com/TH911/Dev-Cpp-Linux' ]] || fail 'Repository click opened wrong URL'
 click_text 'Build and installation'
 wait_text 'Directory build'
-wait_text "Executable: $app_dir/devcpp-noi"
-wait_text "Configuration: $test_dir/home/.config/devcpp-noi.ini"
+wait_text "Executable: $app_dir/dev-cpp"
+wait_text "Configuration: $test_dir/home/.config/dev-cpp.ini"
 snapshot installation-details
-position=$(python3 - "$test_dir/state.json" "$app_dir/devcpp-noi" <<'PY'
+position=$(python3 - "$test_dir/state.json" "$app_dir/dev-cpp" <<'PY'
 import json,sys
 items=json.load(open(sys.argv[1]))
 assert not any(item['type']=='GtkButton' and item['text']=='Copy details'
@@ -154,20 +154,20 @@ read -r details_x details_y <<< "$position"
 xdotool mousemove --sync "$details_x" "$details_y" click 1
 xdotool key --clearmodifiers ctrl+a ctrl+c
 "$test_dir/clipboard-reader" > "$test_dir/clipboard.txt"
-python3 - "$test_dir/clipboard.txt" "$version" "$app_dir/devcpp-noi" "$test_dir/home/.config/devcpp-noi.ini" <<'PY'
+python3 - "$test_dir/clipboard.txt" "$version" "$app_dir/dev-cpp" "$test_dir/home/.config/dev-cpp.ini" <<'PY'
 from pathlib import Path
 import sys
 text=Path(sys.argv[1]).read_text()
-for expected in ('Dev-Cpp '+sys.argv[2],sys.argv[3],sys.argv[4],
+for expected in ('Dev-C++ '+sys.argv[2],sys.argv[3],sys.argv[4],
                  'Free Pascal 3.0.4','x86_64-linux / GTK2',
                  'Directory build','https://github.com/TH911/Dev-Cpp-Linux'):
  assert expected in text,(expected,text)
 PY
-dialog=$(xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-C' 2>/dev/null | head -1)
+dialog=$(xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-C\+\+' 2>/dev/null | head -1)
 [[ -n $dialog ]] || fail 'About dialog missing before Escape'
 xdotool windowfocus "$dialog" key --clearmodifiers Escape
 sleep 0.2
-if xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-C' >/dev/null 2>&1; then
+if xdotool search --all --onlyvisible --pid "$app_pid" --name '^About Dev-C\+\+' >/dev/null 2>&1; then
   fail 'Escape did not close About'
 fi
 alive

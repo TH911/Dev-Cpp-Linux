@@ -1,0 +1,179 @@
+{
+  "reference": "Orwell Dev-C++ 5.11, commit 0e4d598b172efd7df97b7ecc941d6aa08340cd70",
+  "source": "Source/DataFrm.dfm:MenuImages_NewLook",
+  "source_sha256": "d41343847f085d2049062ca16e29ebc5d8a692f9df60b71911c8ac17cfeeef25",
+  "icons": {
+    "newproj.bmp": {
+      "index": 0,
+      "sha256": "afe6c94950d157ec3976c0d83b826b65df8c05291251e959806d295be1df424d"
+    },
+    "newsrc.bmp": {
+      "index": 1,
+      "sha256": "85b0292d3978eb4da621d12c591dad4b5a1fc0597c4e69ab2eb91f91142a615c"
+    },
+    "resrc.bmp": {
+      "index": 2,
+      "sha256": "2127dfb48cdbfc454fe1ac8a4106adbbd430a11caadea22ede8362e027d670b3"
+    },
+    "opnproj.bmp": {
+      "index": 4,
+      "sha256": "9db15d9b0b78f9bb5a16dd076d66ab7577aca316d5fddb4ed8b4f8972e3ce321"
+    },
+    "clrhist.bmp": {
+      "index": 5,
+      "sha256": "41c9e23c37a60689e8481c09692064d1620935ecc41a180cfbeb4f81e86cf80c"
+    },
+    "save.bmp": {
+      "index": 6,
+      "sha256": "59e77db5a88f69df94802ce7dd4ed04fc612e916377ee8cf1c82781b673c9c06"
+    },
+    "saveas.bmp": {
+      "index": 7,
+      "sha256": "160b06e60b0431a19550ea2586914493bc5d07a3aa17228c89e4e0042d972b08"
+    },
+    "saveall.bmp": {
+      "index": 8,
+      "sha256": "2ca7242b96cf66fbb7690210dbfe96f479739da7f960fd39a579f2258736fb0c"
+    },
+    "closefl.bmp": {
+      "index": 9,
+      "sha256": "cd94e4bc6708d2f466141b95cb55df5645044844332c9e909579672bb13ae560"
+    },
+    "print.bmp": {
+      "index": 10,
+      "sha256": "e8730626a4cdece166f42b38c4cb8384b0196b125dea2a15336f95543ab1adb2"
+    },
+    "close.bmp": {
+      "index": 11,
+      "sha256": "5693bfa45d28c2c6bd0d05204a24db170185dcf0a78f725e0ac6b3d170878fb3"
+    },
+    "stop-debug.bmp": {
+      "index": 11,
+      "sha256": "5693bfa45d28c2c6bd0d05204a24db170185dcf0a78f725e0ac6b3d170878fb3"
+    },
+    "export.bmp": {
+      "index": 12,
+      "sha256": "ac7d7fcfce3a59b347fc142aac093a01f4bb92f5d849ffbe41740a3a53ec0710"
+    },
+    "undo.bmp": {
+      "index": 13,
+      "sha256": "19d2b8fd6e4f9d50184f42d56e129015d4fabb10827c390fd45f0b442f752f93"
+    },
+    "redo.bmp": {
+      "index": 14,
+      "sha256": "b77136e060224ac328c0eae9f394173f2475658d24b03380441e20d3026cd404"
+    },
+    "cut.bmp": {
+      "index": 15,
+      "sha256": "33912e74f049f90f36fb055cda2dec9cb1a8ed0d46c70029d870de220749a95f"
+    },
+    "copy.bmp": {
+      "index": 16,
+      "sha256": "f80b2d6c89a48da38906ca0f89409fe5ed37682841c07c8caa73faa65a603451"
+    },
+    "paste.bmp": {
+      "index": 17,
+      "sha256": "63126e9ae70c67a9a7584af83e040c65367591a80d9f229c907fc6b3a2e334a1"
+    },
+    "insert.bmp": {
+      "index": 18,
+      "sha256": "03b58602136942c8f2da01325ab89900391d7f65542e0a4c056853d48fe63408"
+    },
+    "addbook.bmp": {
+      "index": 19,
+      "sha256": "f8f23f4be3058998f745f01957fa138cead3a8253db17e4148dfd842820407bb"
+    },
+    "gobook.bmp": {
+      "index": 20,
+      "sha256": "994b97d1b28ad23c5a568e9c2cec2603bd46c02af863b2d898786b45d80551fe"
+    },
+    "search.bmp": {
+      "index": 21,
+      "sha256": "6ff445ccacbab427d5d6c8c1133868e2ab1317a1244e0163fdb404ec3308ceab"
+    },
+    "srchrep.bmp": {
+      "index": 22,
+      "sha256": "a79b079ba3172fd4ff70a3a30ea29829d2dd0ae365e519988cbe94e71634fd74"
+    },
+    "goto.bmp": {
+      "index": 24,
+      "sha256": "fcc9f69fdeaf5b0a5d0d13f20337832d04cd707c16f5aa89fc8db340cfc2d100"
+    },
+    "addsrc.bmp": {
+      "index": 25,
+      "sha256": "37834c150ed2c5f2621eb4841b62c1fd7650e2ce832f1d6cf2ffd5b3d444a2f8"
+    },
+    "remsrc.bmp": {
+      "index": 26,
+      "sha256": "57c02acf7aa918ca80b44f4f29167612078fbff3fd71b1e0c0d3e39e296858c2"
+    },
+    "projopt.bmp": {
+      "index": 27,
+      "sha256": "505f83029a55ad2a4c0b41fe8b8834c37dec29b8c8b07b37196f9c49cea63e78"
+    },
+    "compile.bmp": {
+      "index": 28,
+      "sha256": "90d71cedc5986f5ff7509982e8aab05f8a723327513936a1984720e1e7e9b203"
+    },
+    "rebuild.bmp": {
+      "index": 30,
+      "sha256": "049803d7801176b689928cd6c7dfeeb67ccd03720373c0513bb24596b8f00d8e"
+    },
+    "run.bmp": {
+      "index": 31,
+      "sha256": "ca801ed238906926bbcabe7fc5f473ed3a4c70d668a6aeb57235e635b958b3a6"
+    },
+    "debug.bmp": {
+      "index": 32,
+      "sha256": "60b720f599af7998abb05a298ffc7ef3d023416946f3da16dd0f6335968a4fae"
+    },
+    "comprun.bmp": {
+      "index": 33,
+      "sha256": "709b250caaea051c65dd6a1deba41ed3596f48cf0d86ba900a7b91f9969b5fe8"
+    },
+    "compopt.bmp": {
+      "index": 34,
+      "sha256": "68999593851e71fce1eccc9dfeea46f09dbfe7da08ca04de827deb03572afbd3"
+    },
+    "envopt.bmp": {
+      "index": 35,
+      "sha256": "c256f96bacb0b387ab7fb11127f64e3f126d31e503b9bae21443b489913c9c2f"
+    },
+    "editopt.bmp": {
+      "index": 36,
+      "sha256": "26be83cce1da8151ef16165934a2f68c1dd3580e8a682577160e4a85f006733d"
+    },
+    "tools.bmp": {
+      "index": 37,
+      "sha256": "a1070217cdccd4144a8efaa121d6c323379ab4940244ad5dbb373bbb92ba1489"
+    },
+    "screen.bmp": {
+      "index": 38,
+      "sha256": "9c76f22e12dbb9198bfa3b892c6f0e9c8285b32c13fb8e76f6706d235560fb0e"
+    },
+    "next.bmp": {
+      "index": 39,
+      "sha256": "ad5fd164d1b2f8555aad0a250e55a0f40d9442cb2212419769adf012393fc34e"
+    },
+    "previous.bmp": {
+      "index": 40,
+      "sha256": "72c7c3d5ebd1fed67dd32d10f9caa435ff2426d6eeee5735bd2ca4c88f7dcff1"
+    },
+    "compres.bmp": {
+      "index": 43,
+      "sha256": "2237bf87989403281811226db567d21fec35cb94257897f0c845eabc6a937ef5"
+    },
+    "packman.bmp": {
+      "index": 48,
+      "sha256": "c226d7fa6ebdc3f3f2d9c64d2e010fe08744c1f89804331655ffe9be9c83ef2b"
+    },
+    "syntcheck.bmp": {
+      "index": 49,
+      "sha256": "8805d2eb4dbe24636bfd2f018d8a6665e331989ad75bd73658870c2091089f89"
+    },
+    "clsall.bmp": {
+      "index": 50,
+      "sha256": "4c4e123bd609eb4dc45c59ca79487d8aad0b948c244d7577e7561ca25c953762"
+    }
+  }
+}

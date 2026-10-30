@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Dev-C++
+Name[zh_CN]=Dev-C++
+Exec=/usr/bin/dev-cpp --new-window %F
+Icon=/usr/share/pixmaps/dev-cpp.ico
+Terminal=false
+StartupWMClass=DevCppInstalled
+NoDisplay=true
+MimeType=text/x-c++src;text/x-csrc;text/x-c++hdr;text/x-chdr;

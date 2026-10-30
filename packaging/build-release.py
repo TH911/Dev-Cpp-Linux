@@ -19,7 +19,7 @@ SOURCE = ROOT / "linux-noi-lazarus"
 # An allowlist also keeps newly-created test outputs, local settings, lock files
 # and compiler output out of release archives. Extend it for new runtime assets.
 SOURCE_SUFFIXES = {
-    ".pas", ".pp", ".inc", ".lpr", ".lpi", ".lfm", ".lrs", ".sh",
+    ".py", ".pas", ".pp", ".inc", ".lpr", ".lpi", ".lfm", ".lrs", ".sh",
     ".md", ".txt", ".lng", ".ico", ".bmp", ".png", ".svg", ".xpm", ".po",
     ".mo", ".json", ".xml", ".sample", ".example", ".ini", ".cfg",
     ".conf", ".theme", ".toml", ".yaml", ".yml",
@@ -37,7 +37,7 @@ def source_files():
             raise ValueError("Refusing symlink in source tree: " + str(relative))
         if not path.is_file():
             continue
-        if relative == Path("devcpp-noi.ini"):
+        if relative.name in ("dev-cpp.ini", "dev-cpp-linux.ini", "devcpp-noi.ini"):
             continue
         if path.name != "PORT_REVISION" and path.suffix.lower() not in SOURCE_SUFFIXES:
             continue
@@ -54,7 +54,7 @@ def archive_mode(path):
 
 def build_sources(version, output, epoch):
     files = list(source_files())
-    required = {"devcpp_noi.lpr", "devcpp_noi.lpi", "mainform.pas", "build.sh", *RUNTIME_FILES}
+    required = {"devcpp_noi.lpr", "devcpp_noi.lpi", "mainform.pas", "build.sh", "prepare-synedit.py", *RUNTIME_FILES}
     if not required <= {p.name for p, _ in files}:
         raise ValueError("Source directory is missing required source/runtime files")
     base = output / ("linux-noi-lazarus-" + version + "-src")
@@ -96,10 +96,10 @@ def build_deb(version, output, binary, epoch):
         raise ValueError("--binary must be a prebuilt Linux amd64 ELF executable")
     if not os.access(binary, os.X_OK):
         raise ValueError("--binary is not executable")
-    with tempfile.TemporaryDirectory(prefix="devcpp-noi-deb-") as temp:
+    with tempfile.TemporaryDirectory(prefix="dev-cpp-deb-") as temp:
         package = Path(temp) / "package"
-        app = package / "usr/lib/devcpp-noi"
-        copy_file(binary, app / "devcpp-noi", 0o755)
+        app = package / "usr/lib/dev-cpp"
+        copy_file(binary, app / "dev-cpp", 0o755)
         for name in RUNTIME_FILES:
             copy_file(SOURCE / name, app / name, 0o755 if name.endswith(".sh") else 0o644)
         for directory in ("icons", "profiles", "languages"):
@@ -111,23 +111,36 @@ def build_deb(version, output, binary, epoch):
                     if source.is_file() and not any(p.startswith(".") for p in source.relative_to(location).parts):
                         if source.suffix.lower() in SOURCE_SUFFIXES:
                             copy_file(source, app / directory / source.relative_to(location))
-        copy_file(TEMPLATES / "devcpp-noi", package / "usr/bin/devcpp-noi", 0o755)
-        copy_file(TEMPLATES / "devcpp-noi.desktop", package / "usr/share/applications/devcpp-noi.desktop")
-        copy_file(TEMPLATES / "devcpp-noi-installed.desktop", package / "usr/share/applications/devcpp-noi-installed.desktop")
-        copy_file(TEMPLATES / "devcpp-noi-new-window.desktop", package / "usr/share/applications/devcpp-noi-new-window.desktop")
+        launcher = (TEMPLATES / "dev-cpp").read_text().replace("@VERSION@", version)
+        copy_file(TEMPLATES / "dev-cpp", package / "usr/bin/dev-cpp", 0o755)
+        (package / "usr/bin/dev-cpp").write_text(launcher)
+        # Hidden redirects preserve old pinned launchers and MIME associations.
+        for alias in ("dev-cpp-linux", "devcpp-noi"):
+            copy_file(TEMPLATES / "dev-cpp", package / "usr/bin" / alias, 0o755)
+            (package / "usr/bin" / alias).write_text(launcher)
+        copy_file(TEMPLATES / "dev-cpp.desktop", package / "usr/share/applications/dev-cpp.desktop")
+        copy_file(TEMPLATES / "dev-cpp-installed.desktop", package / "usr/share/applications/dev-cpp-installed.desktop")
+        copy_file(TEMPLATES / "dev-cpp-new-window.desktop", package / "usr/share/applications/dev-cpp-new-window.desktop")
+        for legacy in ("devcpp-noi.desktop", "devcpp-noi-installed.desktop", "devcpp-noi-new-window.desktop",
+                       "dev-cpp-linux.desktop", "dev-cpp-linux-installed.desktop", "dev-cpp-linux-new-window.desktop"):
+            entry = (TEMPLATES / "dev-cpp.desktop").read_text()
+            if "NoDisplay=true" not in entry: entry += "\nNoDisplay=true\n"
+            destination = package / "usr/share/applications" / legacy
+            destination.write_text(entry)
         copy_file(TEMPLATES / "migrate-launchers.py", app / "migrate-launchers.py", 0o755)
-        copy_file(TEMPLATES / "devcpp-noi-migrate.desktop", package / "etc/xdg/autostart/devcpp-noi-migrate.desktop")
-        copy_file(SOURCE / "devcpp.ico", package / "usr/share/pixmaps/devcpp-noi.ico")
+        copy_file(TEMPLATES / "dev-cpp-migrate.desktop", package / "etc/xdg/autostart/dev-cpp-migrate.desktop")
+        copy_file(SOURCE / "devcpp.ico", package / "usr/share/pixmaps/dev-cpp.ico")
         # PNG makes the unchanged artwork available to AppStream/theme consumers.
         # The application and existing desktop entries keep their original ICO.
-        export_original_icon(SOURCE / "devcpp.ico", package / "usr/share/icons/hicolor/48x48/apps/devcpp-noi.png")
+        export_original_icon(SOURCE / "devcpp.ico", package / "usr/share/icons/hicolor/48x48/apps/dev-cpp.png")
         copy_file(TEMPLATES / "io.github.TH911.DevCpp.metainfo.xml",
                   package / "usr/share/metainfo/io.github.TH911.DevCpp.metainfo.xml")
-        docs = package / "usr/share/doc/devcpp-noi"
+        docs = package / "usr/share/doc/dev-cpp"
         copy_file(SOURCE / "COPYING.txt", docs / "copyright")
         copy_file(SOURCE / "README.md", docs / "README.md")
         copy_file(SOURCE / "FONTS.md", docs / "FONTS.md")
         copy_file(ROOT / "docs/PACKAGING.md", docs / "PACKAGING.md")
+        copy_file(ROOT / "docs/STARTUP.md", docs / "STARTUP.md")
         copy_file(ROOT / "docs/NOI-LINUX-SOFTWARE-INSTALL.md", docs / "NOI-LINUX-SOFTWARE-INSTALL.md")
         (package / "DEBIAN").mkdir()
         size = sum(p.stat().st_size for p in package.rglob("*") if p.is_file())
@@ -143,7 +156,7 @@ def build_deb(version, output, binary, epoch):
             os.utime(path, (epoch, epoch))
         package.chmod(0o755)
         os.utime(package, (epoch, epoch))
-        target = output / ("devcpp-noi_" + version + "_amd64.deb")
+        target = output / ("dev-cpp_" + version + "_amd64.deb")
         env = dict(os.environ, SOURCE_DATE_EPOCH=str(epoch))
         subprocess.run(["dpkg-deb", "--build", "--root-owner-group", "-Zxz", str(package), str(target)], check=True, env=env)
         print(target)
@@ -154,7 +167,7 @@ def main():
     parser.add_argument("kind", choices=("source", "deb", "all"))
     parser.add_argument("--version", default=(ROOT / "VERSION").read_text().strip(), help="Release version or tag; optional leading v is removed")
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
-    parser.add_argument("--binary", type=Path, default=SOURCE / "devcpp-noi", help="Already built Ubuntu 20.04 amd64 GTK2 executable")
+    parser.add_argument("--binary", type=Path, default=SOURCE / "dev-cpp", help="Already built Ubuntu 20.04 amd64 GTK2 executable")
     args = parser.parse_args()
     version = args.version[1:] if args.version.startswith("v") else args.version
     if not re.fullmatch(r"[0-9][0-9A-Za-z.+~-]*", version):

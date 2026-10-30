@@ -165,7 +165,7 @@ click_gutter() {
   local point gx gy red
   point=$(gutter_geometry "$1") || fail 'could not locate actual rendered line number'
   read -r gx gy red <<< "$point"
-  xdotool mousemove --sync "$gx" "$gy" click "${2:-1}"
+  xdotool mousemove "$gx" "$gy" click "${2:-1}"
   sleep 0.2
 }
 expect_gutter_marker() {
@@ -179,12 +179,26 @@ expect_gutter_marker() {
   fail "line $1 breakpoint marker did not become $2 (red pixels: $red)"
 }
 evaluate() {
-  press alt+d e ctrl+a
+  press alt+x End Return ctrl+a
   type_text "$1"
   press Return
   wait_text "$1 = $2"
 }
-continue_debug() { press alt+d c; }
+continue_debug() {
+  press alt+x
+  python3 - "$test_dir/state.json" <<'PY_CONTINUE'
+import json,subprocess,sys
+items=json.load(open(sys.argv[1]));by_id={x['id']:x for x in items}
+def in_menu(item):
+ while item:
+  if 'MenuItem' in item['type']:return True
+  item=by_id.get(item['parent'])
+ return False
+item=next(x for x in items if x['type']=='GtkLabel' and x['viewable'] and x['mapped'] and x['text'].replace('_','')=='Continue' and in_menu(x))
+subprocess.run(['xdotool','mousemove',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True)
+PY_CONTINUE
+  sleep 0.2
+}
 source_line() {
   # Escape does not move the caret. Its KeyUp refreshes the normal editor
   # status, allowing observation of the actual caret set by DebugLocation.
@@ -192,11 +206,11 @@ source_line() {
   wait_text "Line: $1 "
 }
 
-[[ -x "$app_dir/devcpp-noi" ]] || fail 'build the IDE before this GUI test'
+[[ -x "$app_dir/dev-cpp" ]] || fail 'build the IDE before this GUI test'
 gcc -shared -fPIC -Wno-deprecated-declarations \
   "$source_root/tests/gtk-state-probe.c" -o "$test_dir/gtk-state-probe.so" \
   $(pkg-config --cflags --libs gtk+-2.0) -ldl
-cat > "$test_dir/home/.config/devcpp-noi.ini" <<EOF
+cat > "$test_dir/home/.config/dev-cpp.ini" <<EOF
 [Interface]
 Language=en
 [Run]
@@ -227,16 +241,32 @@ env HOME="$test_dir/home" XDG_CACHE_HOME="$test_dir/home/.cache" \
   XDG_DATA_HOME="$test_dir/home/.local/share" \
   LD_PRELOAD="$test_dir/gtk-state-probe.so" DEVC_GTK_STATE="$test_dir/state.json" \
   DEVC_GTK_SCREENSHOT="$test_dir/current.png" \
-  "$app_dir/devcpp-noi" --new-window "$test_dir/debug fixture.c" > "$test_dir/runtime.log" 2>&1 &
+  "$app_dir/dev-cpp" --new-window "$test_dir/debug fixture.c" > "$test_dir/runtime.log" 2>&1 &
 app_pid=$!
 window=''
 for i in {1..100}; do
-  window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C' 2>/dev/null | head -1) || true
+  window=$(xdotool search --all --onlyvisible --pid "$app_pid" --name 'Dev-C\+\+' 2>/dev/null | head -1) || true
   [[ -z $window ]] || break
   alive; sleep 0.1
 done
 [[ -n $window ]] || fail 'main window missing'
 wait_file "$test_dir/state.json"
+# Both header arrows are real controls; the right arrow reveals the Debug tab.
+python3 - "$test_dir/state.json" <<'PY_SIDEBAR'
+import json,subprocess,sys,time
+path=sys.argv[1]
+items=json.load(open(path));header_y=next(x['y'] for x in items if x['name']=='devcpp-sidebar-right' and x['viewable'])
+def click(text):
+ items=json.load(open(path))
+ if text in ('>','<'):
+  name='devcpp-sidebar-right' if text=='>' else 'devcpp-sidebar-left'
+  item=next(x for x in items if x['name']==name and x['viewable'])
+ else:
+  item=next(x for x in items if x['type']=='GtkLabel' and x['viewable'] and x['mapped'] and abs(x['y']-header_y)<12 and x['text']==text)
+ subprocess.run(['xdotool','mousemove',str(item['x']+item['width']//2),str(item['y']+item['height']//2),'click','1'],check=True);time.sleep(.25)
+click('>');click('>');click('Debug');click('<');click('<');click('Project')
+print('PASS: two native sidebar arrows reveal Debug without starting GDB.')
+PY_SIDEBAR
 go_line 1
 click_gutter 13
 expect_gutter_marker 13 present
@@ -248,8 +278,8 @@ expect_gutter_marker 13 absent
 # A drag across the line-number area must not toggle a breakpoint.
 read -r drag_x drag_y _ <<< "$(gutter_geometry 13)"
 read -r _ drag_end_y _ <<< "$(gutter_geometry 14)"
-xdotool mousemove --sync "$drag_x" "$drag_y" mousedown 1 \
-  mousemove --sync "$drag_x" "$drag_end_y" mouseup 1
+xdotool mousemove "$drag_x" "$drag_y" mousedown 1 \
+  mousemove "$drag_x" "$drag_end_y" mouseup 1
 sleep 0.2
 expect_gutter_marker 13 absent
 expect_gutter_marker 14 absent

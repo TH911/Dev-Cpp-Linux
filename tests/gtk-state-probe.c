@@ -22,6 +22,22 @@ static void json_string(FILE *out, const char *text) {
     fputc('"', out);
 }
 
+static gboolean inspect_tree_row(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
+    (void)path;
+    GString *result = data;
+    for (int col = 0; col < gtk_tree_model_get_n_columns(model); ++col) {
+        GValue value = G_VALUE_INIT;
+        gtk_tree_model_get_value(model, iter, col, &value);
+        if (G_VALUE_HOLDS_STRING(&value)) {
+            const char *text = g_value_get_string(&value);
+            if (text) { g_string_append(result, text); g_string_append_c(result, '\t'); }
+        }
+        g_value_unset(&value);
+    }
+    g_string_append_c(result, '\n');
+    return FALSE;
+}
+
 static void inspect_widget(GtkWidget *widget, gpointer data) {
     FILE *out = data;
     char *owned_text = NULL;
@@ -37,11 +53,29 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
         owned_text = gtk_text_buffer_get_text(buffer, &start, &end, TRUE);
         text = owned_text;
     }
+    if (GTK_IS_TREE_VIEW(widget)) {
+        GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
+        if (model) {
+            GString *rows = g_string_new("");
+            gtk_tree_model_foreach(model, inspect_tree_row, rows);
+            owned_text = g_string_free(rows, FALSE); text = owned_text;
+        }
+    }
     if (!first) fputc(',', out);
     first = 0;
     fprintf(out, "{\"id\":\"%p\",\"type\":", (void *)widget);
     json_string(out, G_OBJECT_TYPE_NAME(widget));
+    fprintf(out, ",\"grab\":%s", widget == gtk_grab_get_current() ? "true" : "false");
     fputs(",\"text\":", out); json_string(out, text);
+    if (GTK_IS_LABEL(widget)) {
+        int text_width = 0, text_height = 0;
+        pango_layout_get_pixel_size(gtk_label_get_layout(GTK_LABEL(widget)), &text_width, &text_height);
+        fprintf(out, ",\"text_width\":%d,\"text_height\":%d", text_width, text_height);
+    }
+    if (GTK_IS_FILE_CHOOSER(widget)) {
+        char *folder = gtk_file_chooser_get_current_folder(GTK_FILE_CHOOSER(widget));
+        fputs(",\"folder\":", out); json_string(out, folder); g_free(folder);
+    }
     GtkAllocation allocation;
     gint root_x = 0, root_y = 0;
     gtk_widget_get_allocation(widget, &allocation);
@@ -57,6 +91,21 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
         }
     }
     fputs(",\"name\":", out); json_string(out, gtk_widget_get_name(widget));
+    if (GTK_IS_TOGGLE_BUTTON(widget)) {
+        fprintf(out, ",\"checked\":%s,\"inconsistent\":%s",
+            gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) ? "true" : "false",
+            gtk_toggle_button_get_inconsistent(GTK_TOGGLE_BUTTON(widget)) ? "true" : "false");
+    }
+    if (GTK_IS_CHECK_MENU_ITEM(widget))
+        fprintf(out, ",\"checked\":%s", gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget)) ? "true" : "false");
+    if (GTK_IS_NOTEBOOK(widget)) {
+        gint focus_width = -1, focus_padding = -1;
+        gtk_widget_style_get(widget, "focus-line-width", &focus_width, "focus-padding", &focus_padding, NULL);
+        fprintf(out, ",\"focus_line_width\":%d,\"focus_padding\":%d,\"tab_hborder\":%u",
+            focus_width, focus_padding, gtk_notebook_get_tab_hborder(GTK_NOTEBOOK(widget)));
+        fprintf(out, ",\"page\":%d,\"pages\":%d", gtk_notebook_get_current_page(GTK_NOTEBOOK(widget)),
+            gtk_notebook_get_n_pages(GTK_NOTEBOOK(widget)));
+    }
     fprintf(out, ",\"parent\":\"%p\",\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d",
             (void *)gtk_widget_get_parent(widget), root_x, root_y,
             allocation.width, allocation.height);
@@ -82,7 +131,9 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
             fprintf(out, ",\"selected\":%s", selected && start != end ? "true" : "false");
         }
     }
-    fputc('}', out);
+    fprintf(out, ",\"mapped\":%s,\"viewable\":%s}",
+        gtk_widget_get_mapped(widget) ? "true" : "false",
+        gtk_widget_get_window(widget) && gdk_window_is_viewable(gtk_widget_get_window(widget)) ? "true" : "false");
     g_free(owned_text);
     if (GTK_IS_CONTAINER(widget)) gtk_container_forall(GTK_CONTAINER(widget), inspect_widget, out);
 }

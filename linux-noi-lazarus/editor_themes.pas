@@ -5,7 +5,7 @@ unit editor_themes;
 interface
 
 uses Classes, SysUtils, Graphics, Forms, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, SynGutterLineNumber, SynGutterChanges, SynGutter;
+  noi_syn_cpp, SynGutterLineNumber, SynGutterChanges, SynGutterMarks, SynGutter;
 
 const EditorThemeCount = 11;
 
@@ -25,6 +25,8 @@ procedure ApplyEditorTheme(Editor: TSynEdit; Syntax: TSynCppSyn;
   HexAttr: TSynHighlighterAttributes = nil; OctalAttr: TSynHighlighterAttributes = nil);
 
 implementation
+uses font_match, startup_trace;
+var CachedDefaultFont: string; ConsolasChecked, ConsolasInstalled: Boolean;
 
 const
   {$I editor_theme_data.inc}
@@ -50,9 +52,13 @@ const Candidates: array[0..3] of string =
   ('Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono');
 var I: Integer;
 begin
+  if CachedDefaultFont<>'' then Exit(CachedDefaultFont);
+  StartupMark('default font lookup begin');
+  CachedDefaultFont:='Monospace';
   for I := Low(Candidates) to High(Candidates) do
-    if Screen.Fonts.IndexOf(Candidates[I]) >= 0 then Exit(Candidates[I]);
-  Result := 'Monospace';
+    if InstalledFontFamily(Candidates[I]) then begin CachedDefaultFont:=Candidates[I];Break;end;
+  StartupMark('default font lookup end: '+CachedDefaultFont);
+  Result:=CachedDefaultFont;
 end;
 
 function ResolveEditorFontName(const RequestedName: string): string;
@@ -60,8 +66,11 @@ begin
   Result := Trim(RequestedName);
   { Retain the saved preference so a later font installation takes effect.
     GTK's substitution for missing Consolas need not be monospaced. }
+  if SameText(Result,'Consolas') and not ConsolasChecked then begin
+    ConsolasInstalled:=InstalledFontFamily('Consolas');ConsolasChecked:=True;
+  end;
   if (Result = '') or
-    (SameText(Result, 'Consolas') and (Screen.Fonts.IndexOf('Consolas') < 0)) then
+    (SameText(Result, 'Consolas') and not ConsolasInstalled) then
     Result := DefaultEditorFontName;
 end;
 
@@ -156,19 +165,29 @@ begin
     Editor.LineHighlightColor.Style := [];
     Editor.LineHighlightColor.StyleMask := [];
     Editor.Gutter.Color := Background[20];
-    { Orwell 5.11 devCFG.pas: LeftOffset=4, RightOffset=21,
+    { Orwell 5.11: 21 pixels split between folding (14) and trailing space (7),
       BorderStyle=gbsNone. Lazarus splits the gutter into independent parts. }
     Editor.Gutter.LeftOffset := 4;
+    Editor.BookMarkOptions.LeftMargin := 0;
+    if Editor.Gutter.Parts.ByClass[TSynGutterMarks, 0] <> nil then
+    begin
+      Editor.Gutter.Parts.ByClass[TSynGutterMarks, 0].AutoSize := False;
+      Editor.Gutter.Parts.ByClass[TSynGutterMarks, 0].Width := 16;
+    end;
+    TSynGutterLineNumber(Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0]).DigitCount := 1;
     if Editor.Gutter.SeparatorPart <> nil then
       with Editor.Gutter.SeparatorPart do
       begin
         AutoSize := False;
-        Width := 21;
+        Width := 7;
         LineWidth := 0;
         MarkupInfo.Background := Editor.Gutter.Color;
       end;
     if Editor.Gutter.CodeFoldPart <> nil then
     begin
+      Editor.Gutter.CodeFoldPart.Visible := True;
+      Editor.Gutter.CodeFoldPart.AutoSize := False;
+      Editor.Gutter.CodeFoldPart.Width := 14;
       Editor.Gutter.CodeFoldPart.MarkupInfo.Foreground := Foreground[22];
       Editor.Gutter.CodeFoldPart.MarkupInfo.Background := Editor.Gutter.Color;
     end;

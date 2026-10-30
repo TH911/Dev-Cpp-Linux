@@ -3,15 +3,18 @@ program GdbSessionTest;
 uses Classes, SysUtils, BaseUnix, gdb_session;
 type
   TObserver = class
-    Output, Evaluation, Errors, FileName: string;
+    Output, Evaluation, Errors, FileName, Log: string;
     Line, LocationCount: Integer;
     Session: TGdbSession;
     TryBusyActions, BusyActionsAttempted: Boolean;
+    procedure OnLog(Sender: TObject; const Text: string);
     procedure OnOutput(Sender: TObject; const Text: string);
     procedure OnError(Sender: TObject; const Text: string);
     procedure OnEvaluation(Sender: TObject; const Text: string);
     procedure OnLocation(Sender: TObject; const AFileName: string; ALine: Integer);
   end;
+procedure TObserver.OnLog(Sender: TObject; const Text: string);
+begin Log := Log + Text; end;
 procedure TObserver.OnOutput(Sender: TObject; const Text: string);
 begin Output := Output + Text; end;
 procedure TObserver.OnError(Sender: TObject; const Text: string);
@@ -33,7 +36,7 @@ begin
 end;
 procedure Check(Value: Boolean; const MessageText: string);
 begin if not Value then raise Exception.Create(MessageText); end;
-var Session: TGdbSession; Observer: TObserver; Arguments: TStringList;
+var Session: TGdbSession; Observer: TObserver; Arguments,Variables: TStringList;
   Started: QWord; Inferior: LongInt; Source, Executable, OldSource: string;
   P, LocationsBeforeEdit: Integer;
 procedure Pump;
@@ -87,13 +90,17 @@ begin
   Session := TGdbSession.Create; Observer := TObserver.Create;
   Observer.Session := Session;
   Arguments := TStringList.Create;
+  Variables:=TStringList.Create;
   try
+    MIVariableRows('^done,variables=[{name="n",type="int",value="7"},{name="s",type="char *",value="\"a}b\""},{name="v",type="vector<int>"}]',Variables);
+    Check((Variables.Count=3) and (Variables.Values['n']='7') and (Variables.Values['s']='"a}b"') and (Variables.Values['v']='<vector<int>>'),'MI locals decode scalars, quoted braces and aggregates.');
     Source := ExpandFileName(ParamStr(1)); Executable := ExpandFileName(ParamStr(2));
     P := 1;
     Check(MIDecode('"quoted\" path\\file\n\344\270\255"', P) =
       'quoted" path\file' + #10 + #$E4#$B8#$AD, 'MI C-string decoding failed.');
     Check(MIField('frame={func="line=wrong",fullname="/tmp/a b.c",line="11"}',
       'line') = '11', 'MI fields must ignore field-like text inside quoted strings.');
+    Session.OnLog := @Observer.OnLog;
     Session.OnOutput := @Observer.OnOutput;
     Session.OnError := @Observer.OnError;
     Session.OnEvaluation := @Observer.OnEvaluation;
@@ -127,6 +134,10 @@ begin
       not Session.HasBreakpoint(OldSource, 11), 'Active session allowed breakpoint renaming.');
     while Observer.Line < 7 do begin Session.StepOver; WaitStopped; end;
     Session.Evaluate('value'); WaitEvaluation('7');
+    Session.ConsoleCommand('print value'); Started:=GetTickCount64;
+    repeat Pump until Pos(' = 7',Observer.Log)>0;
+    Session.NextInstruction; WaitStopped;
+    Session.StepInstruction; WaitStopped;
     Started := GetTickCount64;
     { Drain the break-insert response before issuing/removing another breakpoint. }
     repeat Pump until TGdbBreakpoint(Session.Breakpoints[0]).Number <> '';
@@ -160,6 +171,8 @@ begin
       IntToStr(Observer.Line));
     while Observer.Line < 3 do begin Session.StepOver; WaitStopped; end;
     Session.Evaluate('x'); WaitEvaluation('12');
+    Session.StepOut; WaitStopped;
+    Check(Observer.Line in [11,12], 'Finish did not return to the caller.');
     Session.ToggleBreakpoint(Source, 11);
     Check(not Session.HasBreakpoint(Source, 11), 'Live breakpoint not removed.');
     Session.ContinueExecution;
@@ -217,6 +230,6 @@ begin
     Session.Stop; Started := GetTickCount64;
     repeat Pump until (Session.State = gsInactive) and not Session.Active;
     Check(not FileExists(ExtractFilePath(Executable) + 'must-not-exist'), 'Arguments invoked a shell.');
-    WriteLn('PASS: MI strings, literal argv, breakpoint add/delete while running and paused/Save As migration, source stop, step over/into, expression evaluation, PTY stdin/stdout, exit/restart, stop during breakpoint edit, real-stop race and stop cleanup.');
-  finally Arguments.Free; Session.Free; Observer.Free; end;
+    WriteLn('PASS: MI strings, literal argv, breakpoint add/delete while running and paused/Save As migration, source stop, step over/into/finish/instructions, literal GDB console, expression evaluation, PTY stdin/stdout, exit/restart, stop during breakpoint edit, real-stop race and stop cleanup.');
+  finally Variables.Free;Arguments.Free; Session.Free; Observer.Free; end;
 end.

@@ -1,0 +1,10 @@
+{
+  "reference": "Orwell Dev-C++ 5.11, commit 0e4d598b172efd7df97b7ecc941d6aa08340cd70",
+  "resources": {
+    "about-banner.bmp": "3aef54905fed4c360e23f3a0b34a1ce5dc29d9919f8a82ef9ceb985679d50390",
+    "about-donate.bmp": "33ed5e4d8b34190768f8773d4afce0acaf3419025fb4235be8453d5f6aeb3034",
+    "about-authors.bmp": "42f32fdc5f0850ed074e59ac3707a4ccb6c762d9f45bc6add16831e2b7205a84"
+  },
+  "license_sha256": "01f9a7fd09aa1dedde227df340b87c2622661a9e4c4007ab858a4fac952ba06a",
+  "authors_sha256": "9000394d032218ae01f52c4f8013f55cf09d1357c445c92af4caf3e301a1293d"
+}

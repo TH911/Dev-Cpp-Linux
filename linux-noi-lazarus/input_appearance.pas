@@ -8,6 +8,7 @@ uses Classes, Controls, Forms;
 
 procedure UseReadableInput(Control: TWinControl);
 procedure PrepareInputAppearance(Form: TForm);
+procedure RefreshInputAppearance(Root:TComponent);
 
 implementation
 
@@ -64,6 +65,9 @@ begin
   end;
   for I := 0 to Root.ComponentCount - 1 do StyleFields(Root.Components[I]);
 end;
+
+procedure RefreshInputAppearance(Root:TComponent);
+begin StyleFields(Root);end;
 
 procedure TInputAppearance.FormShown(Sender: TObject);
 begin

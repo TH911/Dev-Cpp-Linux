@@ -3,7 +3,7 @@ program editor_themes_test;
 {$mode objfpc}{$H+}
 
 uses Interfaces, Forms, Classes, SysUtils, Graphics, SynEdit, SynEditHighlighter,
-  SynHighlighterCpp, SynGutterLineNumber, editor_themes, mainform;
+  noi_syn_cpp, SynGutterLineNumber, editor_themes, mainform;
 
 procedure Check(Condition: Boolean; const MessageText: string);
 begin
@@ -65,13 +65,17 @@ begin
       Check(not (fsBold in Editor.BracketMatchColor.Style), 'matched brackets must not acquire bold style');
       Check(Editor.Gutter.Parts.ByClass[TSynGutterLineNumber, 0].MarkupInfo.Foreground <>
         Editor.Gutter.Color, 'line numbers must remain visible');
-      Check(Editor.Gutter.SeparatorPart.Width >= 21,
-        'leave the original Dev-Cpp gap between line numbers and source');
+      Check(Editor.Gutter.SeparatorPart.Width + Editor.Gutter.CodeFoldPart.Width = 21,
+        'leave the original dev-cpp gap between line numbers and source');
       Check(Editor.Gutter.SeparatorPart.MarkupInfo.Background = Editor.Gutter.Color,
         'gutter spacing follows the selected theme');
     end;
     ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Classic Plus', Colors, Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     Check(Syntax.NumberAttri.Foreground = clPurple, 'Classic Plus numbers retain original purple');
+    CheckLiteral(Syntax, '"([]{})"', Syntax.StringAttri);
+    CheckLiteral(Syntax, '''(''', Syntax.CharacterAttri);
+    CheckLiteral(Syntax, '//([]{})', Syntax.CommentAttri);
+    CheckLiteral(Syntax, '/*([]{})*/', Syntax.CommentAttri);
     CheckLiteral(Syntax, '1e5', Syntax.FloatAttri);
     CheckLiteral(Syntax, '1E+5', Syntax.FloatAttri);
     CheckLiteral(Syntax, '1e-5', Syntax.FloatAttri);
@@ -106,6 +110,10 @@ begin
     ApplyEditorTheme(Editor, Syntax, BracketAttr, CharacterAttr, 'Matrix', Colors,
       Syntax.FloatAttri, Syntax.HexAttri, Syntax.OctalAttri);
     CheckLiteral(Syntax, '123', Syntax.NumberAttri);
+    CheckLiteral(Syntax, '"([]{})"', Syntax.StringAttri);
+    CheckLiteral(Syntax, '''(''', Syntax.CharacterAttri);
+    CheckLiteral(Syntax, '//([]{})', Syntax.CommentAttri);
+    CheckLiteral(Syntax, '/*([]{})*/', Syntax.CommentAttri);
     CheckLiteral(Syntax, '1e5', Syntax.FloatAttri);
     CheckLiteral(Syntax, '0x1e5', Syntax.HexAttri);
     CheckLiteral(Syntax, '077', Syntax.OctalAttri);

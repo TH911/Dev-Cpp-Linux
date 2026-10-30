@@ -57,6 +57,12 @@ begin
     Profiles.Delete(0);
     Check(Profiles.Count = 1, 'last compiler profile cannot be deleted');
     Check(Ini.ReadString('Compiler', 'Cpp', '') = '/opt/custom g++', 'migration should preserve old section');
+    Working.EnsureNativePresets;
+    Check(Working[Working.Count-3].Name='GCC 64-bit Release','release preset is absent');
+    Check(Pos('-g3 -O0',Working[Working.Count-2].CppFlags)>0,'debug preset lacks usable debug flags');
+    Check(Working[Working.Count-1].LinkerFlags='-pg','profiling link flag is missing');
+    Index:=Working.Count;Working.EnsureNativePresets;
+    Check(Working.Count=Index,'native presets must not duplicate');
     WriteLn('compiler profiles: all checks passed');
   finally
     Working.Free;

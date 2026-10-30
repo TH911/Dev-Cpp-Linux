@@ -4,7 +4,7 @@ launch_origin=$PWD
 launch_args=()
 for launch_arg in "$@"; do
   case "$launch_arg" in
-    --new-window|--forward-only|--version|/*) launch_args+=("$launch_arg") ;;
+    --new-window|--forward-only|--version|--help|/*) launch_args+=("$launch_arg") ;;
     *) launch_args+=("$launch_origin/$launch_arg") ;;
   esac
 done
@@ -12,30 +12,21 @@ set -- "${launch_args[@]}"
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 source ./ui-language.sh
 
-new_window=false
-for launch_arg in "$@"; do
-  if [[ "$launch_arg" == --new-window ]]; then new_window=true; fi
-done
-if [[ $# == 1 && $1 == --version ]]; then new_window=true; fi
-if [[ "$new_window" == false && -x ./devcpp-noi && -f ./devcpp-noi.instance-api ]]; then
-  if ./devcpp-noi --forward-only "$@" 2>/dev/null; then exit 0; fi
-fi
-
-# The desktop launcher starts an existing build immediately.  New or changed
+# Both CLI and desktop launchers start an existing build immediately.  New or changed
 # sources are compiled once, so an unpacked update cannot launch an old binary.
 needs_build=false
-if [[ ! -x ./devcpp-noi || ! -f ./devcpp-noi.instance-api ]]; then
+if [[ ! -x ./dev-cpp || ! -f ./dev-cpp.instance-api ]]; then
   needs_build=true
 else
-  for launch_source in ./*.pas ./*.lpr ./*.lpi ./build.sh; do
-    if [[ -f "$launch_source" && "$launch_source" -nt ./devcpp-noi ]]; then
+  for launch_source in ./*.pas ./*.lpr ./*.lpi ./*.inc ./*.py ./PORT_REVISION ./build.sh; do
+    if [[ -f "$launch_source" && "$launch_source" -nt ./dev-cpp ]]; then
       needs_build=true
       break
     fi
   done
 fi
 if [[ "$needs_build" == true ]]; then
-  cache_dir=${XDG_CACHE_HOME:-"$HOME/.cache"}/devcpp-noi
+  cache_dir=${XDG_CACHE_HOME:-"$HOME/.cache"}/dev-cpp
   mkdir -p -- "$cache_dir"
   log_file="$cache_dir/launch-build.log"
   if ! bash build.sh >"$log_file" 2>&1; then
@@ -54,6 +45,8 @@ if [[ "$needs_build" == true ]]; then
   fi
 fi
 
-runtime_cache=${XDG_CACHE_HOME:-"$HOME/.cache"}/devcpp-noi
+# PrepareInstance in the binary already forwards to a running instance.
+# Avoid initializing GTK twice for a single source launch.
+runtime_cache=${XDG_CACHE_HOME:-"$HOME/.cache"}/dev-cpp
 mkdir -p -- "$runtime_cache"
-exec ./devcpp-noi "$@" 2> >(tee "$runtime_cache/runtime.log" >&2)
+exec ./dev-cpp "$@" 2> >(tee "$runtime_cache/runtime.log" >&2)
