@@ -39,7 +39,7 @@ def stop():
  app=None
 def chooser(expected,default_name=None):
  wait(lambda:any(x.get('folder')==str(expected) and x['viewable'] for x in state()) and (default_name is None or any('normal_text' in x and x['viewable'] and x['mapped'] and x['text']==default_name for x in state())),'chooser must open in '+str(expected))
- subprocess.run(['xdotool','windowfocus',window('^Save$')],check=True)
+ subprocess.run(['xdotool','windowfocus',window('^Save As$')],check=True)
 def cancel_chooser():
  keys('Escape')
  wait(lambda:not any(x.get('folder') and x['viewable'] and x['mapped'] for x in state()),'cancelled chooser must finish closing')

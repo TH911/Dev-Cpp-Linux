@@ -19,6 +19,7 @@ procedure InitUiLanguage(const ConfigFileName: string);
 function CurrentUiLanguage: TUiLanguage;
 procedure SetUiLanguage(ALanguage: TUiLanguage);
 procedure ApplyUiLanguage(Root: TComponent);
+procedure SetUiProperty(Target:TComponent;const PropertyName,EnglishText:string);
 function UiText(const EnglishText: string): string;
 function UiFormat(const EnglishFormat: string; const Args: array of const): string;
 function Tr(const EnglishText: string): string;
@@ -73,9 +74,10 @@ begin
   Result := EnglishText;
   { Match the original Simplified Chinese Tools menu label. }
   if (SelectedLanguage = ulChinese) and (EnglishText = 'Package Manager') then Exit;
-  if SelectedLanguage = ulChinese then Result := TranslateChinese(EnglishText);
-  if (Result = EnglishText) and (SelectedLanguage <> ulEnglish) then
+  if SelectedLanguage <> ulEnglish then
     Result := UpstreamUiText(SelectedLanguage, EnglishText);
+  if (Result = EnglishText) and (SelectedLanguage = ulChinese) then
+    Result := TranslateChinese(EnglishText);
   if Result <> EnglishText then
   begin
     if ReversePhrases = nil then
@@ -98,12 +100,13 @@ function CanonicalUiText(const Text: string): string;
 var I: Integer;
 begin
   I:=Pos(#9,Text);if I>0 then Exit(CanonicalUiText(Copy(Text,1,I-1))+Copy(Text,I,MaxInt));
-  Result := TranslateEnglish(Text);
-  if (Result = Text) and (ReversePhrases <> nil) then
-  begin
-    I := ReversePhrases.IndexOf(Text);
-    if I >= 0 then Result := TPhrase(ReversePhrases.Objects[I]).English;
+  { Prefer the original phrase recorded at translation time. The fallback
+    catalog can assign a different meaning to the same Chinese word. }
+  if ReversePhrases<>nil then begin
+    I:=ReversePhrases.IndexOf(Text);
+    if I>=0 then Exit(TPhrase(ReversePhrases.Objects[I]).English);
   end;
+  Result:=TranslateEnglish(Text);
 end;
 
 function UiFormat(const EnglishFormat: string; const Args: array of const): string;
@@ -416,6 +419,15 @@ procedure ApplyUiLanguage(Root: TComponent);
 begin
   if LanguageManager = nil then LanguageManager := TLanguageManager.Create(nil);
   LanguageManager.Apply(Root);
+end;
+
+procedure SetUiProperty(Target:TComponent;const PropertyName,EnglishText:string);
+begin
+  { Record the English source on its actual component. Different original
+    actions can have identical translations (Execute/Run in Chinese). }
+  SetStrProp(Target,PropertyName,EnglishText);
+  if LanguageManager=nil then LanguageManager:=TLanguageManager.Create(nil);
+  LanguageManager.TranslateProperty(Target,PropertyName,-1);
 end;
 
 procedure FreeReversePhrases;

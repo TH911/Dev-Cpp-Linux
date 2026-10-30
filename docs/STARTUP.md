@@ -2,9 +2,9 @@
 
 ## 中文
 
-界面名称为 **Dev-C++**，主命令和 Debian 包名为 `dev-cpp`。当前测试版本为 `1.3.1~beta5`，GitHub 标签和下载文件名为 `v1.3.1-beta5`、`dev-cpp_1.3.1-beta5_amd64.deb`。界面仍在按原版 Dev-C++ 5.11 逐步移植，beta 不代表 UI 已完全还原。
+界面名称为 **Dev-C++**，主命令和 Debian 包名为 `dev-cpp`。当前测试版本为 `1.3.1~beta6`，GitHub 标签和下载文件名为 `v1.3.1-beta6`、`dev-cpp_1.3.1-beta6_amd64.deb`。界面仍在按原版 Dev-C++ 5.11 逐步移植，beta 不代表 UI 已完全还原。
 
-从旧的 `dev-cpp-linux` 或 `devcpp-noi` 安装包更新时，使用普通的 `sudo apt install ./dev-cpp_1.3.1-beta5_amd64.deb`。APT 会以新包替换旧包，无需先手工卸载。`1.3.1~beta5` 的 Debian 版本顺序高于已经发行的 `1.3.0`，避免把更新误判为降级。已发表的历史标签和附件保持不变。
+从旧的 `dev-cpp-linux` 或 `devcpp-noi` 安装包更新时，使用普通的 `sudo apt install ./dev-cpp_1.3.1-beta6_amd64.deb`。APT 会以新包替换旧包，无需先手工卸载。`1.3.1~beta6` 的 Debian 版本顺序高于已经发行的 `1.3.0`，避免把更新误判为降级。已发表的历史标签和附件保持不变。
 
 首次运行优先读取上一版 `~/.config/dev-cpp-linux.ini`，否则读取 `~/.config/devcpp-noi.ini`，并将其 复制到 `~/.config/dev-cpp.ini`；已有新配置不会被覆盖，旧文件保留。旧命令 `/usr/bin/dev-cpp-linux`、`/usr/bin/devcpp-noi`、旧桌面 ID 和 MIME 关联只作为兼容转发，均启动新版。可识别的历史自动生成入口会备份后修复，自定义入口保持不变。
 
@@ -36,7 +36,7 @@ DEV_CPP_STARTUP_TRACE=1 dev-cpp --new-window
 
 此前 beta2 在 Ubuntu 20.04 容器的 6 次测试中（中英各 3 次，字体缓存已存在），从进程启动到窗口可见的中位耗时由约 0.49 秒降至 0.11 秒。这不代表用户设备的实测结果。
 
-本次把语言目录的反复线性查找改为索引查找，保留 33 种原版语言资源与语言切换。工具菜单恢复编译选项、环境选项、编辑器选项、快捷键选项、配置工具和 Package Manager 的顺序及图标。快捷键可编辑并保存；配置工具提供一个直接运行的外部程序，可在参数中使用 `%FILE%` 和 `%DIR%`，参数不会经 shell 执行。Package Manager 将所选 `.deb` 交给系统安装器，不安装 Windows DevPak。主题与语言的快速菜单移至“查看”，也可在编辑器和环境选项中设置。
+本次把语言目录的反复线性查找改为索引查找，保留 33 种原版语言资源与语言切换。工具菜单恢复编译选项、环境选项、编辑器选项、快捷键选项、配置工具和 Package Manager 的顺序及图标。快捷键可编辑并保存；配置工具提供一个直接运行的外部程序，可在参数中使用 `%FILE%` 和 `%DIR%`，参数不会经 shell 执行。Package Manager 将所选 `.deb` 交给系统安装器，不安装 Windows DevPak。主题与语言的快速菜单移至“视图”，也可在编辑器和环境选项中设置。
 
 ### beta5 的进一步修正
 
@@ -50,9 +50,9 @@ DEV_CPP_STARTUP_TRACE=1 dev-cpp --new-window
 
 ## English
 
-The display name is **Dev-C++**; the primary command and Debian package are `dev-cpp`. The beta version is `1.3.1~beta5`; the GitHub tag and public Debian filename use `v1.3.1-beta5` and `dev-cpp_1.3.1-beta5_amd64.deb`. UI restoration remains ongoing.
+The display name is **Dev-C++**; the primary command and Debian package are `dev-cpp`. The beta version is `1.3.1~beta6`; the GitHub tag and public Debian filename use `v1.3.1-beta6` and `dev-cpp_1.3.1-beta6_amd64.deb`. UI restoration remains ongoing.
 
-Upgrade with `sudo apt install ./dev-cpp_1.3.1-beta5_amd64.deb`. APT replaces the old `dev-cpp-linux` or `devcpp-noi` package; no manual uninstall is needed. Debian orders `1.3.1~beta5` after the already published `1.3.0`. Historical tags and assets are preserved.
+Upgrade with `sudo apt install ./dev-cpp_1.3.1-beta6_amd64.deb`. APT replaces the old `dev-cpp-linux` or `devcpp-noi` package; no manual uninstall is needed. Debian orders `1.3.1~beta6` after the already published `1.3.0`. Historical tags and assets are preserved.
 
 On first launch, `~/.config/dev-cpp-linux.ini` (or the older `~/.config/devcpp-noi.ini` when absent) is copied to `~/.config/dev-cpp.ini` if the new file does not exist. The old file is retained. Old command and desktop IDs remain hidden compatibility redirects to the new application; existing MIME defaults are preserved. Recognized generated launchers are backed up and repaired; custom entries are retained.
 
@@ -73,3 +73,43 @@ Debugger widgets are deferred, unchanged compiler profiles are not rewritten, an
 `tests/first-frame-smoke.sh` injects five seconds of full-enumeration latency: beta4 is blocked while beta5 passes, with one development-container run around 0.11 seconds. This demonstrates removal of that blocking path, not a timing guarantee for the user's machine. Save and close old windows before testing the installed update.
 
 For graphical diagnostics, Help → About Dev-C++ → Build and installation includes this process’s startup-stage timings. The terminal trace remains available. Records begin with the Pascal runtime and exclude delays before process startup.
+
+## beta6：IBus / GVFS
+
+用户在 beta5 的计时中确认：翻译在 149 ms 完成，首次原生窗口构建直到
+25,233 ms 才结束。GDB 显示 IBus 初始化触发 `g_file_new_for_path`，随后
+GVFS 在同步 D-Bus 调用中等待 25 秒；另一个 GIO 线程在注册异步类型时等待锁。
+用户使用 `GIO_USE_VFS=local` 启动同一 beta5，已确认窗口立即出现。
+这定位了此次等待，不能再把它归因于字体枚举。
+
+beta6 在 GTK 初始化前为本进程默认选择 GIO 的 `local` 文件后端，并提前初始化
+GIO 异步类型；不修改系统设置。显式设置 `GIO_USE_VFS=gvfs` 时保留该选择。
+当前文件操作使用本地路径；远程文件可先通过桌面挂载再打开本地挂载路径。
+
+中文输入在用户普通启动 beta5 时也已失效，与临时选择 `local` 后端并无因果证据。
+Lazarus 2.0.6 的 GTK2 自绘控件缺少 IBus 焦点通知，且忽略输入法已消费的按键、
+将提交词组截成首字符。源码编辑器及文本输入框现使用独立 GTK 输入上下文，在控件取得／失去焦点时
+同步通知输入法，并将完整 UTF-8 词组作为一次编辑提交；候选位置随光标更新。
+IBus 同步过滤与禁用全局按键侦听器的设置仅作用于本进程，显式环境变量仍受尊重。
+测试使用真实 IBus/libpinyin 按键、保存及撤销／重做，不伪造提交信号。
+
+The user's beta5 trace finished translation at 149 ms but native window creation
+only completed at 25,233 ms. GDB showed IBus triggering `g_file_new_for_path`,
+GVFS waiting in a synchronous D-Bus call for 25 seconds, and a GIO worker waiting
+for an async-type registration lock. The user confirmed that the same beta5
+opened immediately with `GIO_USE_VFS=local`. This identifies this reported delay;
+it must not be attributed to font enumeration.
+
+Before GTK initialization, beta6 defaults this process to GIO's `local` file
+backend and initializes async types. System settings are untouched; an explicit
+`GIO_USE_VFS=gvfs` is respected. File operations currently use local paths;
+remote files can be opened through desktop-mounted local paths.
+
+Chinese input was also broken during the user's ordinary beta5 launch; there
+is no evidence that selecting `local` caused it. Lazarus 2.0.6's custom GTK2
+control path lacks IBus focus notifications, ignores consumed-key results and
+truncates committed phrases. Source editors and text inputs now use independent GTK input
+contexts with focus notifications, caret-relative candidate placement and
+complete UTF-8 phrase commits in one edit. Process-local IBus synchronous
+filtering and snooper settings respect explicit environment overrides. Tests
+use real IBus/libpinyin key input, save and Undo/Redo, without synthetic commits.

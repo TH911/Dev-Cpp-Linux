@@ -263,7 +263,7 @@ begin
   if SameHandler(Item.OnClick, @CompilerOptionsClick) then IconName := 'compopt';
   if SameHandler(Item.OnClick, @EnvironmentOptionsClick) then IconName := 'envopt';
   if SameHandler(Item.OnClick, @EditorOptionsClick) then IconName := 'editopt';
-  if SameHandler(Item.OnClick, @ShortcutOptionsClick) then IconName := 'screen';
+  if SameHandler(Item.OnClick, @ShortcutOptionsClick) then IconName := 'run';
   if SameHandler(Item.OnClick, @ConfigureToolsClick) then IconName := 'tools';
   if SameHandler(Item.OnClick, @PackageManagerClick) then IconName := 'packman';
   if SameHandler(Item.OnClick, @SaveAsClick) then IconName := 'saveas';
@@ -272,6 +272,12 @@ begin
   if SameHandler(Item.OnClick, @ClearRecentClick) then IconName := 'clrhist';
   if SameHandler(Item.OnClick, @NewClick) then IconName := 'newsrc';
   if SameHandler(Item.OnClick, @NewProjectClick) then IconName := 'newproj';
+  if SameHandler(Item.OnClick, @CloseClick) then IconName := 'closefl';
+  if SameHandler(Item.OnClick, @CloseAllClick) then IconName := 'clsall';
+  if SameHandler(Item.OnClick, @CloseProjectClick) or SameHandler(Item.OnClick, @ExitClick) then IconName := 'close';
+  if SameHandler(Item.OnClick, @CutClick) then IconName := 'cut';
+  if SameHandler(Item.OnClick, @CopyClick) then IconName := 'copy';
+  if SameHandler(Item.OnClick, @PasteClick) then IconName := 'paste';
   if IconName <> '' then
   begin
     IconPath := ExtractFilePath(ParamStr(0)) + 'icons/' + IconName + '.bmp';
@@ -280,7 +286,7 @@ begin
       Bitmap := TBitmap.Create;
       try
         Bitmap.LoadFromFile(IconPath);
-        Item.ImageIndex := FMenuImages.AddMasked(Bitmap, Bitmap.Canvas.Pixels[0, 0]);
+        Item.ImageIndex := FMenuImages.AddMasked(Bitmap, clFuchsia);
       finally Bitmap.Free; end;
     end;
   end;
@@ -296,7 +302,7 @@ begin
   Bitmap := TBitmap.Create;
   try
     Bitmap.LoadFromFile(IconPath);
-    Result := FMenuImages.AddMasked(Bitmap, Bitmap.Canvas.Pixels[0, 0]);
+    Result := FMenuImages.AddMasked(Bitmap, clFuchsia);
   finally Bitmap.Free; end;
 end;
 

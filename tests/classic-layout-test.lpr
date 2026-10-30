@@ -1,7 +1,7 @@
 program classic_layout_test;
 {$mode objfpc}{$H+}
 uses Interfaces, Forms, Classes, SysUtils, ComCtrls, StdCtrls, Menus,
-  SynEdit, mainform, app_instance, ui_language, source_output, source_navigation;
+  Graphics, ImgList, SynEdit, mainform, app_instance, ui_language, source_output, source_navigation;
 type
   TTestEdit = class(TSynEdit);
   TExceptionTrap = class
@@ -22,6 +22,24 @@ begin
   begin Result := FindMenu(Owner.Components[I], Caption); if Result <> nil then Exit; end;
   Result := nil;
 end;
+procedure CheckMenuGlyph(Form:TMainForm;const Caption,FileName:string);
+var Item:TMenuItem;Original,Rendered:TBitmap;X,Y:Integer;Expected:TColor;
+begin
+  Item:=FindMenu(Form,Tr(Caption));
+  Check((Item<>nil) and (Item.ImageIndex>=0),'menu glyph: '+Caption);
+  Original:=TBitmap.Create;Rendered:=TBitmap.Create;
+  try
+    Original.LoadFromFile(ExtractFilePath(ParamStr(0))+'../icons/'+FileName+'.bmp');
+    Rendered.SetSize(16,16);Rendered.Canvas.Brush.Color:=clWhite;
+    Rendered.Canvas.FillRect(0,0,16,16);
+    Form.Menu.Images.Draw(Rendered.Canvas,0,0,Item.ImageIndex,True);
+    for Y:=0 to 15 do for X:=0 to 15 do begin
+      Expected:=ColorToRGB(Original.Canvas.Pixels[X,Y]);
+      if Expected=ColorToRGB(clFuchsia) then Expected:=ColorToRGB(clWhite);
+      Check(ColorToRGB(Rendered.Canvas.Pixels[X,Y])=Expected,'original glyph RGB/mask: '+Caption);
+    end;
+  finally Original.Free;Rendered.Free;end;
+end;
 var Form: TMainForm; Editor: TSynEdit; I, OriginalCount: Integer;
   ScopeCombo, FunctionCombo: TComboBox; NewButton: TToolButton;
   SymbolList: TStringList; SourceBefore: string; ToolbarCount, ReportCount: Integer;
@@ -35,6 +53,12 @@ begin
   SymbolList := TStringList.Create;
   try
     Form.Show; Settle;
+    CheckMenuGlyph(Form,'&Compiler Options...','compopt');
+    CheckMenuGlyph(Form,'&Environment Options...','envopt');
+    CheckMenuGlyph(Form,'E&ditor Options...','editopt');
+    CheckMenuGlyph(Form,'&Shortcut Options...','run');
+    CheckMenuGlyph(Form,'Configure &Tools...','tools');
+    CheckMenuGlyph(Form,'&Start Debugging','debug');
     NewButton := nil; ToolbarCount := 0; ReportCount := 0;
     for I := 0 to Form.ComponentCount - 1 do
     begin

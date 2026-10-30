@@ -238,7 +238,7 @@ const
     (EnglishText: '&File'; ChineseText: '文件(&F)'),
     (EnglishText: '&Edit'; ChineseText: '编辑(&E)'),
     (EnglishText: '&Search'; ChineseText: '搜索(&S)'),
-    (EnglishText: '&View'; ChineseText: '查看(&V)'),
+    (EnglishText: '&View'; ChineseText: '视图(&V)'),
     (EnglishText: '&Project'; ChineseText: '项目(&P)'),
     (EnglishText: 'E&xecute'; ChineseText: '运行(&X)'),
     (EnglishText: '&Tools'; ChineseText: '工具(&T)'),

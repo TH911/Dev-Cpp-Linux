@@ -208,7 +208,7 @@ press ctrl+End Return
 type_text '// unsaved'
 press Escape ctrl+alt+s
 # A test-only custom Save As binding also verifies default-less commands.
-dialog=$(wait_named_window '^Save$')
+dialog=$(wait_named_window '^Save As$')
 xdotool windowfocus "$dialog" key --clearmodifiers Escape
 sleep 0.2
 press ctrl+alt+e
@@ -227,7 +227,7 @@ press ctrl+End Return
 type_text '// unsaved'
 press Escape ctrl+alt+s
 # A test-only custom Save As binding also verifies default-less commands.
-dialog=$(wait_named_window '^Save$')
+dialog=$(wait_named_window '^Save As$')
 sleep 0.3
 xdotool windowfocus "$dialog" key --clearmodifiers alt+n
 sleep 0.1

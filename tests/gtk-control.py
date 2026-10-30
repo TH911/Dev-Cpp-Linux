@@ -14,6 +14,8 @@ def controls():
         if not extra:break
         ids.update(extra)
     return [x for x in rows if x['id'] in ids and x['viewable'] and x['visible'] and x['mapped'] and x['width']>0]
+def caption(text):
+    return re.sub(r'[\[(][&_]?[A-Za-z0-9][\])]','',text.replace('_','')).strip()
 def click(w):
     subprocess.run(['xdotool','mousemove',str(w['x']+w['width']//2),str(w['y']+w['height']//2)],check=True)
     time.sleep(.08)
@@ -22,7 +24,7 @@ for attempt in range(100):
     try:
         rows=controls()
         if action in ('click','button'):
-            found=[w for w in rows if w['type'] in ('GtkLabel','GtkButton','GtkCheckButton') and w['text'].replace('_','')==values[0]]
+            found=[w for w in rows if w['type'] in ('GtkLabel','GtkButton','GtkCheckButton') and caption(w['text'])==caption(values[0])]
             if action=='button':
                 by_id={w['id']:w for w in rows};buttons=[]
                 for candidate in found:

@@ -4,14 +4,14 @@
 
 ## 中文
 
-基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**，本 beta 分支版本为 **1.3.1~beta5**（[Pre-release](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta5)）。
+基于 Lazarus/LCL 的 Dev-C++ 原生 Linux 移植版，目标运行环境为 **NOI Linux 2.0（64 位）**。当前稳定版本为 **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**，本 beta 分支版本为 **1.3.1~beta6**（[Pre-release](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta6)）。
 
-本轮测试版重点修正 SynEdit 在主入口之前枚举全部字体的启动开销，延后创建调试面板，并将 `.in/.out/.ans` 等数据文件按纯文本处理。继续按原版截图恢复编辑器属性、四标签搜索、环境设置、快捷键捕获、AStyle 预览和窗口菜单；单步调试时侧栏自动刷新局部变量。[本轮功能、使用方式与移植边界](docs/UI-RESTORATION.md)；[启动测试与诊断](docs/STARTUP.md)。
+本轮测试版针对用户 GDB 回溯确认的 GTK2/IBus/GVFS 25 秒等待修正启动路径，并修复源码编辑器的中文输入提交。标签栏加宽、去除黑色虚线焦点框，拖动时显示带右下方方框的指针；菜单和工具栏图标改用 Windows 5.11 实际嵌入的图标列表，译名优先采用原版语言资源（包括“视图”）。[本轮功能、使用方式与移植边界](docs/UI-RESTORATION.md)；[启动测试与诊断](docs/STARTUP.md)。
 
 本次测试版支持拖动源码标签页调整文件顺序，移除源码编辑器默认的 1024 条撤销历史上限，并恢复原版保存快捷键：**Ctrl+Shift+S 全部保存、Ctrl+Shift+A 格式化**。新文件保存时记住最近成功打开/保存的目录，重启后保留；已有文件另存为从其目录打开。已逐项核对原版绑定，尚未移植的快捷键和使用范围见 [快捷键及保存目录](docs/SHORTCUTS.md)。
 
 
-开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。本分支测试安装包见 [v1.3.1-beta5](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta5)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
+开发与测试改动先推送到 [`beta`](https://github.com/TH911/Dev-Cpp-Linux/tree/beta)；`main` 保留稳定发布源码。推送到 `beta` 后，完整检查通过就自动发布 **Pre-release**。本分支测试安装包见 [v1.3.1-beta6](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta6)，包含 `.deb`、ZIP 和 tar.gz；[Actions](https://github.com/TH911/Dev-Cpp-Linux/actions/workflows/noi-linux.yml?query=branch%3Abeta) 也保留构建产物。Pre-release 不替换最新稳定版。已加入 [Consolas 字体支持与安装说明](linux-noi-lazarus/FONTS.md)。
 
 正式版同时包含科学计数法高亮修复，`1e5`、`1e-5f` 等在 Classic Plus 主题中使用原版的紫色。
 
@@ -75,7 +75,7 @@ Release 除 GitHub 默认的整库源码外，由 [发布工作流](.github/work
 
 文件菜单提供基本打印、HTML/RTF/TeX 文本导出；打印需系统已配置打印机。AStyle 菜单调用可选的 `astyle` 软件包，可选风格，修改可一次撤销；安装包推荐安装该软件包，纯源码版可通过系统包管理器补装。导入菜单目前提供向 `.dev` 项目添加源文件，尚未实现 Windows 工程格式转换。高级性能分析工具仍未移植。
 
-当前版本使用 `v1.3.1-beta5` 标签，包内版本为 `1.3.1~beta5`，在 beta 分支发布为 **Pre-release**，不会替代最新稳定版 v1.2.0。CI 的 `devcpp-classic-ui-previews` 附件包含实际 GTK2 截图；Linux 窗口边框、滚动条和字体渲染由系统控制。
+当前版本使用 `v1.3.1-beta6` 标签，包内版本为 `1.3.1~beta6`，在 beta 分支发布为 **Pre-release**，不会替代最新稳定版 v1.2.0。CI 的 `devcpp-classic-ui-previews` 附件包含实际 GTK2 截图；Linux 窗口边框、滚动条和字体渲染由系统控制。
 
 ### 主题和界面语言
 
@@ -96,20 +96,20 @@ v1.2.0 修复编译器选项、编辑器选项、运行参数及调试等输入�
 
 从 [Releases](https://github.com/TH911/Dev-Cpp-Linux/releases) 下载新的 amd64 `.deb`；测试版标记为 **Pre-release**。先保存代码，并正常关闭所有 Dev-C++ 窗口。
 
-在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `dev-cpp_1.3.1-beta5_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
+在文件管理器中打开安装包所在文件夹，右键空白处，选择“在终端打开”。下面以 `dev-cpp_1.3.1-beta6_amd64.deb` 为例；下载其他版本时，请将命令中的文件名换成实际文件名。
 
 #### 2. 确认下载包的版本
 
 ```bash
-dpkg-deb -f ./dev-cpp_1.3.1-beta5_amd64.deb Version
+dpkg-deb -f ./dev-cpp_1.3.1-beta6_amd64.deb Version
 ```
 
-这个示例应输出 `1.3.1~beta5`。若这里仍显示旧版本，请先确认下载的是新版文件。
+这个示例应输出 `1.3.1~beta6`。若这里仍显示旧版本，请先确认下载的是新版文件。
 
 #### 3. 覆盖安装新版
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta5_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta6_amd64.deb
 ```
 
 `./` 表示使用当前文件夹中的安装包，不能漏掉。APT 会处理依赖；`--reinstall` 也允许重新安装相同版本，适合修复安装文件。输入管理员密码时，终端不显示字符是正常的。若命令报错，请先保留完整输出、处理错误，再继续核对版本。
@@ -121,7 +121,7 @@ dpkg-query -W -f='${Version}\n' dev-cpp
 /usr/bin/dev-cpp --version
 ```
 
-这个示例中，第一条应输出 `1.3.1~beta5`，第二条应包含 `dev-cpp 1.3.1~beta5` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
+这个示例中，第一条应输出 `1.3.1~beta6`，第二条应包含 `dev-cpp 1.3.1~beta6` 和 GitHub 仓库地址。注意路径是 `/usr/bin/`，不是 `/user/bin/`。
 
 确认版本正确后，直接启动安装版的新窗口：
 
@@ -154,8 +154,8 @@ dpkg-query -W -f='${Version}\n' dev-cpp
 
 ## English
 
-Dev-C++ is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The beta is **[v1.3.1-beta5](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta5)**; the latest stable release remains **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
-This beta removes SynEdit’s full font enumeration before the program entry point, defers debugger widgets and treats `.in/.out/.ans` and other data files as plain text. It restores more Editor/Environment Options, four search tabs, shortcut capture, AStyle preview and Window commands, with live sidebar locals while stepping. See [features, usage and remaining gaps](docs/UI-RESTORATION.md) and [startup measurements/diagnostics](docs/STARTUP.md).
+Dev-C++ is a native Lazarus/LCL port of Orwell Dev-C++ 5.11 for **NOI Linux 2.0, 64-bit**, based on Ubuntu 20.04. The beta is **[v1.3.1-beta6](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta6)**; the latest stable release remains **[v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0)**, with an amd64 `.deb` and source ZIP/tar.gz archives.
+This beta addresses the GTK2/IBus/GVFS 25-second startup wait identified in the user's GDB trace and fixes Chinese phrase commits in source editors. Tabs have more padding, no dashed focus outline and an arrow/document-square drag pointer. Menu and toolbar icons now come from Windows 5.11's actual embedded image list; original language catalogs take precedence for wording. See [features, usage and remaining gaps](docs/UI-RESTORATION.md) and [startup measurements/diagnostics](docs/STARTUP.md).
 
 This beta supports dragging source tabs to reorder files, removes the source editor’s default 1024-action undo cap, and restores **Ctrl+Shift+S → Save All** and **Ctrl+Shift+A → Format Current File**. New-file saves remember the last successfully opened/saved folder across restarts; Save As starts beside the named source. See the [bilingual shortcut audit](docs/SHORTCUTS.md) for every explicit original binding, remaining gaps and migration behavior.
 
@@ -206,7 +206,7 @@ Scope/function selectors and the class tree navigate simple declarations in the 
 
 File offers basic printing and HTML/RTF/TeX text exports. Printing requires a configured system printer. AStyle uses the optional `astyle` package, supports style selection and formats as one undoable edit; the Debian package recommends it. Source builds can install it through the system package manager. Import currently adds source files to `.dev` projects; Windows project conversion and advanced profiling remain pending.
 
-The beta tag is `v1.3.1-beta5`, with Debian/application version `1.3.1~beta5`, and remains a **Pre-release**; v1.2.0 stays the latest stable release. CI's `devcpp-classic-ui-previews` artifact contains actual GTK2 screenshots. Window decorations, scrollbars and font rendering remain native to Linux.
+The beta tag is `v1.3.1-beta6`, with Debian/application version `1.3.1~beta6`, and remains a **Pre-release**; v1.2.0 stays the latest stable release. CI's `devcpp-classic-ui-previews` artifact contains actual GTK2 screenshots. Window decorations, scrollbars and font rendering remain native to Linux.
 
 ### Themes and interface languages
 
@@ -232,15 +232,15 @@ For graphical installation, use your system's package installer or GDebi. If “
 2. Check the version inside that file:
 
 ```bash
-dpkg-deb -f ./dev-cpp_1.3.1-beta5_amd64.deb Version
+dpkg-deb -f ./dev-cpp_1.3.1-beta6_amd64.deb Version
 ```
 
-The example should report `1.3.1~beta5`.
+The example should report `1.3.1~beta6`.
 
 3. Install or reinstall the downloaded package:
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta5_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta6_amd64.deb
 ```
 
 Keep the leading `./`. APT handles dependencies; `--reinstall` also permits repairing an installation of the same version. Password input is not echoed. If this command fails, retain its full output and resolve the error before proceeding.
@@ -252,7 +252,7 @@ dpkg-query -W -f='${Version}\n' dev-cpp
 /usr/bin/dev-cpp --version
 ```
 
-Expect `1.3.1~beta5` and `dev-cpp 1.3.1~beta5` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
+Expect `1.3.1~beta6` and `dev-cpp 1.3.1~beta6` respectively; the program also prints its GitHub URL. The path is `/usr/bin/`, not `/user/bin/`.
 
 5. Start the installed program explicitly:
 

@@ -4,7 +4,7 @@
 
 ## 中文
 
-这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta5**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta5)。
+这是基于 Lazarus/LCL 的原生 Linux 移植版，界面和功能以 Orwell Dev-C++ 5.11 为基准。目标环境为 NOI Linux 2.0（64 位），使用预装的 Lazarus 2.0.6、FPC 3.0.4、GCC/G++ 9.3 和 GDB 9.1。当前 beta 版本为 **1.3.1~beta6**；[下载安装包及源码](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta6)。
 
 在此目录打开终端，运行：
 
@@ -29,7 +29,7 @@ bash run.sh /path/to/project.dev
 `.deb` 安装版无需 Lazarus/FPC。更新时先保存代码并关闭旧窗口，然后在安装包所在目录运行（替换为实际文件名）：
 
 ```bash
-sudo apt install --reinstall ./dev-cpp_1.3.1-beta5_amd64.deb
+sudo apt install --reinstall ./dev-cpp_1.3.1-beta6_amd64.deb
 /usr/bin/dev-cpp --version
 /usr/bin/dev-cpp --new-window
 ```
@@ -60,9 +60,9 @@ are retained; new editor configurations use size 14.
 The application supports installed Consolas detection and a monospace fallback; see
 [font setup](FONTS.md). Existing user font preferences are retained.
 
-This beta build is **1.3.1~beta5** (published as Pre-release `v1.3.1-beta5`). Future development pushes to `beta` publish a
+This beta build is **1.3.1~beta6** (published as Pre-release `v1.3.1-beta6`). Future development pushes to `beta` publish a
 GitHub Pre-release after all checks pass, including the amd64 Debian package
-and directory source archives. See [v1.3.1-beta5](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta5).
+and directory source archives. See [v1.3.1-beta6](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.3.1-beta6).
 Manual checks publish only with `publish_beta` enabled.
 The stable release is [v1.2.0](https://github.com/TH911/Dev-Cpp-Linux/releases/tag/v1.2.0).
 
@@ -310,4 +310,9 @@ See [classic UI behavior](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/
 
 源码撤销与重做不再使用默认的 1024 条操作上限，保存仍保留历史。Source Undo/Redo no longer use the default 1024-action cap; Save retains history. Details: [undo history](../docs/SHORTCUTS.md).
 
-See the [bilingual beta5 interface notes](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/UI-RESTORATION.md) for search, plain-text files, sidebar locals, settings and remaining gaps.
+See the [bilingual beta6 interface notes](https://github.com/TH911/Dev-Cpp-Linux/blob/beta/docs/UI-RESTORATION.md) for search, plain-text files, sidebar locals, settings and remaining gaps.
+
+
+beta6 根据用户回溯修正 IBus/GVFS 的启动等待，并用独立 GTK 输入上下文提交完整中文词组；标签留白、拖动指针、原版嵌入式图标与“视图”等译名继续对齐。详情见 [启动与输入法](../docs/STARTUP.md)。
+
+beta6 addresses the IBus/GVFS startup wait found in the user's backtrace and commits complete Chinese phrases through independent GTK input contexts. Tab padding, drag feedback, embedded upstream icons and original menu wording are aligned further. See [startup and input-method details](../docs/STARTUP.md).

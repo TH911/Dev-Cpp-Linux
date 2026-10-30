@@ -21,6 +21,8 @@ type
 
   TNoiSynEdit = class(TSynEdit)
   private
+    FIMEContext:Pointer;
+    FIMECommitHandler:PtrUInt;
     FHomeRepeat: Boolean;
     FEnhancedHome, FCodeFeatures: Boolean;
     FGutterPress: Boolean;
@@ -29,6 +31,8 @@ type
     FOnLineClick: TEditorLineClickEvent;
     function BreakpointLineAt(X, Y: Integer): Integer;
   protected
+    procedure DoEnter;override;
+    procedure DoExit;override;
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer); override;
@@ -39,7 +43,11 @@ type
     property EnhancedHome: Boolean read FEnhancedHome write FEnhancedHome;
     property OnLineClick: TEditorLineClickEvent read FOnLineClick write FOnLineClick;
     constructor Create(AOwner:TComponent);override;
+    destructor Destroy;override;
     procedure ResetHomeCycle;
+    procedure UpdateIMEPosition;
+    procedure CommitIMEText(const AText:string);
+    function FilterIMEKey(Event:Pointer):Boolean;
     procedure EnableIndentGuides;
     procedure MoveHome(SelectText: Boolean);
     function FindMatchingBracketLogical(LogicalStartBracket: TPoint;
@@ -395,7 +403,10 @@ type
     procedure CompileRunClick(Sender: TObject);
     procedure SyntaxClick(Sender: TObject);
     procedure AboutClick(Sender: TObject);
+  protected
+    procedure CreateWnd;override;
   public
+    procedure AfterConstruction;override;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
   end;
@@ -405,7 +416,89 @@ var
 
 implementation
 
-uses Clipbrd, gdk2, DateUtils;
+uses Clipbrd, gdk2, DateUtils, Gtk2, Glib2, Gtk2Proc;
+
+var
+  SourceIMSnooper:guint=0;
+  NativeIMContext:PGtkIMContext=nil;
+  NativeIMTarget:TWinControl=nil;
+  NativeIMWindow:PGdkWindow=nil;
+  NativeIMCommitHandler:gulong=0;
+  NativeIMFiltering,NativeIMPassKey:Boolean;
+
+procedure FinishNativeInput;
+begin
+  NativeIMTarget:=nil;NativeIMWindow:=nil;
+  if NativeIMContext<>nil then gtk_im_context_focus_out(NativeIMContext);
+end;
+
+procedure NativeIMCommit(Context:PGtkIMContext;Text:Pgchar;Data:Pointer);cdecl;
+var Form:TCustomForm;Target:TWinControl;
+begin
+  Form:=Screen.GetCurrentModalForm;
+  if Form=nil then Form:=Screen.ActiveCustomForm;
+  if (Text=nil) or (Form=nil) or (Text^=#0) then Exit;
+  { Keep ordinary GTK key handling, validation and default-button shortcuts.
+    A synchronous ASCII commit should pass its original event through. }
+  if NativeIMFiltering and (UTF8Length(string(Text))=1) and (Ord(Text^)<128) then begin
+    NativeIMPassKey:=True;Exit;
+  end;
+  if (UTF8Length(string(Text))=1) and (Ord(Text^)<32) then Exit;
+  Target:=Form.ActiveControl;
+  { The target is only dereferenced while it is the current live control.
+    A late commit after dialog destruction must not access the old pointer. }
+  if Target<>NativeIMTarget then Exit;
+  if (Target is TCustomEdit) and not TCustomEdit(Target).ReadOnly then
+    TCustomEdit(Target).SelText:=string(Text)
+  else if (Target is TCustomComboBox) and
+    (TCustomComboBox(Target).Style<>csDropDownList) then
+    TCustomComboBox(Target).SelText:=string(Text);
+end;
+
+procedure SourceIMCommit(Context:PGtkIMContext;Text:Pgchar;Data:Pointer);cdecl;
+begin
+  if (Text<>nil) and (Data<>nil) then TNoiSynEdit(Data).CommitIMEText(string(Text));
+end;
+
+function SourceIMKey(Widget:PGtkWidget;Event:PGdkEventKey;Data:Pointer):gint;cdecl;
+var Form:TCustomForm;Target:TWinControl;Grab,EventWidget:PGtkWidget;Area:TGdkRectangle;
+begin
+  Result:=0;Form:=Screen.GetCurrentModalForm;
+  if Form=nil then Form:=Screen.ActiveCustomForm;
+  if (Form=nil) or not Form.HandleAllocated then Exit;
+  EventWidget:=Widget;
+  if EventWidget=nil then EventWidget:=gtk_get_event_widget(PGdkEvent(Event));
+  if (EventWidget<>nil) and
+    (gtk_widget_get_toplevel(EventWidget)<>gtk_widget_get_toplevel(PGtkWidget(Form.Handle))) then Exit;
+  Grab:=gtk_grab_get_current;
+  if (Grab<>nil) and GTK_IS_MENU_SHELL(Grab) then Exit;
+  Target:=Form.ActiveControl;
+  if Target=nil then Exit;
+  if Target is TNoiSynEdit then begin
+    if Target.Focused and TNoiSynEdit(Target).FilterIMEKey(Event) then Result:=1;
+    Exit;
+  end;
+  if not ((Target is TCustomEdit) or (Target is TCustomComboBox)) then Exit;
+  if (Target is TCustomEdit) and TCustomEdit(Target).ReadOnly then Exit;
+  if (Target is TCustomComboBox) and (TCustomComboBox(Target).Style=csDropDownList) then Exit;
+  if NativeIMContext=nil then begin
+    NativeIMContext:=gtk_im_multicontext_new;
+    NativeIMCommitHandler:=g_signal_connect(NativeIMContext,'commit',G_CALLBACK(@NativeIMCommit),nil);
+    gtk_im_context_set_use_preedit(NativeIMContext,False);
+  end;
+  if (NativeIMTarget<>Target) or (NativeIMWindow<>Event^.window) then begin
+    FinishNativeInput;NativeIMTarget:=Target;NativeIMWindow:=Event^.window;
+    gtk_im_context_set_client_window(NativeIMContext,Event^.window);
+    gtk_im_context_focus_in(NativeIMContext);
+    Area.x:=0;Area.y:=Target.Height;Area.width:=1;Area.height:=1;
+    gtk_im_context_set_cursor_location(NativeIMContext,@Area);
+  end;
+  NativeIMPassKey:=False;NativeIMFiltering:=True;
+  try
+    if gtk_im_context_filter_keypress(NativeIMContext,Event) then Result:=1;
+  finally NativeIMFiltering:=False;end;
+  if NativeIMPassKey then Result:=0;
+end;
 
 type
   TEditorSettingsBuffer=class(TMemIniFile)
@@ -416,6 +509,20 @@ procedure TEditorSettingsBuffer.UpdateFile;
 begin
   { FPC 3.0.4 also flushes dirty TMemIniFile instances in Destroy. This
     buffer is serialized explicitly by SaveEditorSettings using atomic save. }
+end;
+
+procedure TMainForm.AfterConstruction;
+begin
+  StartupMark('form after-construction begin');
+  inherited AfterConstruction;
+  StartupMark('form after-construction end');
+end;
+
+procedure TMainForm.CreateWnd;
+begin
+  StartupMark('native window creation begin');
+  inherited CreateWnd;
+  StartupMark('native window creation end');
 end;
 
 {$IFDEF UNIX}
@@ -430,10 +537,75 @@ function CompilerSignal(Pid, SignalNumber: LongInt): LongInt; cdecl;
 constructor TNoiSynEdit.Create(AOwner:TComponent);
 begin
   inherited Create(AOwner);FEnhancedHome:=True;FCodeFeatures:=True;
+  if SourceIMSnooper=0 then SourceIMSnooper:=gtk_key_snooper_install(@SourceIMKey,nil);
   { SynEdit 2.0.6 treats zero as no history, not unlimited. Do not evict the
     oldest edit after its default 1024 actions. Both undo/redo use this bound. }
   MaxUndo:=High(Integer);
   TextView.BlockSelection:=nil;
+end;
+
+destructor TNoiSynEdit.Destroy;
+begin
+  if FIMEContext<>nil then begin
+    g_signal_handler_disconnect(FIMEContext,FIMECommitHandler);
+    gtk_im_context_focus_out(PGtkIMContext(FIMEContext));
+    g_object_unref(FIMEContext);FIMEContext:=nil;
+  end;
+  inherited Destroy;
+end;
+
+procedure TNoiSynEdit.DoEnter;
+begin
+  inherited DoEnter;
+  FinishNativeInput;
+  if not HandleAllocated then Exit;
+  if FIMEContext=nil then begin
+    FIMEContext:=gtk_im_multicontext_new;
+    FIMECommitHandler:=g_signal_connect(FIMEContext,'commit',G_CALLBACK(@SourceIMCommit),Self);
+    { IBus displays composition/candidates beside the caret. LCL 2.0.6 has
+      no preedit renderer for its custom-drawn SynEdit. }
+    gtk_im_context_set_use_preedit(PGtkIMContext(FIMEContext),False);
+  end;
+  gtk_im_context_set_client_window(PGtkIMContext(FIMEContext),GetControlWindow(PGtkWidget(Handle)));
+  gtk_im_context_focus_in(PGtkIMContext(FIMEContext));
+  UpdateIMEPosition;
+end;
+
+procedure TNoiSynEdit.DoExit;
+begin
+  if FIMEContext<>nil then gtk_im_context_focus_out(PGtkIMContext(FIMEContext));
+  inherited DoExit;
+end;
+
+procedure TNoiSynEdit.UpdateIMEPosition;
+var Pixel:TPoint;Area:TGdkRectangle;
+begin
+  if not Focused or (FIMEContext=nil) then Exit;
+  Pixel:=RowColumnToPixels(CaretXY);
+  Area.x:=Pixel.X;Area.y:=Pixel.Y;Area.width:=1;Area.height:=LineHeight;
+  gtk_im_context_set_cursor_location(PGtkIMContext(FIMEContext),@Area);
+end;
+
+function TNoiSynEdit.FilterIMEKey(Event:Pointer):Boolean;
+begin
+  { Filter before LCL's GTK2 handler: that handler ignores the consumed-key
+    result and truncates commit strings to the first Unicode codepoint. }
+  Result:=(FIMEContext<>nil) and
+    gtk_im_context_filter_keypress(PGtkIMContext(FIMEContext),PGdkEventKey(Event));
+end;
+
+procedure TNoiSynEdit.CommitIMEText(const AText:string);
+var Form:TCustomForm;Key:TUTF8Char;
+begin
+  if AText='' then Exit;
+  Form:=GetParentForm(Self);
+  if ReadOnly or ((Form is TMainForm) and TMainForm(Form).FCompileActive) then Exit;
+  if UTF8Length(AText)=1 then begin
+    Key:=AText;IntfUTF8KeyPress(Key,1,False);
+  end else begin
+    BeginUndoBlock;
+    try SelText:=AText;finally EndUndoBlock;end;
+  end;
 end;
 
 procedure TNoiSynEdit.EnableIndentGuides;
@@ -743,7 +915,7 @@ function TMainForm.AddMenu(ParentItem: TMenuItem; const ACaption: string;
   Handler: TNotifyEvent; AShortcut: TShortCut): TMenuItem;
 begin
   Result := TMenuItem.Create(Self);
-  Result.Caption := Tr(ACaption);
+  SetUiProperty(Result,'Caption',ACaption);
   Result.ShortCut := AShortcut;
   if Assigned(Handler) then
     Result.OnClick := Handler;
@@ -774,8 +946,8 @@ var
   begin
     Button := TToolButton.Create(Toolbar);
     Button.Parent := Toolbar;
-    Button.Caption := Tr(ACaption);
-    Button.Hint := Tr(ACaption);
+    SetUiProperty(Button,'Caption',ACaption);
+    SetUiProperty(Button,'Hint',ACaption);
     Button.ShowHint := True;
     Button.OnClick := Handler;
     Inc(ToolX, 23);
@@ -785,7 +957,7 @@ var
       Bitmap := TBitmap.Create;
       try
         Bitmap.LoadFromFile(IconPath);
-        Button.ImageIndex := ToolImages.AddMasked(Bitmap, Bitmap.Canvas.Pixels[0, 0]);
+        Button.ImageIndex := ToolImages.AddMasked(Bitmap, clFuchsia);
       finally Bitmap.Free; end;
     end
     else if IconName <> '' then
@@ -808,6 +980,7 @@ var
 
 begin
   StartupMark('form begin');
+  if SourceIMSnooper=0 then SourceIMSnooper:=gtk_key_snooper_install(@SourceIMKey,nil);
   ConfigureClassicChrome;
   inherited CreateNew(AOwner, 0);
   Color := $00F0F0F0;
@@ -1067,7 +1240,7 @@ begin
   AddTool('Open', 'opnproj', @OpenClick);
   AddTool('Save', 'save', @SaveClick);
   AddTool('Save All', 'saveall', @SaveAllClick);
-  AddTool('Close', 'close', @CloseClick);
+  AddTool('Close', 'closefl', @CloseClick);
   AddTool('Close All', 'clsall', @CloseAllClick);
   AddDivider;
   AddTool('Print', 'print', @PrintClick);
@@ -1090,7 +1263,7 @@ begin
   AddTool('Rebuild All', 'rebuild', @CompileClick);
   AddDivider;
   AddTool('Syntax Check', 'syntcheck', @SyntaxClick);
-  AddTool('Stop', 'closefl', @StopExecuteClick);
+  AddTool('Stop', 'close', @StopExecuteClick);
   AddDivider;
   AddTool('Start Debugging', 'debug', @DebugStartClick);
   AddDivider;
@@ -1956,6 +2129,7 @@ begin
   { Modified notifications also arrive after Undo/Redo reaches the saved point.
     OnChange alone can run before the undo list updates this state. }
   if FLoading or (FDocs = nil) then Exit;
+  if Sender is TNoiSynEdit then TNoiSynEdit(Sender).UpdateIMEPosition;
   if scModified in Changes then
   for I := 0 to FDocs.Count - 1 do
   begin
@@ -4170,7 +4344,7 @@ begin
       begin
         Dialog := TSaveDialog.Create(Self);
         try
-          Dialog.Title := Tr('Save');
+          Dialog.Title := Tr('Save As');
           Dialog.Options := Dialog.Options - [ofOverwritePrompt];
           Dialog.DefaultExt := 'cpp';
           Dialog.Filter := Tr('C/C++ source|*.cpp;*.c;*.h;*.hpp|All files|*');
@@ -5420,4 +5594,10 @@ begin
   ShowAboutDialog(Self);
 end;
 
+finalization
+  if SourceIMSnooper<>0 then gtk_key_snooper_remove(SourceIMSnooper);
+  if NativeIMContext<>nil then begin
+    g_signal_handler_disconnect(NativeIMContext,NativeIMCommitHandler);
+    FinishNativeInput;g_object_unref(NativeIMContext);
+  end;
 end.

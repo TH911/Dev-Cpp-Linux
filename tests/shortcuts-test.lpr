@@ -9,6 +9,7 @@ var I:Integer;
 begin
   for I:=0 to Form.ComponentCount-1 do
     if (Form.Components[I] is TMenuItem) and
+      (TMenuItem(Form.Components[I]).Count=0) and
       (TMenuItem(Form.Components[I]).Caption=Tr(Caption)) then Exit(TMenuItem(Form.Components[I]));
   Result:=nil;
 end;

@@ -1,4 +1,4 @@
-# v1.3.1-beta5：界面与编辑行为 / Interface and editing
+# v1.3.1-beta6：界面与编辑行为 / Interface and editing
 
 ## 中文
 
@@ -14,7 +14,7 @@
 
 搜索窗口统一为搜索、搜索文件内容、替换、替换文件内容四个标签。支持区分大小写、全字匹配、前后方向、选区／全文、从光标／开头搜索。文件范围支持当前、已打开、项目文件；项目搜索可以读取尚未打开的文件。跨文件替换会打开匹配的项目文件并修改编辑缓冲区，**不自动写入磁盘**；每个文件可撤销，再使用全部保存。开启替换确认后逐次询问；跨文件操作可取消剩余替换。结果最多显示 10,000 条并提示缩小范围。全字边界对非 ASCII 字节采用保守的标识符规则，尚未完整区分所有 Unicode 标点。
 
-快捷键窗口显示已移植命令，选中后直接按键；Esc／Delete 清除选中绑定，按钮可重置全部或选中项。保留已有自定义及旧默认值迁移规则。窗口菜单提供全屏、前后标签、打开文件列表；查看菜单可切换已有工具条。未移植的 TODO、双编辑视图等仍见 [快捷键对照](SHORTCUTS.md)。
+快捷键窗口显示已移植命令，选中后直接按键；Esc／Delete 清除选中绑定，按钮可重置全部或选中项。保留已有自定义及旧默认值迁移规则。窗口菜单提供全屏、前后标签、打开文件列表；视图菜单可切换已有工具条。未移植的 TODO、双编辑视图等仍见 [快捷键对照](SHORTCUTS.md)。
 
 编辑器设置和主题改为在内存中整理后一次原子保存，避免每个选项都重写整份配置而阻塞界面；同时读取配置时只会看到完整的旧版或新版内容。搜索窗口也按 GTK 分组框的内容区域调整布局，底部选项及英文标签不会被裁切。
 
@@ -51,3 +51,22 @@ AStyle Options provides style, indentation, width/line length, editable final ar
 Auto save continues to create private recovery copies, **never overwriting source files**. Scope can be current/all open/project files, with fixed recovery names or UNIX/formatted timestamps. Timestamped copies are retained until manually cleaned from `~/.cache/dev-cpp/autosave/` or the configured XDG cache directory.
 
 See [startup notes](STARTUP.md) for performance changes and measurement limits. Full project templates, all upstream environment options, Windows DevPak, profiling, a second editor view and advanced debugging remain incomplete; this beta does not claim pixel-identical restoration.
+
+## beta6 标签与图标 / Tabs and icons
+
+文档标签增加水平留白；仅文档标签移除 GTK 虚线焦点框，键盘切换仍可用。
+拖动达到阈值后显示箭头及右下方文档方框，目标无效时显示禁止指针；释放、Esc
+或销毁控件时恢复指针。移动仍保留文件内容、撤销记录及当前文档身份。
+菜单／工具栏图标以原版 `DataFrm.dfm:MenuImages_NewLook` 为准，提取过程、
+原版索引和校验和可复现；透明遮罩在 GTK 加载时显式指定。
+原版语言目录优先于自定义简体中文回退，避免将“视图”改写为“查看”。
+
+Document tabs have more horizontal padding. Only their dashed GTK focus outline
+is removed; keyboard navigation remains available. Once dragging crosses the
+threshold, the pointer shows an arrow with a lower-right document square, or a
+forbidden pointer over an invalid target. Release, Escape and destruction restore
+the cursor. Reordering retains document identity, contents and Undo history.
+Menu/toolbar icons now use the actual upstream `DataFrm.dfm:MenuImages_NewLook`
+image list, with reproducible extraction, indices and checksums. GTK uses an
+explicit transparency mask. Original language catalogs take priority over custom
+Simplified Chinese fallbacks, retaining the original View wording.

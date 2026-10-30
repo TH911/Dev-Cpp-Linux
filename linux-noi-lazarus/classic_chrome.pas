@@ -17,7 +17,10 @@ begin
   gtk_rc_parse_string('style "devcpp-classic-chrome" {' +
     ' font_name = "Sans 9" bg[NORMAL] = "#f0f0f0" fg[NORMAL] = "#000000" ' +
     ' xthickness = 1 ythickness = 1 } ' +
-    'class "GtkWidget" style "devcpp-classic-chrome"');
+    'class "GtkWidget" style "devcpp-classic-chrome" ' +
+    'style "devcpp-document-tabs" {' +
+    ' GtkWidget::focus-line-width = 0 GtkWidget::focus-padding = 0 } ' +
+    'widget "*.devcpp-document-tabs" style "devcpp-document-tabs"');
   {$ENDIF}
 end;
 end.

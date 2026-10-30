@@ -91,6 +91,12 @@ static void inspect_widget(GtkWidget *widget, gpointer data) {
         }
     }
     fputs(",\"name\":", out); json_string(out, gtk_widget_get_name(widget));
+    if (GTK_IS_NOTEBOOK(widget)) {
+        gint focus_width = -1, focus_padding = -1;
+        gtk_widget_style_get(widget, "focus-line-width", &focus_width, "focus-padding", &focus_padding, NULL);
+        fprintf(out, ",\"focus_line_width\":%d,\"focus_padding\":%d,\"tab_hborder\":%u",
+            focus_width, focus_padding, gtk_notebook_get_tab_hborder(GTK_NOTEBOOK(widget)));
+    }
     fprintf(out, ",\"parent\":\"%p\",\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d",
             (void *)gtk_widget_get_parent(widget), root_x, root_y,
             allocation.width, allocation.height);

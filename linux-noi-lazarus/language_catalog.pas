@@ -171,12 +171,22 @@ begin
     Alias('New project', 27050);
     Alias('Compiler Options / Parameters', 7011);
     Alias('Compiler Parameters', 7011);
+    Alias('Shortcut Options', 7015);
     Alias('Parameters', 67001);
     Alias('Language', 38017);
     Alias('Code Completion', 23006);
     Alias('Find Next', 5004);
     Alias('Find Previous', 5027);
-    Alias('Project Manager', 5009);
+    Alias('Project Manager', 21001);
+    EnglishExactIds.Values['Project Manager'] := '21001';
+    EnglishExactIds.Values['&Project Manager'] := '5011';
+    { These English labels collide with toolbar/property/dialog labels in the
+      original catalog. Bind the Linux command to the original action ID. }
+    EnglishExactIds.Values['Search'] := '38036';
+    EnglishExactIds.Values['Project Options'] := '6005';
+    EnglishExactIds.Values['Compile & Run'] := '7003';
+    EnglishExactIds.Values['Compile && Run'] := '7003';
+    Alias('Go to line',5005);
     Alias('Next Tab', 8003);
     Alias('Previous Tab', 8004);
     Alias('Add file to project', 6002);

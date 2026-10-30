@@ -6,7 +6,7 @@ interface
 
 implementation
 
-uses app_version, startup_trace;
+uses app_version, startup_trace, gio_preflight;
 
 initialization
   { This unit must initialize before Interfaces: GTK2 otherwise opens DISPLAY
@@ -27,5 +27,7 @@ initialization
     WriteLn(AppRepositoryUrl);
     Halt(0);
   end;
+
+  PrepareGioAsyncTypes;
 
 end.

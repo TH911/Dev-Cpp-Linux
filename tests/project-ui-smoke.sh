@@ -96,7 +96,7 @@ for language in en zh; do
   printf '[Interface]\nLanguage=%s\n' "$language" > "$case_dir/home/.config/dev-cpp.ini"
   project="$case_dir/中文 project/Project1.dev"
   if [[ $language == en ]]; then new_title='^New Project$'; open_title='^Open$';
-  else new_title='^新建项目$'; open_title='^打开$'; fi
+  else new_title='^新项目$'; open_title='^打开$'; fi
   env HOME="$case_dir/home" XDG_CACHE_HOME="$case_dir/home/.cache" \
     LD_PRELOAD="$test_dir/probe.so" DEVC_GTK_STATE="$case_dir/state.json" \
     DEVC_GTK_SCREENSHOT="$case_dir/screen.png" \
@@ -164,7 +164,8 @@ PY
   done
   [[ $(cat "$case_dir/中文 project/project-ran.txt") == 42 ]] || fail 'multi-source project did not compile and run'
   # Closing the project resets the title; reopening restores both units.
-  press alt+p c
+  # The original Chinese Close Project caption has no C mnemonic.
+  press alt+p Home Down Down Return
   sleep 0.2
   [[ $(xdotool getwindowname "$window") != *Project1.dev* ]] || fail 'project did not close'
   env HOME="$case_dir/home" XDG_CACHE_HOME="$case_dir/home/.cache" \
@@ -174,7 +175,7 @@ PY
   xdotool getwindowname "$window" | grep -F 'Project1.dev' >/dev/null || fail 'project did not reopen'
   # Ctrl+N must still create a source file after the menu moves into a submenu.
   press ctrl+n ctrl+s
-  dialog=$(wait_window '^(Save|保存)$')
+  dialog=$(wait_window '^(Save As|保存为)$')
   xdotool windowfocus "$dialog" key --clearmodifiers Escape
   kill "$app_pid"; wait "$app_pid" 2>/dev/null || true; app_pid=''
   echo "PASS: $language File/New/Project, cancel, create, add units, F11 build/run, close and reopen"

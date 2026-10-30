@@ -40,6 +40,11 @@ begin
     FindButton := Tool(Form, Tr('Find'));
     SaveButton := Tool(Form, Tr('Save'));
     CloseButton := Tool(Form, Tr('Close'));
+    if (NewButton=nil) or (FindButton=nil) or (SaveButton=nil) or (CloseButton=nil) then begin
+      WriteLn('Expected: ',Tr('New Source File'),' / ',Tr('Find'),' / ',Tr('Save'),' / ',Tr('Close'));
+      for I:=0 to Form.ComponentCount-1 do if Form.Components[I] is TToolBar then
+        with TToolBar(Form.Components[I]) do for J:=0 to ButtonCount-1 do WriteLn('Button: ',Buttons[J].Caption);
+    end;
     Check((NewButton <> nil) and (FindButton <> nil) and
       (SaveButton <> nil) and (CloseButton <> nil), 'toolbar commands found');
     Check(not FindButton.Enabled and not SaveButton.Enabled, 'no-document command state');
@@ -64,6 +69,10 @@ begin
     begin
       LanguageMenu.Items[I].Click;
       Check(CurrentUiLanguage = UiLanguageCode(I), 'real menu selected language');
+      Check(FindButton.Caption=Tr('Find'),'toolbar keeps its original action across language switches');
+      for J:=0 to Form.ComponentCount-1 do
+        if (Form.Components[J] is TMenuItem) and (TMenuItem(Form.Components[J]).ShortCut=121) then
+          Check(TMenuItem(Form.Components[J]).Caption=Tr('&Run'),'F10 retains Run, not Execute, in each language');
       Check(Form.Menu.Items[0].Caption = Tr('&File'), 'real File menu translated correctly');
       Selected := 0;
       for J := 0 to UiLanguageCount - 1 do
